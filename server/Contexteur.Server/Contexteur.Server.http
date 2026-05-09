@@ -1,0 +1,6 @@
+@Contexteur.Server_HostAddress = http://localhost:5082
+
+GET {{Contexteur.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

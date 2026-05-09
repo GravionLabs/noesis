@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: contexteur-postgres
+    environment:
+      POSTGRES_DB: contexteur
+      POSTGRES_USER: contexteur
+      POSTGRES_PASSWORD: contexteur_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contexteur -d contexteur"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ef-migrate:
+    build:
+      context: ../server
+      dockerfile: Contexteur.Migrator/Dockerfile
+    container_name: contexteur-ef-migrate
+    restart: "no"
+    environment:
+      CONNECTIONSTRINGS__POSTGRES: "Host=postgres;Port=5432;Database=contexteur;Username=contexteur;Password=contexteur_dev"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  server:
+    build:
+      context: ../server
+      dockerfile: Contexteur.Server/Dockerfile
+    container_name: contexteur-server
+    ports:
+      - "5000:8080"
+    environment:
+      CONNECTIONSTRINGS__POSTGRES: "Host=postgres;Port=5432;Database=contexteur;Username=contexteur;Password=contexteur_dev"
+      ASPNETCORE_ENVIRONMENT: Development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ef-migrate:
+        condition: service_completed_successfully
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: contexteur-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@contexteur.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      ef-migrate:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:
+
