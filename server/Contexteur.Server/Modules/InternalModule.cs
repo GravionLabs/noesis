@@ -1,0 +1,28 @@
+using Carter;
+using Contexteur.Core.Events;
+using Wolverine;
+
+namespace Contexteur.Server.Modules;
+
+public class InternalModule : ICarterModule
+{
+    public void AddRoutes(IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/api/internal").WithTags("Internal");
+
+        group.MapPost("/crawl-completed", async (CrawlCompletedRequest req, IMessageBus bus) =>
+        {
+            await bus.PublishAsync(new CrawlCompleted(req.JobId, req.SourceId, req.DocCount));
+            return Results.Ok();
+        });
+
+        group.MapPost("/embed-completed", async (EmbedCompletedRequest req, IMessageBus bus) =>
+        {
+            await bus.PublishAsync(new EmbedCompleted(req.JobId, req.SourceId, req.ChunkCount));
+            return Results.Ok();
+        });
+    }
+}
+
+public record CrawlCompletedRequest(Guid JobId, Guid SourceId, int DocCount);
+public record EmbedCompletedRequest(Guid JobId, Guid SourceId, int ChunkCount);
