@@ -2,9 +2,9 @@ using Carter;
 using Contexteur.Core.Events;
 using Wolverine;
 
-namespace Contexteur.Server.Modules;
+namespace Contexteur.Server.Endpoints.Internal;
 
-public class InternalModule : ICarterModule
+public class InternalEndpoints : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder app)
     {

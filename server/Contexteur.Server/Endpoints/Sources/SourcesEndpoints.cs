@@ -5,9 +5,9 @@ using Contexteur.UseCases.Sources.DeleteSource;
 using Contexteur.UseCases.Sources.ListSources;
 using Wolverine;
 
-namespace Contexteur.Server.Modules;
+namespace Contexteur.Server.Endpoints.Sources;
 
-public class SourcesModule : ICarterModule
+public class SourcesEndpoints : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder app)
     {

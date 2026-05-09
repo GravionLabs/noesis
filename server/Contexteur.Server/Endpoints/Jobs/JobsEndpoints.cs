@@ -3,9 +3,9 @@ using Contexteur.UseCases.Jobs.GetJob;
 using Contexteur.UseCases.Jobs.ListJobs;
 using Wolverine;
 
-namespace Contexteur.Server.Modules;
+namespace Contexteur.Server.Endpoints.Jobs;
 
-public class JobsModule : ICarterModule
+public class JobsEndpoints : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder app)
     {
