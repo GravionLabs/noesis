@@ -1,5 +1,5 @@
 using Contexteur.Core.Entities;
-using Contexteur.Core.Interfaces;
+using Contexteur.Core.Abstractions;
 
 namespace Contexteur.UseCases.Sources.ListSources;
 

@@ -1,4 +1,4 @@
-using Contexteur.Core.Interfaces;
+using Contexteur.Core.Abstractions;
 using Hangfire;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

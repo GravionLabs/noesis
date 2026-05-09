@@ -12,6 +12,5 @@ public class Chunk
     public int ChunkIndex { get; set; }
     public int? TokenCount { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
     public ICollection<Embedding> Embeddings { get; set; } = [];
 }

@@ -1,4 +1,4 @@
-namespace Contexteur.Core.Interfaces;
+namespace Contexteur.Core.Abstractions;
 
 public interface IImporterRegistry
 {

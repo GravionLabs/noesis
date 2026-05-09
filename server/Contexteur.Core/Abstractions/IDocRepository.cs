@@ -1,6 +1,6 @@
 using Contexteur.Core.Entities;
 
-namespace Contexteur.Core.Interfaces;
+namespace Contexteur.Core.Abstractions;
 
 public interface IDocRepository
 {

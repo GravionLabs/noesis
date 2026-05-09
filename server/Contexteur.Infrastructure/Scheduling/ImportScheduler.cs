@@ -1,4 +1,4 @@
-using Contexteur.Core.Interfaces;
+using Contexteur.Core.Abstractions;
 using Contexteur.UseCases.Import.TriggerImport;
 using Hangfire;
 using Wolverine;

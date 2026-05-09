@@ -12,6 +12,5 @@ public class Doc
     public DateTime? IndexedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
     public ICollection<Chunk> Chunks { get; set; } = [];
 }

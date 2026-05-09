@@ -1,22 +1,23 @@
 using Carter;
 using Contexteur.Infrastructure;
-using Contexteur.Server.Tools;
 using Contexteur.UseCases.Sources.CreateSource;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Scalar.AspNetCore;
 using Serilog;
+using Serilog.Events;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.Postgresql;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
-    .MinimumLevel.Override("Microsoft.EntityFrameworkCore", Serilog.Events.LogEventLevel.Warning)
-    .MinimumLevel.Override("Wolverine", Serilog.Events.LogEventLevel.Warning)
-    .MinimumLevel.Override("Hangfire", Serilog.Events.LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+    .MinimumLevel.Override("Wolverine", LogEventLevel.Warning)
+    .MinimumLevel.Override("Hangfire", LogEventLevel.Warning)
     .Enrich.FromLogContext()
-    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}")
+    .WriteTo.Console(
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}")
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
@@ -57,11 +58,10 @@ app.MapScalarApiReference(options => options.WithTitle("Contexteur API"));
 
 app.MapMcp("/mcp");
 
-app.UseHangfireDashboard("/hangfire");
+app.UseHangfireDashboard();
 
 app.MapCarter();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).WithTags("Health");
 
 app.Run();
-

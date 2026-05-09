@@ -23,6 +23,3 @@ public class InternalEndpoints : ICarterModule
         });
     }
 }
-
-public record CrawlCompletedRequest(Guid JobId, Guid SourceId, int DocCount);
-public record EmbedCompletedRequest(Guid JobId, Guid SourceId, int ChunkCount);

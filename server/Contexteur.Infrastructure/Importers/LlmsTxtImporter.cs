@@ -1,6 +1,7 @@
 using System.Text;
 using Contexteur.Core.Entities;
-using Contexteur.Core.Interfaces;
+using Contexteur.Core.Abstractions;
+using Contexteur.Core.Models;
 using Microsoft.Extensions.Logging;
 
 namespace Contexteur.Infrastructure.Importers;

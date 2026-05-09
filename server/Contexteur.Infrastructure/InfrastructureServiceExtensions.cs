@@ -1,4 +1,4 @@
-using Contexteur.Core.Interfaces;
+using Contexteur.Core.Abstractions;
 using Contexteur.Infrastructure.Crawling;
 using Contexteur.Infrastructure.Data;
 using Contexteur.Infrastructure.Data.Repositories;

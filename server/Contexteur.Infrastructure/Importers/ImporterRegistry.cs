@@ -1,4 +1,4 @@
-using Contexteur.Core.Interfaces;
+using Contexteur.Core.Abstractions;
 
 namespace Contexteur.Infrastructure.Importers;
 

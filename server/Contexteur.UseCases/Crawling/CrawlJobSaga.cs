@@ -1,5 +1,6 @@
 using Contexteur.Core.Events;
-using Contexteur.Core.Interfaces;
+using Contexteur.Core.Abstractions;
+using Contexteur.Core.Models;
 using Wolverine;
 
 namespace Contexteur.UseCases.Crawling;
@@ -56,7 +57,7 @@ public class ImportJobSaga : Saga
         try
         {
             var importer = importerRegistry.GetImporter(ImporterType);
-            var result = await importer.ImportAsync(source, new Core.Interfaces.ImportContext(JobId), ct);
+            var result = await importer.ImportAsync(source, new Core.Models.ImportContext(JobId), ct);
 
             if (!result.Success)
             {

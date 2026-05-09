@@ -1,5 +1,5 @@
 using Contexteur.Core.Entities;
-using Contexteur.Core.Interfaces;
+using Contexteur.Core.Abstractions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Contexteur.Infrastructure.Data.Repositories;

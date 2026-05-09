@@ -1,5 +1,6 @@
 using Contexteur.Core.Entities;
-using Contexteur.Core.Interfaces;
+using Contexteur.Core.Abstractions;
+using Contexteur.Core.Models;
 
 namespace Contexteur.Infrastructure.Importers;
 

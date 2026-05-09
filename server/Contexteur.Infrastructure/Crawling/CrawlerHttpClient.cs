@@ -1,4 +1,4 @@
-using Contexteur.Core.Interfaces;
+using Contexteur.Core.Abstractions;
 using System.Net.Http.Json;
 
 namespace Contexteur.Infrastructure.Crawling;
