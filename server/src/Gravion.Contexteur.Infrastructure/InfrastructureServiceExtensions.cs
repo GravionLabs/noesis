@@ -39,6 +39,8 @@ public static class InfrastructureServiceExtensions
         services.AddHttpClient<LlmsMetaTxtImporter>();
         services.AddHttpClient<LlmsTxtCrawlImporter>(client =>
             client.BaseAddress = new Uri(configuration["Services:CrawlerUrl"] ?? "http://crawler:3000"));
+        services.AddHttpClient<NpmReadmeImporter>();
+        services.AddHttpClient<OpenApiImporter>();
 
         // Importers — registered individually so they can have their own DI (e.g. typed HttpClient)
         services.AddScoped<IImporter, LlmsTxtImporter>();
@@ -47,6 +49,8 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IImporter, CrawlerImporter>();
         services.AddScoped<IImporter, GithubImporter>();
         services.AddScoped<IImporter, AzureDevOpsImporter>();
+        services.AddScoped<IImporter, NpmReadmeImporter>();
+        services.AddScoped<IImporter, OpenApiImporter>();
         services.AddScoped<IImporterRegistry, ImporterRegistry>();
 
         // Hangfire scheduling classes (Hangfire itself is configured in the Server/Program.cs)

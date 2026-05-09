@@ -1,0 +1,14 @@
+[project]
+name = "embedder"
+version = "0.1.0"
+description = "Contexteur embedding worker — generates pgvector embeddings for indexed documentation chunks"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "httpx>=0.28",
+    "openai>=1.82",
+    "pgvector>=0.4",
+    "psycopg2-binary>=2.9",
+    "pydantic-settings>=2.9",
+    "uvicorn[standard]>=0.34",
+]

@@ -83,6 +83,8 @@ graph TD
 | `crawler` | Delegates to Node.js Playwright crawler | `https://angular.dev/guide` |
 | `github` | Fetches GitHub README via API | `https://github.com/angular/angular` |
 | `azuredevops` | Azure DevOps wiki / repo crawling | `https://dev.azure.com/org/project` |
+| `npm-readme` | Fetches package README from npm registry JSON API | `https://registry.npmjs.org/angular` |
+| `openapi` | Fetches OpenAPI JSON spec, stores each operation as a chunk | `https://api.example.com/openapi.json` |
 
 ---
 
@@ -272,3 +274,49 @@ All tools are **read-only** and **idempotent**.
 | `EMBEDDING_MODEL` | `text-embedding-3-small` | Model name |
 | `OPENAI_API_KEY` | — | Required when provider is `openai` |
 | `OLLAMA_URL` | `http://localhost:11434` | Required when provider is `ollama` |
+
+---
+
+## Copilot CLI MCP Configuration
+
+To use Contexteur's MCP tools directly from the **GitHub Copilot CLI**, add the server to
+your Copilot MCP configuration.
+
+### Setup
+
+1. Ensure the .NET server is running (`dotnet run` or `docker compose up`).
+2. Create or update `~/.copilot/mcp-config.json`:
+
+```json
+{
+  "mcpServers": {
+    "contexteur": {
+      "type": "http",
+      "url": "http://localhost:5000/mcp",
+      "tools": ["*"]
+    }
+  }
+}
+```
+
+3. Restart the Copilot CLI (or run `/mcp` to reload). Contexteur tools will appear alongside
+   the built-in GitHub MCP tools.
+
+### Verify
+
+Use the `/mcp` slash command in the CLI to confirm the server is connected and the tools
+(`search_docs`, `get_chunk`, `list_sources`) are listed.
+
+### Alternative: Remote server
+
+Replace `localhost:5000` with your server's hostname/port if running remotely.
+No proxy or adapter is needed — the .NET server implements MCP HTTP transport natively.
+
+### Production tip
+
+To restrict which tools Copilot can call autonomously (without asking for approval), list
+only read-only tools explicitly:
+
+```json
+"tools": ["search_docs", "get_chunk", "list_sources"]
+```
