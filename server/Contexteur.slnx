@@ -1,7 +1,0 @@
-<Solution>
-  <Project Path="Contexteur.Core/Contexteur.Core.csproj" />
-  <Project Path="Contexteur.UseCases/Contexteur.UseCases.csproj" />
-  <Project Path="Contexteur.Infrastructure/Contexteur.Infrastructure.csproj" />
-  <Project Path="Contexteur.Server/Contexteur.Server.csproj" />
-  <Project Path="Contexteur.Migrator/Contexteur.Migrator.csproj" />
-</Solution>

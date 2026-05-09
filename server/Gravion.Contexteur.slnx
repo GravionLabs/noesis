@@ -1,0 +1,28 @@
+<Solution>
+    <Folder Name="/.root/">
+        <File Path="cliff.toml"/>
+        <File Path="Directory.Build.props"/>
+        <File Path="Directory.Packages.props"/>
+        <File Path="GitVersion.yml"/>
+        <File Path="Gravion.Shared.sln.DotSettings"/>
+    </Folder>
+    <Folder Name="/infra/">
+        <File Path="../infra/docker-compose.yml"/>
+    </Folder>
+    <Folder Name="/src/">
+        <Project Path="src/Gravion.Contexteur.AppHost/Gravion.Contexteur.AppHost.csproj"/>
+        <Project Path="src/Gravion.Contexteur.ServiceDefaults/Gravion.Contexteur.ServiceDefaults.csproj"/>
+        <Project Path="src/Gravion.Contexteur.Core/Gravion.Contexteur.Core.csproj"/>
+        <Project Path="src/Gravion.Contexteur.UseCases/Gravion.Contexteur.UseCases.csproj"/>
+        <Project Path="src/Gravion.Contexteur.Infrastructure/Gravion.Contexteur.Infrastructure.csproj"/>
+        <Project Path="src/Gravion.Contexteur.Server/Gravion.Contexteur.Server.csproj"/>
+        <Project Path="src/Gravion.Contexteur.Migrator/Gravion.Contexteur.Migrator.csproj"/>
+    </Folder>
+    <Folder Name="/test/">
+        <File Path="test\Directory.Build.props"/>
+        <Project Path="test/Gravion.Contexteur.Core.Tests/Gravion.Contexteur.Core.Tests.csproj"/>
+        <Project Path="test/Gravion.Contexteur.UseCases.Tests/Gravion.Contexteur.UseCases.Tests.csproj"/>
+        <Project Path="test/Gravion.Contexteur.Infrastructure.Tests/Gravion.Contexteur.Infrastructure.Tests.csproj"/>
+        <Project Path="test/Gravion.Contexteur.Server.Tests/Gravion.Contexteur.Server.Tests.csproj"/>
+    </Folder>
+</Solution>

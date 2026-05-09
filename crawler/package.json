@@ -1,6 +1,7 @@
 {
   "name": "contexteur-crawler",
   "version": "0.1.0",
+  "type": "module",
   "description": "Playwright-based documentation crawler for Contexteur",
   "main": "dist/index.js",
   "scripts": {

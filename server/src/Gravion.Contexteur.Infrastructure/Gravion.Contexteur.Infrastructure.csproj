@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Hangfire.PostgreSql"/>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Http"/>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL"/>
+    <PackageReference Include="Pgvector.EntityFrameworkCore"/>
+    <PackageReference Include="WolverineFx.Postgresql"/>
+    <PackageReference Include="WolverineFx.EntityFrameworkCore"/>
+    <PackageReference Include="WolverineFx.RabbitMQ"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Gravion.Contexteur.Core\Gravion.Contexteur.Core.csproj"/>
+    <ProjectReference Include="..\Gravion.Contexteur.UseCases\Gravion.Contexteur.UseCases.csproj"/>
+  </ItemGroup>
+</Project>

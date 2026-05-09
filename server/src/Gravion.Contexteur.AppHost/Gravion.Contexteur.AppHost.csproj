@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="Aspire.AppHost.Sdk" Version="13.3.0"/>
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost"/>
+    <PackageReference Include="Aspire.Hosting.PostgreSQL"/>
+    <PackageReference Include="Aspire.Hosting.RabbitMQ"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Gravion.Contexteur.Server\Gravion.Contexteur.Server.csproj"/>
+    <ProjectReference Include="..\Gravion.Contexteur.Migrator\Gravion.Contexteur.Migrator.csproj"/>
+  </ItemGroup>
+</Project>
