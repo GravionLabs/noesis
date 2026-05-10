@@ -7,9 +7,29 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
+using Serilog;
+using Serilog.Events;
+
 var builder = Host.CreateApplicationBuilder(args);
 
-builder.AddServiceDefaults();
+builder.Services.AddSerilog((_, loggerConfiguration) =>
+{
+    loggerConfiguration
+        .MinimumLevel.Information()
+        .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+        .Enrich.FromLogContext()
+        .Enrich.WithMachineName()
+        .Enrich.WithEnvironmentName()
+        .Enrich.WithProcessId()
+        .Enrich.WithProcessName()
+        .WriteTo.Console(
+            outputTemplate:
+            "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}");
+
+    var seqUrl = builder.Configuration["Seq:ServerUrl"];
+    if (!string.IsNullOrEmpty(seqUrl))
+        loggerConfiguration.WriteTo.Seq(seqUrl);
+});
 
 var connectionString = builder.Configuration.GetConnectionString("noesis")
                        ?? "Host=localhost;Port=5442;Database=noesis;Username=noesis;Password=noesis_dev";

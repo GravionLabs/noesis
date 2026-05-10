@@ -2,7 +2,7 @@ namespace Gravion.Noesis.Core.Entities;
 
 public class Embedding
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid Id { get; init; } = Guid.NewGuid();
     public Guid ChunkId { get; set; }
     public Chunk Chunk { get; set; } = null!;
     public string Model { get; set; } = "";
@@ -11,5 +11,5 @@ public class Embedding
 
     // Stored as float[] in Core; Infrastructure maps this to the Postgres vector type via a value converter
     public float[]? Vector { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
 }

@@ -2,7 +2,7 @@ namespace Gravion.Noesis.Core.Entities;
 
 public class Chunk
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid Id { get; init; } = Guid.NewGuid();
     public Guid DocId { get; set; }
     public Doc Doc { get; set; } = null!;
     public Guid SourceId { get; set; }
@@ -11,6 +11,6 @@ public class Chunk
     public string[]? HeadingPath { get; set; }
     public int ChunkIndex { get; set; }
     public int? TokenCount { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public ICollection<Embedding> Embeddings { get; set; } = [];
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    public ICollection<Embedding> Embeddings { get; } = [];
 }

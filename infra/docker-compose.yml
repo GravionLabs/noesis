@@ -30,8 +30,8 @@ services:
 
   ef-migrate:
     build:
-      context: ../server/src
-      dockerfile: Gravion.Noesis.Migrator/Dockerfile
+      context: ../server
+      dockerfile: src/Gravion.Noesis.Migrator/Dockerfile
     container_name: noesis-ef-migrate
     restart: "no"
     environment:
