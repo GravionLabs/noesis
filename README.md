@@ -11,13 +11,14 @@ for use in GitHub Copilot CLI, VS Code, and any MCP-compatible client.
 ## Architecture
 
 ```mermaid
+
 graph TD
-    Client(["MCP Client / IDE"])
-    Server["🔷 .NET Server\n(MCP + REST API + Orchestration)"]
-    Crawler["🟨 Node.js Crawler\n(Playwright + llms-full.txt ingest)"]
-    Embedder["🐍 Python Embedder\n(OpenAI / Ollama → pgvector)"]
-    DB[("🐘 Postgres + pgvector")]
-    RabbitMQ["🐰 RabbitMQ\n(Wolverine Saga)"]
+    Client["MCP Client / IDE"]
+    Server[".NET Server (MCP + REST API + Orchestration)"]
+    Crawler["Node.js Crawler (Playwright + llms-full.txt ingest)"]
+    Embedder["Python Embedder (OpenAI / Ollama -> pgvector)"]
+    DB["Postgres + pgvector"]
+    RabbitMQ["RabbitMQ (Wolverine Saga)"]
 
     Client -- "MCP tools" --> Server
     Client -- "REST API" --> Server
@@ -33,9 +34,8 @@ graph TD
     Embedder -- "write vectors" --> DB
 
     Server -- "Wolverine Saga" --> RabbitMQ
-:::
-
 ```
+
 noesis/
 ├── server/    .NET 10 — MCP server, REST API, import orchestration (Wolverine Saga)
 ├── crawler/   Node.js/TypeScript — Playwright crawler + llms-full.txt ingest

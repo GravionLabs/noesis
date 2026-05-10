@@ -1,5 +1,6 @@
 using Carter;
 
+using Gravion.Noesis.Core.Events;
 using Gravion.Noesis.Infrastructure;
 using Gravion.Noesis.UseCases.Sources.CreateSource;
 
@@ -48,6 +49,16 @@ builder.Host.UseWolverine(opts =>
                 rabbit.Port = port;
         })
         .AutoProvision();
+
+    // Outbound: server → crawler / embedder
+    opts.PublishMessage<StartCrawlJob>().ToRabbitQueue("noesis.start-crawl-job");
+    opts.PublishMessage<StartEmbedJob>().ToRabbitQueue("noesis.start-embed-job");
+
+    // Inbound: crawler / embedder → server (saga handlers)
+    // DefaultIncomingMessage tells Wolverine which .NET type to deserialize from each queue,
+    // so Python/Node don't need to set a message-type header.
+    opts.ListenToRabbitQueue("noesis.crawl-completed").DefaultIncomingMessage<CrawlCompleted>();
+    opts.ListenToRabbitQueue("noesis.embed-completed").DefaultIncomingMessage<EmbedCompleted>();
 
     opts.UseEntityFrameworkCoreTransactions();
     opts.Discovery.IncludeAssembly(typeof(CreateSourceHandler).Assembly);

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import asyncio
+import logging
 import os
+from contextlib import asynccontextmanager
 from typing import Literal
 
 import httpx
@@ -11,9 +12,15 @@ from pgvector.psycopg2 import register_vector
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
+from noesis_embedder.events import EmbedCompleted, StartEmbedJob
+from noesis_embedder.messages import Consumer, MessageBroker, setup_consumers
+
+logger = logging.getLogger(__name__)
+
 
 class Settings(BaseSettings):
     database_url: str = "postgres://noesis:noesis_dev@localhost:5432/noesis"
+    rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
     openai_api_key: str = ""
     ollama_url: str = "http://localhost:11434"
     embedding_provider: Literal["openai", "ollama"] = "openai"
@@ -25,14 +32,27 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-app = FastAPI(title="Noesis Embedder")
 
+# ---------------------------------------------------------------------------
+# RabbitMQ broker + consumer registry
+# ---------------------------------------------------------------------------
+
+broker = MessageBroker(settings.rabbitmq_url)
+consumer = Consumer()
+
+# ---------------------------------------------------------------------------
+# DB helpers
+# ---------------------------------------------------------------------------
 
 def get_db():
     conn = psycopg2.connect(settings.database_url)
     register_vector(conn)
     return conn
 
+
+# ---------------------------------------------------------------------------
+# Embedding helpers
+# ---------------------------------------------------------------------------
 
 async def embed_openai(texts: list[str]) -> list[list[float]]:
     async with httpx.AsyncClient() as client:
@@ -67,7 +87,26 @@ async def embed(texts: list[str]) -> list[list[float]]:
     return await embed_openai(texts)
 
 
+async def embed_single(text: str) -> list[float]:
+    vectors = await embed([text])
+    return vectors[0]
+
+
+# ---------------------------------------------------------------------------
+# Chunk processing — loops until all chunks for the source are embedded
+# ---------------------------------------------------------------------------
+
 async def process_pending_chunks(source_id: str | None = None) -> int:
+    total = 0
+    while True:
+        count = await _process_batch(source_id)
+        total += count
+        if count == 0:
+            break
+    return total
+
+
+async def _process_batch(source_id: str | None = None) -> int:
     conn = get_db()
     cur = conn.cursor()
 
@@ -111,8 +150,48 @@ async def process_pending_chunks(source_id: str | None = None) -> int:
     return len(rows)
 
 
+# ---------------------------------------------------------------------------
+# Message handlers
+# ---------------------------------------------------------------------------
+
+@consumer.subscribe(queue_name="noesis.start-embed-job")
+async def handle_start_embed_job(event: StartEmbedJob) -> None:
+    logger.info("StartEmbedJob received — job=%s source=%s", event.job_id, event.source_id)
+
+    total = await process_pending_chunks(event.source_id)
+
+    logger.info("Embedding complete — job=%s chunks=%d", event.job_id, total)
+
+    await broker.publish(
+        "noesis.embed-completed",
+        EmbedCompleted(job_id=event.job_id, source_id=event.source_id, chunk_count=total),
+    )
+
+
+# ---------------------------------------------------------------------------
+# FastAPI app
+# ---------------------------------------------------------------------------
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    try:
+        await broker.connect()
+        await setup_consumers(broker, consumer)
+    except Exception:
+        logger.exception("Failed to connect to RabbitMQ — starting without consumer")
+    yield
+    await broker.close()
+
+
+app = FastAPI(title="Noesis Embedder", lifespan=lifespan)
+
+
 class EmbedRequest(BaseModel):
     source_id: str | None = None
+
+
+class EmbedQueryRequest(BaseModel):
+    text: str
 
 
 @app.get("/health")
@@ -122,11 +201,20 @@ def health():
 
 @app.post("/embed")
 async def trigger_embed(req: EmbedRequest, background_tasks: BackgroundTasks):
+    """Trigger async embedding (manual/dev use — production path is RabbitMQ)."""
     background_tasks.add_task(process_pending_chunks, req.source_id)
     return {"status": "accepted"}
 
 
 @app.post("/embed/sync")
 async def embed_sync(req: EmbedRequest):
+    """Synchronous embedding — blocks until all chunks are embedded."""
     count = await process_pending_chunks(req.source_id)
     return {"embedded": count}
+
+
+@app.post("/embed/query")
+async def embed_query(req: EmbedQueryRequest):
+    """Embed a single query string synchronously for search-time use."""
+    vector = await embed_single(req.text)
+    return {"vector": vector}

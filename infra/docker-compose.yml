@@ -9,7 +9,7 @@ services:
     ports:
       - "5442:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U noesis -d noesis" ]
       interval: 5s
@@ -35,9 +35,46 @@ services:
     container_name: noesis-ef-migrate
     restart: "no"
     environment:
-      CONNECTIONSTRINGS__POSTGRES: "Host=postgres;Port=5432;Database=noesis;Username=noesis;Password=noesis_dev"
+      CONNECTIONSTRINGS__NOESIS: "Host=postgres;Port=5432;Database=noesis;Username=noesis;Password=noesis_dev"
     depends_on:
       postgres:
+        condition: service_healthy
+
+  crawler:
+    build:
+      context: ../crawler
+      dockerfile: Dockerfile
+    container_name: noesis-crawler
+    environment:
+      DATABASE_URL: "postgres://noesis:noesis_dev@postgres:5432/noesis"
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+      PORT: "3001"
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  embedder:
+    build:
+      context: ../embedder
+      dockerfile: Dockerfile
+    container_name: noesis-embedder
+    environment:
+      DATABASE_URL: "postgresql://noesis:noesis_dev@postgres:5432/noesis"
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+      EMBEDDING_PROVIDER: "${EMBEDDING_PROVIDER:-openai}"
+      EMBEDDING_MODEL: "${EMBEDDING_MODEL:-text-embedding-3-small}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OLLAMA_URL: "${OLLAMA_URL:-http://host.docker.internal:11434}"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
 volumes:

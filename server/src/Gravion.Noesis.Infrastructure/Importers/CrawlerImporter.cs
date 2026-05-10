@@ -3,20 +3,22 @@ using Ardalis.Result;
 
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
+using Gravion.Noesis.Core.Events;
 using Gravion.Noesis.Core.Models;
 
 using Microsoft.Extensions.Logging;
+
+using Wolverine;
 
 namespace Gravion.Noesis.Infrastructure.Importers;
 
 /// <summary>
 ///     Delegates crawling to the external Node.js Playwright crawler service.
-///     Returns WaitForCallback=true because the crawler calls back asynchronously
-///     via POST /api/internal/crawl-completed when done.
+///     Returns WaitForCallback=true because the crawler publishes CrawlCompleted to RabbitMQ when done.
 /// </summary>
-public class CrawlerImporter(ICrawlerClient crawlerClient, ILogger<CrawlerImporter> logger) : IImporter
+public class CrawlerImporter(IMessageBus bus, ILogger<CrawlerImporter> logger) : IImporter
 {
-    private readonly ICrawlerClient _crawlerClient = Guard.Against.Null(crawlerClient);
+    private readonly IMessageBus _bus = Guard.Against.Null(bus);
     private readonly ILogger<CrawlerImporter> _logger = Guard.Against.Null(logger);
 
     public string ImporterType => "crawler";
@@ -26,19 +28,11 @@ public class CrawlerImporter(ICrawlerClient crawlerClient, ILogger<CrawlerImport
         Guard.Against.Null(source);
         Guard.Against.Null(context);
 
-        _logger.LogInformation("Triggering Node.js crawler for source {SourceId}", source.Id);
+        _logger.LogInformation("Publishing StartCrawlJob for source {SourceId}", source.Id);
 
-        var result = await _crawlerClient.StartCrawlAsync(
-            context.JobId,
-            source.Id,
-            source.Url,
-            source.ImporterType,
-            ct);
+        await _bus.PublishAsync(new StartCrawlJob(context.JobId, source.Id, source.Url, source.ImporterType));
 
-        if (!result.Success)
-            return Result.Error(result.Error ?? "Crawler failed");
-
-        // The crawler is async — it will call back /api/internal/crawl-completed when done
+        // The crawler is async — it will publish CrawlCompleted to RabbitMQ when done
         return new ImportResult(true, 0, 0, WaitForCallback: true);
     }
 }

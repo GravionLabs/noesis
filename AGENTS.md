@@ -262,7 +262,7 @@ All tools are **read-only** and **idempotent**.
 | Variable | Default | Description |
 |---|---|---|
 | `DATABASE_URL` | `postgres://noesis:noesis_dev@localhost:5432/noesis` | Postgres connection string |
-| `SERVER_URL` | — | .NET server base URL for callbacks |
+| `RABBITMQ_URL` | `amqp://guest:guest@localhost:5672/` | RabbitMQ connection URL |
 | `PORT` | `3001` | Listening port |
 
 ### Python Embedder
@@ -270,6 +270,7 @@ All tools are **read-only** and **idempotent**.
 | Variable | Default | Description |
 |---|---|---|
 | `DATABASE_URL` | `postgres://noesis:noesis_dev@localhost:5432/noesis` | Postgres connection string |
+| `RABBITMQ_URL` | `amqp://guest:guest@localhost:5672/` | RabbitMQ connection URL |
 | `EMBEDDING_PROVIDER` | `openai` | `openai` or `ollama` |
 | `EMBEDDING_MODEL` | `text-embedding-3-small` | Model name |
 | `OPENAI_API_KEY` | — | Required when provider is `openai` |

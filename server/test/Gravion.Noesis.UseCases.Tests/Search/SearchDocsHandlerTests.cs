@@ -12,13 +12,18 @@ namespace Gravion.Noesis.UseCases.Tests.Search;
 public class SearchDocsHandlerTests
 {
     private IChunkRepository _chunks = null!;
+    private IEmbedQueryClient _embedQuery = null!;
     private SearchDocsHandler _handler = null!;
 
     [SetUp]
     public void SetUp()
     {
         _chunks = Substitute.For<IChunkRepository>();
-        _handler = new SearchDocsHandler(_chunks);
+        _embedQuery = Substitute.For<IEmbedQueryClient>();
+        // Default: embedder unavailable → FTS fallback
+        _embedQuery.EmbedQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns((float[]?)null);
+        _handler = new SearchDocsHandler(_chunks, _embedQuery);
     }
 
     [Test]
@@ -74,5 +79,18 @@ public class SearchDocsHandlerTests
         var act = async () => await _handler.Handle(new SearchDocsQuery(""), CancellationToken.None);
 
         act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Test]
+    public async Task Handle_WhenEmbedderAvailable_UsesVectorSearch()
+    {
+        var vector = new float[] { 0.1f, 0.2f, 0.3f };
+        _embedQuery.EmbedQueryAsync("DI", Arg.Any<CancellationToken>()).Returns(vector);
+        _chunks.SearchByVectorAsync(vector, 5, null, Arg.Any<CancellationToken>()).Returns([]);
+
+        await _handler.Handle(new SearchDocsQuery("DI"), CancellationToken.None);
+
+        await _chunks.Received(1).SearchByVectorAsync(vector, 5, null, Arg.Any<CancellationToken>());
+        await _chunks.DidNotReceive().SearchByTextAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
     }
 }

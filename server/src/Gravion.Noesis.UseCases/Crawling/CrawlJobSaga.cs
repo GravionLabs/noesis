@@ -10,7 +10,7 @@ namespace Gravion.Noesis.UseCases.Crawling;
 ///     Orchestrates the full import pipeline: import → embed → done.
 ///     Strategy-based: the importer is selected via IImporterRegistry based on ImporterType.
 ///     For in-process importers (llmstxt, github): saga progresses immediately after ImportCompleted.
-///     For crawler importer: saga waits for external HTTP callback (CrawlCompleted) before embedding.
+///     For crawler importer: saga waits for CrawlCompleted from RabbitMQ before embedding.
 /// </summary>
 public class ImportJobSaga : Saga
 {
@@ -63,8 +63,8 @@ public class ImportJobSaga : Saga
             var importData = result.Value;
             if (importData.WaitForCallback)
             {
-                // External async importer (crawler) — wait for CrawlCompleted callback
-                Status = "waiting-crawl-callback";
+                // External async importer (crawler) — wait for CrawlCompleted from RabbitMQ
+                Status = "waiting-crawl";
             }
             else
             {
@@ -81,34 +81,42 @@ public class ImportJobSaga : Saga
     // For in-process importers: triggered immediately after import
     public async Task Handle(
         ImportCompleted evt,
-        IEmbedderClient embedder,
+        IMessageBus bus,
         IJobRepository jobs,
         CancellationToken ct)
     {
         Status = "embedding";
 
-        var result = await embedder.StartEmbedAsync(JobId, SourceId, ct);
-        if (!result.Success)
-            await FailAsync(jobs, result.Error ?? "Embed failed", ct);
-        // On success: embedder calls back POST /api/internal/embed-completed → publishes EmbedCompleted
+        var job = await jobs.GetByIdAsync(JobId, ct);
+        if (job is not null)
+        {
+            job.Status = "embedding";
+            await jobs.UpdateAsync(job, ct);
+        }
+
+        await bus.PublishAsync(new StartEmbedJob(JobId, SourceId));
     }
 
-    // For crawler importer: external HTTP callback from Node.js crawler
+    // For crawler importer: CrawlCompleted arrives from RabbitMQ (published by Node.js crawler)
     public async Task Handle(
         CrawlCompleted evt,
-        IEmbedderClient embedder,
+        IMessageBus bus,
         IJobRepository jobs,
         CancellationToken ct)
     {
         Status = "embedding";
 
-        var result = await embedder.StartEmbedAsync(JobId, SourceId, ct);
-        if (!result.Success)
-            await FailAsync(jobs, result.Error ?? "Embed failed", ct);
-        // On success: embedder calls back POST /api/internal/embed-completed → publishes EmbedCompleted
+        var job = await jobs.GetByIdAsync(JobId, ct);
+        if (job is not null)
+        {
+            job.Status = "embedding";
+            await jobs.UpdateAsync(job, ct);
+        }
+
+        await bus.PublishAsync(new StartEmbedJob(JobId, SourceId));
     }
 
-    // Final step: embedder completed
+    // Final step: EmbedCompleted arrives from RabbitMQ (published by Python embedder)
     public async Task Handle(
         EmbedCompleted evt,
         ISourceRepository sources,

@@ -3,6 +3,8 @@ using Gravion.Noesis.Core.Entities;
 
 using Microsoft.EntityFrameworkCore;
 
+using Pgvector;
+
 namespace Gravion.Noesis.Infrastructure.Data.Repositories;
 
 public class ChunkRepository(AppDbContext db) : IChunkRepository
@@ -26,6 +28,42 @@ public class ChunkRepository(AppDbContext db) : IChunkRepository
                 .Rank(EF.Functions.PlainToTsQuery("english", query)))
             .Take(limit)
             .ToListAsync(ct);
+    }
+
+    public async Task<List<Chunk>> SearchByVectorAsync(float[] vector, int limit, string? sourceName, CancellationToken ct = default)
+    {
+        var pgVector = new Vector(vector);
+
+        // Use pgvector cosine distance to find the nearest chunks.
+        // EF Core raw SQL is used because EF Core doesn't support vector operators via LINQ.
+        var sourceFilter = sourceName is not null
+            ? $"AND s.name = '{sourceName.Replace("'", "''")}'"
+            : "";
+
+        var ids = await db.Database
+            .SqlQuery<Guid>($"""
+                SELECT c.id
+                FROM chunks c
+                JOIN embeddings e ON e.chunk_id = c.id
+                JOIN docs d       ON d.id = c.doc_id
+                JOIN sources s    ON s.id = d.source_id
+                WHERE true {sourceFilter}
+                ORDER BY e.vector <=> {pgVector}
+                LIMIT {limit}
+                """)
+            .ToListAsync(ct);
+
+        if (ids.Count == 0)
+            return [];
+
+        var chunks = await db.Chunks
+            .Include(c => c.Doc)
+            .ThenInclude(d => d.Source)
+            .Where(c => ids.Contains(c.Id))
+            .ToListAsync(ct);
+
+        // Preserve cosine-distance ordering from the SQL query
+        return ids.Select(id => chunks.First(c => c.Id == id)).ToList();
     }
 
     public async Task<Chunk?> GetByIdAsync(Guid id, CancellationToken ct = default)
