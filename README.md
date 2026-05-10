@@ -11,7 +11,6 @@ for use in GitHub Copilot CLI, VS Code, and any MCP-compatible client.
 ## Architecture
 
 ```mermaid
-
 graph TD
     Client["MCP Client / IDE"]
     Server[".NET Server (MCP + REST API + Orchestration)"]
@@ -23,19 +22,20 @@ graph TD
     Client -- "MCP tools" --> Server
     Client -- "REST API" --> Server
 
-    Server -- "POST /jobs/crawl" --> Crawler
-    Server -- "POST /jobs/ingest-llmstxt" --> Crawler
-    Server -- "POST /embed" --> Embedder
-    Server <-- "POST /api/internal/crawl-completed" --- Crawler
-    Server <-- "POST /api/internal/embed-completed" --- Embedder
+    Server -- "RabbitMQ: StartCrawlJob" --> RabbitMQ
+    Server -- "RabbitMQ: StartEmbedJob" --> RabbitMQ
+    Crawler -- "RabbitMQ: CrawlCompleted" --> RabbitMQ
+    Embedder -- "RabbitMQ: EmbedCompleted" --> RabbitMQ
 
     Server -- "read/write" --> DB
     Crawler -- "write chunks" --> DB
     Embedder -- "write vectors" --> DB
 
-    Server -- "Wolverine Saga" --> RabbitMQ
+    Crawler -- "query chunks" --> DB
+    Embedder -- "query chunks" --> DB
 ```
 
+```
 noesis/
 ├── server/    .NET 10 — MCP server, REST API, import orchestration (Wolverine Saga)
 ├── crawler/   Node.js/TypeScript — Playwright crawler + llms-full.txt ingest
@@ -54,34 +54,95 @@ noesis/
 - Node.js 20+
 - Python 3.12+ with [uv](https://docs.astral.sh/uv/)
 
-### 1 — Start the dev stack
+### Option A: Docker Compose (Recommended for first-time setup)
+
+Start all services (Postgres, RabbitMQ, Migrator, Crawler, Embedder) with:
 
 ```bash
 # Linux with Podman: enable socket once
 sudo systemctl enable --now podman.socket
 
+# Start all infrastructure services
 docker compose -f infra/docker-compose.yml up -d
+
+# Then run Server locally (see below)
+cd server && dotnet run --project src/Gravion.Noesis.Server
 ```
 
 See [`infra/README.md`](infra/README.md) for port reference and connection strings.
 
-### 2 — Run the server
+### Option B: Run all services locally (via AppHost)
 
+All services (Server, Crawler, Embedder) plus infrastructure in one command:
+
+```bash
+cd server/src/Gravion.Noesis.AppHost
+dotnet run
+```
+
+Verify services are running:
+- Server: http://localhost:5000/health
+- Crawler: http://localhost:3001/health
+- Embedder: http://localhost:8000/health
+- RabbitMQ Management: http://localhost:15682/
+
+### Option C: Start services individually
+
+**Terminal 1 — Infrastructure (Docker Compose):**
+```bash
+cd infra
+docker compose -f docker-compose.yml up -d
+```
+
+**Terminal 2 — .NET Server:**
 ```bash
 cd server && dotnet run --project src/Gravion.Noesis.Server
 ```
 
-### 3 — Run the crawler
-
+**Terminal 3 — Node.js Crawler:**
 ```bash
 cd crawler && npm install && npm run dev
 ```
 
-### 4 — Run the embedder
-
+**Terminal 4 — Python Embedder:**
 ```bash
-cd embedder && uv sync && uv run uvicorn main:app --reload
+cd embedder && uv sync && uv run uvicorn noesis_embedder.main:app --reload
 ```
+
+---
+
+## Architecture: Event-Driven Pipeline via RabbitMQ
+
+All inter-service communication uses **RabbitMQ message queues** (Wolverine), not HTTP callbacks:
+
+### Import → Embed → Done
+
+1. **Register & Import** — User calls `POST /api/sources/{id}/import`
+2. **Server publishes** — `StartCrawlJob` to `noesis.start-crawl-job` queue
+3. **Crawler consumes** — Fetches content, chunks it, stores to Postgres
+4. **Crawler publishes** — `CrawlCompleted` to `noesis.crawl-completed` queue
+5. **Server consumes** — Saga receives completion, publishes `StartEmbedJob` to `noesis.start-embed-job`
+6. **Embedder consumes** — Fetches unembedded chunks, calls OpenAI / Ollama, writes vectors to pgvector
+7. **Embedder publishes** — `EmbedCompleted` to `noesis.embed-completed` queue
+8. **Server consumes** — Saga marks job done, updates `source.LastImportedAt`
+
+### Search Pipeline
+
+- User calls `search_docs(query)` via MCP tool
+- Server: embeds query via `/embed/query` endpoint on Embedder (sync, in-process embedding)
+- Server: searches pgvector with cosine distance `<=>` operator
+- Server: returns ordered chunks with similarity scores
+
+### RabbitMQ Queues
+
+| Queue | Direction | Message Type | Purpose |
+|---|---|---|---|
+| `noesis.start-crawl-job` | Server → Crawler | `StartCrawlJob` | Trigger web crawling / text ingest |
+| `noesis.crawl-completed` | Crawler → Server | `CrawlCompleted` | Signal crawl finished, chunks stored |
+| `noesis.start-embed-job` | Server → Embedder | `StartEmbedJob` | Trigger embedding of unembedded chunks |
+| `noesis.embed-completed` | Embedder → Server | `EmbedCompleted` | Signal embedding finished, vectors stored |
+
+All messages use **JSON with camelCase keys** for Wolverine compatibility.
 
 ---
 
