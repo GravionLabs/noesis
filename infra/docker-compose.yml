@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg18
+    container_name: noesis-postgres
+    environment:
+      POSTGRES_DB: noesis
+      POSTGRES_USER: noesis
+      POSTGRES_PASSWORD: noesis_dev
+    ports:
+      - "5442:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U noesis -d noesis" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:management-alpine
+    container_name: noesis-rabbitmq
+    ports:
+      - "5682:5672"
+      - "15682:15672"
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ef-migrate:
+    build:
+      context: ../server/src
+      dockerfile: Gravion.Noesis.Migrator/Dockerfile
+    container_name: noesis-ef-migrate
+    restart: "no"
+    environment:
+      CONNECTIONSTRINGS__POSTGRES: "Host=postgres;Port=5432;Database=noesis;Username=noesis;Password=noesis_dev"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Ardalis.GuardClauses"/>
+    <PackageReference Include="Ardalis.Result"/>
+    <PackageReference Include="WolverineFx"/>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Gravion.Noesis.Core\Gravion.Noesis.Core.csproj"/>
+  </ItemGroup>
+</Project>
