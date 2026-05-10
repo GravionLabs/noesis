@@ -1,3 +1,4 @@
+using Ardalis.Result;
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
 using Gravion.Noesis.Core.Models;
@@ -11,7 +12,7 @@ public class GithubImporter : IImporter
 {
     public string ImporterType => "github";
 
-    public Task<ImportResult> ImportAsync(Source source, ImportContext context, CancellationToken ct = default) =>
+    public Task<Result<ImportResult>> ImportAsync(Source source, ImportContext context, CancellationToken ct = default) =>
         // TODO: implement GitHub API integration
         // Config JSON schema: { "owner": "angular", "repo": "angular", "branch": "main", "paths": ["docs/"] }
         throw new NotImplementedException(

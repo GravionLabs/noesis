@@ -1,5 +1,7 @@
 using System.Text;
 using System.Text.Json;
+using Ardalis.GuardClauses;
+using Ardalis.Result;
 
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
@@ -24,24 +26,29 @@ public class OpenApiImporter(
     IChunkRepository chunks,
     ILogger<OpenApiImporter> logger) : IImporter
 {
+    private readonly HttpClient _http = Guard.Against.Null(http);
+    private readonly IDocRepository _docs = Guard.Against.Null(docs);
+    private readonly IChunkRepository _chunks = Guard.Against.Null(chunks);
+    private readonly ILogger<OpenApiImporter> _logger = Guard.Against.Null(logger);
+
     private static readonly HashSet<string> HttpMethods =
         ["get", "post", "put", "patch", "delete", "head", "options"];
 
     public string ImporterType => "openapi";
 
-    public async Task<ImportResult> ImportAsync(Source source, ImportContext context, CancellationToken ct = default)
+    public async Task<Result<ImportResult>> ImportAsync(Source source, ImportContext context, CancellationToken ct = default)
     {
-        logger.LogInformation("Starting OpenAPI import for {Url}", source.Url);
+        _logger.LogInformation("Starting OpenAPI import for {Url}", source.Url);
 
         string json;
         try
         {
-            json = await http.GetStringAsync(source.Url, ct);
+            json = await _http.GetStringAsync(source.Url, ct);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to fetch {Url}", source.Url);
-            return new ImportResult(false, 0, 0, $"HTTP fetch failed: {ex.Message}");
+            _logger.LogError(ex, "Failed to fetch {Url}", source.Url);
+            return Result.Error($"HTTP fetch failed: {ex.Message}");
         }
 
         using var jsonDoc = JsonDocument.Parse(json);
@@ -49,10 +56,10 @@ public class OpenApiImporter(
 
         var title = GetString(root, "info", "title") ?? source.Url;
 
-        await chunks.DeleteBySourceAsync(source.Id, ct);
-        await docs.DeleteBySourceAsync(source.Id, ct);
+        await _chunks.DeleteBySourceAsync(source.Id, ct);
+        await _docs.DeleteBySourceAsync(source.Id, ct);
 
-        var dbDoc = await docs.AddAsync(new Doc
+        var dbDoc = await _docs.AddAsync(new Doc
             {
                 SourceId = source.Id,
                 Url = source.Url,
@@ -97,9 +104,9 @@ public class OpenApiImporter(
         }
 
         if (chunkEntities.Count > 0)
-            await chunks.AddRangeAsync(chunkEntities, ct);
+            await _chunks.AddRangeAsync(chunkEntities, ct);
 
-        logger.LogInformation("Completed OpenAPI import: 1 doc, {ChunkCount} operation chunks for {Title}",
+        _logger.LogInformation("Completed OpenAPI import: 1 doc, {ChunkCount} operation chunks for {Title}",
             chunkEntities.Count, title);
         return new ImportResult(true, 1, chunkEntities.Count);
     }

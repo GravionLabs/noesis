@@ -1,6 +1,8 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Ardalis.GuardClauses;
+using Ardalis.Result;
 
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
@@ -23,11 +25,14 @@ namespace Gravion.Noesis.Infrastructure.Importers;
 /// </remarks>
 public class LlmsTxtCrawlImporter(HttpClient http, ILogger<LlmsTxtCrawlImporter> logger) : IImporter
 {
+    private readonly HttpClient _http = Guard.Against.Null(http);
+    private readonly ILogger<LlmsTxtCrawlImporter> _logger = Guard.Against.Null(logger);
+
     public string ImporterType => "llmstxt-crawl";
 
-    public async Task<ImportResult> ImportAsync(Source source, ImportContext context, CancellationToken ct = default)
+    public async Task<Result<ImportResult>> ImportAsync(Source source, ImportContext context, CancellationToken ct = default)
     {
-        logger.LogInformation(
+        _logger.LogInformation(
             "Triggering llms.txt sub-page crawl for source {SourceId} from {Url}",
             source.Id,
             source.Url);
@@ -44,11 +49,11 @@ public class LlmsTxtCrawlImporter(HttpClient http, ILogger<LlmsTxtCrawlImporter>
             }
             catch (JsonException)
             {
-                logger.LogWarning("Could not parse source.Config for source {SourceId} — using defaults", source.Id);
+                _logger.LogWarning("Could not parse source.Config for source {SourceId} — using defaults", source.Id);
             }
         }
 
-        var response = await http.PostAsJsonAsync(
+        var response = await _http.PostAsJsonAsync(
             "/jobs/crawl-llmstxt",
             new
             {
@@ -62,8 +67,8 @@ public class LlmsTxtCrawlImporter(HttpClient http, ILogger<LlmsTxtCrawlImporter>
         if (!response.IsSuccessStatusCode)
         {
             var error = await response.Content.ReadAsStringAsync(ct);
-            logger.LogError("Crawler returned {StatusCode}: {Error}", response.StatusCode, error);
-            return new ImportResult(false, 0, 0, $"Crawler returned {response.StatusCode}");
+            _logger.LogError("Crawler returned {StatusCode}: {Error}", response.StatusCode, error);
+            return Result.Error($"Crawler returned {response.StatusCode}");
         }
 
         return new ImportResult(true, 0, 0, WaitForCallback: true);

@@ -1,4 +1,6 @@
 using System.Text;
+using Ardalis.GuardClauses;
+using Ardalis.Result;
 
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
@@ -18,32 +20,37 @@ public class LlmsTxtImporter(
     IChunkRepository chunks,
     ILogger<LlmsTxtImporter> logger) : IImporter
 {
+    private readonly HttpClient _http = Guard.Against.Null(http);
+    private readonly IDocRepository _docs = Guard.Against.Null(docs);
+    private readonly IChunkRepository _chunks = Guard.Against.Null(chunks);
+    private readonly ILogger<LlmsTxtImporter> _logger = Guard.Against.Null(logger);
+
     private const int MaxChunkLength = 2000;
     public string ImporterType => "llmstxt";
 
-    public async Task<ImportResult> ImportAsync(Source source, ImportContext context, CancellationToken ct = default)
+    public async Task<Result<ImportResult>> ImportAsync(Source source, ImportContext context, CancellationToken ct = default)
     {
-        logger.LogInformation("Starting llms.txt import for source {SourceId} from {Url}", source.Id, source.Url);
+        _logger.LogInformation("Starting llms.txt import for source {SourceId} from {Url}", source.Id, source.Url);
 
         string markdown;
         try
         {
-            markdown = await http.GetStringAsync(source.Url, ct);
+            markdown = await _http.GetStringAsync(source.Url, ct);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to fetch {Url}", source.Url);
-            return new ImportResult(false, 0, 0, $"HTTP fetch failed: {ex.Message}");
+            _logger.LogError(ex, "Failed to fetch {Url}", source.Url);
+            return Result.Error($"HTTP fetch failed: {ex.Message}");
         }
 
         // Delete existing data for idempotent re-imports (chunks first due to FK, then docs)
-        await chunks.DeleteBySourceAsync(source.Id, ct);
-        await docs.DeleteBySourceAsync(source.Id, ct);
+        await _chunks.DeleteBySourceAsync(source.Id, ct);
+        await _docs.DeleteBySourceAsync(source.Id, ct);
 
         var sections = SplitIntoSections(markdown);
         var chunkCount = 0;
 
-        var doc = await docs.AddAsync(new Doc
+        var doc = await _docs.AddAsync(new Doc
             {
                 SourceId = source.Id,
                 Url = source.Url,
@@ -67,11 +74,11 @@ public class LlmsTxtImporter(
                          })
                          .ToList()))
         {
-            await chunks.AddRangeAsync(entities, ct);
+            await _chunks.AddRangeAsync(entities, ct);
             chunkCount += entities.Count;
         }
 
-        logger.LogInformation("Completed llms.txt import: 1 doc, {ChunkCount} chunks", chunkCount);
+        _logger.LogInformation("Completed llms.txt import: 1 doc, {ChunkCount} chunks", chunkCount);
         return new ImportResult(true, 1, chunkCount);
     }
 

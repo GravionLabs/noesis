@@ -1,3 +1,6 @@
+using Ardalis.GuardClauses;
+using Ardalis.Result;
+
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
 using Gravion.Noesis.Core.Models;
@@ -13,13 +16,19 @@ namespace Gravion.Noesis.Infrastructure.Importers;
 /// </summary>
 public class CrawlerImporter(ICrawlerClient crawlerClient, ILogger<CrawlerImporter> logger) : IImporter
 {
+    private readonly ICrawlerClient _crawlerClient = Guard.Against.Null(crawlerClient);
+    private readonly ILogger<CrawlerImporter> _logger = Guard.Against.Null(logger);
+
     public string ImporterType => "crawler";
 
-    public async Task<ImportResult> ImportAsync(Source source, ImportContext context, CancellationToken ct = default)
+    public async Task<Result<ImportResult>> ImportAsync(Source source, ImportContext context, CancellationToken ct = default)
     {
-        logger.LogInformation("Triggering Node.js crawler for source {SourceId}", source.Id);
+        Guard.Against.Null(source);
+        Guard.Against.Null(context);
 
-        var result = await crawlerClient.StartCrawlAsync(
+        _logger.LogInformation("Triggering Node.js crawler for source {SourceId}", source.Id);
+
+        var result = await _crawlerClient.StartCrawlAsync(
             context.JobId,
             source.Id,
             source.Url,
@@ -27,7 +36,7 @@ public class CrawlerImporter(ICrawlerClient crawlerClient, ILogger<CrawlerImport
             ct);
 
         if (!result.Success)
-            return new ImportResult(false, 0, 0, result.Error);
+            return Result.Error(result.Error ?? "Crawler failed");
 
         // The crawler is async — it will call back /api/internal/crawl-completed when done
         return new ImportResult(true, 0, 0, WaitForCallback: true);

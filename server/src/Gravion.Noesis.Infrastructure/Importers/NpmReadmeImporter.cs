@@ -1,5 +1,7 @@
 using System.Text;
 using System.Text.Json;
+using Ardalis.GuardClauses;
+using Ardalis.Result;
 
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
@@ -19,13 +21,18 @@ public class NpmReadmeImporter(
     IChunkRepository chunks,
     ILogger<NpmReadmeImporter> logger) : IImporter
 {
+    private readonly HttpClient _http = Guard.Against.Null(http);
+    private readonly IDocRepository _docs = Guard.Against.Null(docs);
+    private readonly IChunkRepository _chunks = Guard.Against.Null(chunks);
+    private readonly ILogger<NpmReadmeImporter> _logger = Guard.Against.Null(logger);
+
     private const int MaxChunkLength = 2000;
 
     public string ImporterType => "npm-readme";
 
-    public async Task<ImportResult> ImportAsync(Source source, ImportContext context, CancellationToken ct = default)
+    public async Task<Result<ImportResult>> ImportAsync(Source source, ImportContext context, CancellationToken ct = default)
     {
-        logger.LogInformation("Starting npm-readme import for {Url}", source.Url);
+        _logger.LogInformation("Starting npm-readme import for {Url}", source.Url);
 
         string json;
         try
@@ -33,14 +40,14 @@ public class NpmReadmeImporter(
             // npm registry requires Accept header to return full JSON (not packument)
             using var request = new HttpRequestMessage(HttpMethod.Get, source.Url);
             request.Headers.Add("Accept", "application/json");
-            var response = await http.SendAsync(request, ct);
+            var response = await _http.SendAsync(request, ct);
             response.EnsureSuccessStatusCode();
             json = await response.Content.ReadAsStringAsync(ct);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to fetch {Url}", source.Url);
-            return new ImportResult(false, 0, 0, $"HTTP fetch failed: {ex.Message}");
+            _logger.LogError(ex, "Failed to fetch {Url}", source.Url);
+            return Result.Error($"HTTP fetch failed: {ex.Message}");
         }
 
         using var jsonDoc = JsonDocument.Parse(json);
@@ -52,15 +59,15 @@ public class NpmReadmeImporter(
 
         if (string.IsNullOrWhiteSpace(readme))
         {
-            logger.LogWarning("No README found in npm package {Name}", name);
-            return new ImportResult(false, 0, 0, $"No README found in npm package '{name}'");
+            _logger.LogWarning("No README found in npm package {Name}", name);
+            return Result.Error($"No README found in npm package '{name}'");
         }
 
-        await chunks.DeleteBySourceAsync(source.Id, ct);
-        await docs.DeleteBySourceAsync(source.Id, ct);
+        await _chunks.DeleteBySourceAsync(source.Id, ct);
+        await _docs.DeleteBySourceAsync(source.Id, ct);
 
         var title = string.IsNullOrEmpty(description) ? name : $"{name} — {description}";
-        var dbDoc = await docs.AddAsync(new Doc
+        var dbDoc = await _docs.AddAsync(new Doc
             {
                 SourceId = source.Id,
                 Url = source.Url,
@@ -83,9 +90,9 @@ public class NpmReadmeImporter(
             })
             .ToList();
 
-        await chunks.AddRangeAsync(entities, ct);
+        await _chunks.AddRangeAsync(entities, ct);
 
-        logger.LogInformation("Completed npm-readme import: 1 doc, {ChunkCount} chunks for {Name}",
+        _logger.LogInformation("Completed npm-readme import: 1 doc, {ChunkCount} chunks for {Name}",
             entities.Count, name);
         return new ImportResult(true, 1, entities.Count);
     }

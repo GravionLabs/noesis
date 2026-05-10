@@ -54,13 +54,14 @@ public class ImportJobSaga : Saga
             var importer = importerRegistry.GetImporter(ImporterType);
             var result = await importer.ImportAsync(source, new ImportContext(JobId), ct);
 
-            if (!result.Success)
+            if (!result.IsSuccess)
             {
-                await FailAsync(jobs, result.Error ?? "Import failed", ct);
+                await FailAsync(jobs, string.Join(", ", result.Errors), ct);
                 return;
             }
 
-            if (result.WaitForCallback)
+            var importData = result.Value;
+            if (importData.WaitForCallback)
             {
                 // External async importer (crawler) — wait for CrawlCompleted callback
                 Status = "waiting-crawl-callback";
@@ -68,7 +69,7 @@ public class ImportJobSaga : Saga
             else
             {
                 // In-process importer completed — proceed to embedding
-                await bus.PublishAsync(new ImportCompleted(JobId, SourceId, result.DocCount, result.ChunkCount));
+                await bus.PublishAsync(new ImportCompleted(JobId, SourceId, importData.DocCount, importData.ChunkCount));
             }
         }
         catch (Exception ex)

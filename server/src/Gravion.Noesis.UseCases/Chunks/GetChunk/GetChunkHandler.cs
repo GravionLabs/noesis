@@ -7,11 +7,13 @@ namespace Gravion.Noesis.UseCases.Chunks.GetChunk;
 
 public class GetChunkHandler(IChunkRepository chunks)
 {
+    private readonly IChunkRepository _chunks = Guard.Against.Null(chunks);
+
     public async Task<Result<ChunkResult>> Handle(GetChunkQuery query, CancellationToken ct)
     {
         Guard.Against.Default(query.ChunkId, nameof(query.ChunkId));
 
-        var chunk = await chunks.GetByIdAsync(query.ChunkId, ct);
+        var chunk = await _chunks.GetByIdAsync(query.ChunkId, ct);
         if (chunk is null)
             return Result.NotFound();
 

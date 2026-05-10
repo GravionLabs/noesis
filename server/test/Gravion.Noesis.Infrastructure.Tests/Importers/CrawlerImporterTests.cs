@@ -43,8 +43,8 @@ public class CrawlerImporterTests
 
         var result = await _importer.ImportAsync(source, context);
 
-        result.Success.Should().BeTrue();
-        result.WaitForCallback.Should().BeTrue();
+        result.IsSuccess.Should().BeTrue();
+        result.Value.WaitForCallback.Should().BeTrue();
     }
 
     [Test]
@@ -61,9 +61,8 @@ public class CrawlerImporterTests
 
         var result = await _importer.ImportAsync(source, context);
 
-        result.Success.Should().BeFalse();
-        result.Error.Should().Be("Connection refused");
-        result.WaitForCallback.Should().BeFalse();
+        result.IsSuccess.Should().BeFalse();
+        result.Errors.Should().Contain("Connection refused");
     }
 
     [Test]

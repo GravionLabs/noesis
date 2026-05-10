@@ -1,3 +1,4 @@
+using Ardalis.Result;
 using Gravion.Noesis.Core.Entities;
 using Gravion.Noesis.Core.Models;
 
@@ -8,5 +9,5 @@ public interface IImporter
     /// <summary>The importer type key this importer handles (e.g. "llmstxt", "github", "crawler").</summary>
     string ImporterType { get; }
 
-    Task<ImportResult> ImportAsync(Source source, ImportContext context, CancellationToken ct = default);
+    Task<Result<ImportResult>> ImportAsync(Source source, ImportContext context, CancellationToken ct = default);
 }

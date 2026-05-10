@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Ardalis.GuardClauses;
+using Ardalis.Result;
 
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
@@ -20,30 +22,34 @@ public class LlmsMetaTxtImporter(
     ISourceRepository sources,
     ILogger<LlmsMetaTxtImporter> logger) : IImporter
 {
+    private readonly HttpClient _http = Guard.Against.Null(http);
+    private readonly ISourceRepository _sources = Guard.Against.Null(sources);
+    private readonly ILogger<LlmsMetaTxtImporter> _logger = Guard.Against.Null(logger);
+
     public string ImporterType => "llmstxt-meta";
 
-    public async Task<ImportResult> ImportAsync(Source source, ImportContext context, CancellationToken ct = default)
+    public async Task<Result<ImportResult>> ImportAsync(Source source, ImportContext context, CancellationToken ct = default)
     {
-        logger.LogInformation("Starting llms.txt metadata import for source {SourceId} from {Url}",
+        _logger.LogInformation("Starting llms.txt metadata import for source {SourceId} from {Url}",
             source.Id,
             source.Url);
 
         string content;
         try
         {
-            content = await http.GetStringAsync(source.Url, ct);
+            content = await _http.GetStringAsync(source.Url, ct);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to fetch {Url}", source.Url);
-            return new ImportResult(false, 0, 0, $"HTTP fetch failed: {ex.Message}");
+            _logger.LogError(ex, "Failed to fetch {Url}", source.Url);
+            return Result.Error($"HTTP fetch failed: {ex.Message}");
         }
 
         var metadata = Parse(content);
         source.Config = JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = false });
-        await sources.UpdateAsync(source, ct);
+        await _sources.UpdateAsync(source, ct);
 
-        logger.LogInformation(
+        _logger.LogInformation(
             "Completed llms.txt metadata import: title={Title}, {ImportantCount} important links, {OptionalCount} optional links",
             metadata.Title,
             metadata.ImportantLinks.Count,
