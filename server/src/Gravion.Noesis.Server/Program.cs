@@ -29,7 +29,9 @@ builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
     .UseSimpleAssemblyNameTypeSerializer()
     .UseRecommendedSerializerSettings()
-    .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(connectionString)));
+    .UsePostgreSqlStorage(
+        options => options.UseNpgsqlConnection(connectionString),
+        new PostgreSqlStorageOptions { SchemaName = "public" }));
 builder.Services.AddHangfireServer();
 
 builder.Services
@@ -39,7 +41,7 @@ builder.Services
 
 builder.Host.UseWolverine(opts =>
 {
-    opts.PersistMessagesWithPostgresql(connectionString, "noesis")
+    opts.PersistMessagesWithPostgresql(connectionString, "public")
         .EnableMessageTransport();
 
     opts.UseRabbitMq(rabbit =>
