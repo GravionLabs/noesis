@@ -7,7 +7,7 @@ using Pgvector;
 namespace Gravion.Noesis.Infrastructure.Data.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class Initial : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -22,8 +22,11 @@ namespace Gravion.Noesis.Infrastructure.Data.Migrations
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     name = table.Column<string>(type: "text", nullable: false),
                     url = table.Column<string>(type: "text", nullable: false),
-                    type = table.Column<string>(type: "text", nullable: false),
+                    importer_type = table.Column<string>(type: "text", nullable: false),
                     enabled = table.Column<bool>(type: "boolean", nullable: false),
+                    config = table.Column<string>(type: "text", nullable: true),
+                    schedule = table.Column<string>(type: "text", nullable: true),
+                    last_imported_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -164,16 +167,11 @@ namespace Gravion.Noesis.Infrastructure.Data.Migrations
                 table: "sources",
                 column: "url",
                 unique: true);
-
-            migrationBuilder.Sql(
-                "CREATE INDEX IX_chunks_content_fts ON chunks USING gin(to_tsvector('english', content));");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql("DROP INDEX IF EXISTS IX_chunks_content_fts;");
-
             migrationBuilder.DropTable(
                 name: "embeddings");
 

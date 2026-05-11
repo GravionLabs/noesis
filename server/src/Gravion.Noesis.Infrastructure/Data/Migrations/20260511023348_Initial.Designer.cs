@@ -13,8 +13,8 @@ using Pgvector;
 namespace Gravion.Noesis.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260509051927_ImporterSystem")]
-    partial class ImporterSystem
+    [Migration("20260511023348_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

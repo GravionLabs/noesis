@@ -17,7 +17,7 @@ services:
       retries: 5
 
   rabbitmq:
-    image: rabbitmq:management-alpine
+    image: rabbitmq:4.3.0-management-alpine
     container_name: noesis-rabbitmq
     ports:
       - "5682:5672"

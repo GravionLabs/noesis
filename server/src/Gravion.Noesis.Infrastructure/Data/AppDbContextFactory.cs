@@ -11,7 +11,7 @@ public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
     {
         var connectionString =
             Environment.GetEnvironmentVariable("CONNECTIONSTRINGS__POSTGRES")
-            ?? "Host=localhost;Port=5432;Database=noesis;Username=noesis;Password=noesis_dev";
+            ?? "Host=localhost;Port=5442;Database=noesis;Username=noesis;Password=noesis_dev";
 
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql(connectionString, o => o.UseVector())

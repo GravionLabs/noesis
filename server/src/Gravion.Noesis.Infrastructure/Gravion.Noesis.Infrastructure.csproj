@@ -17,4 +17,8 @@
     <ProjectReference Include="..\Gravion.Noesis.Core\Gravion.Noesis.Core.csproj"/>
     <ProjectReference Include="..\Gravion.Noesis.UseCases\Gravion.Noesis.UseCases.csproj"/>
   </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Data\Migrations\" />
+  </ItemGroup>
 </Project>
