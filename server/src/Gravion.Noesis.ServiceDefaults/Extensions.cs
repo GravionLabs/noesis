@@ -10,6 +10,7 @@ using OpenTelemetry.Trace;
 
 using Serilog;
 using Serilog.Events;
+using Serilog.Formatting.Compact;
 
 namespace Microsoft.Extensions.Hosting;
 
@@ -47,9 +48,7 @@ public static class Extensions
                 .Enrich.WithEnvironmentName()
                 .Enrich.WithProcessId()
                 .Enrich.WithProcessName()
-                .WriteTo.Console(
-                    outputTemplate:
-                    "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}");
+                .WriteTo.Console(new RenderedCompactJsonFormatter());
 
             var seqUrl = builder.Configuration["Seq:ServerUrl"];
             if (!string.IsNullOrEmpty(seqUrl))

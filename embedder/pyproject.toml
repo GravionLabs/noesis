@@ -12,12 +12,14 @@ description = "Noesis embedding worker — generates pgvector embeddings for ind
 requires-python = ">=3.12"
 dependencies = [
     "aio-pika>=9.4",
+    "ecs-logging>=2.2",
     "fastapi>=0.115",
     "httpx>=0.28",
     "openai>=1.82",
     "pgvector>=0.4",
     "psycopg2-binary>=2.9",
     "pydantic-settings>=2.9",
+    "structlog>=24.2",
     "uvicorn[standard]>=0.34",
 ]
 

@@ -13,8 +13,10 @@ from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
 from noesis_embedder.events import EmbedCompleted, StartEmbedJob
+from noesis_embedder.logging.logging import setup_logging
 from noesis_embedder.messages import Consumer, MessageBroker, setup_consumers
 
+setup_logging()
 logger = logging.getLogger(__name__)
 
 

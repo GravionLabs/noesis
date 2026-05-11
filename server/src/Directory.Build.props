@@ -1,6 +1,6 @@
 <Project>
   <Import Project="../Directory.Build.props"/>
   <PropertyGroup>
-    <OutputPath>$(SolutionDir)bin\$(Configuration)</OutputPath>
+    <BaseOutputPath>$(SolutionDir)bin\src\</BaseOutputPath>
   </PropertyGroup>
 </Project>

@@ -1,6 +1,7 @@
 using Gravion.Noesis.Core.Entities;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 using Pgvector;
 
@@ -17,6 +18,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.HasPostgresExtension("vector");
+        var vectorComparer = new ValueComparer<float[]?>(
+            (left, right) => VectorEquals(left, right),
+            value => VectorHash(value),
+            value => value == null ? null : value.ToArray());
 
         model.Entity<Source>(e =>
         {
@@ -82,7 +87,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasColumnType("vector")
                 .HasConversion(
                     v => v == null ? null : new Vector(v),
-                    v => v == null ? null : v.Memory.ToArray());
+                    v => v == null ? null : v.Memory.ToArray())
+                .Metadata.SetValueComparer(vectorComparer);
             e.Property(x => x.CreatedAt).HasColumnName("created_at");
             e.HasOne(x => x.Chunk).WithMany(x => x.Embeddings).HasForeignKey(x => x.ChunkId);
             e.HasIndex(x => new { x.ChunkId, x.Model }).IsUnique();
@@ -103,5 +109,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasOne(x => x.Source).WithMany(x => x.Jobs).HasForeignKey(x => x.SourceId).IsRequired(false);
             e.HasIndex(x => x.Status);
         });
+    }
+
+    private static bool VectorEquals(float[]? left, float[]? right)
+    {
+        if (left is null || right is null)
+            return left is null && right is null;
+
+        return left.SequenceEqual(right);
+    }
+
+    private static int VectorHash(float[]? value)
+    {
+        if (value is null)
+            return 0;
+
+        var hash = new HashCode();
+        foreach (var item in value)
+            hash.Add(item);
+        return hash.ToHashCode();
     }
 }

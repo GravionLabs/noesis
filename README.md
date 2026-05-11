@@ -73,18 +73,29 @@ See [`infra/README.md`](infra/README.md) for port reference and connection strin
 
 ### Option B: Run all services locally (via AppHost)
 
-All services (Server, Crawler, Embedder) plus infrastructure in one command:
+Run via one of two AppHost launch profiles:
 
 ```bash
 cd server/src/Gravion.Noesis.AppHost
-dotnet run
+
+# 1) Use existing docker-compose infra (fixed compose ports)
+dotnet run --launch-profile compose-ports
+
+# 2) Let Aspire start its own infra (separate managed ports)
+dotnet run --launch-profile aspire-infra
 ```
 
-Verify services are running:
+Profile behavior:
+- `compose-ports` → uses existing Postgres/RabbitMQ on compose ports (`5442`, `5682`, `15682`)
+- `aspire-infra` → Aspire starts Postgres/RabbitMQ itself on managed ports (`5542`, `5782`, `16682`)
+
+Verify services are running (both profiles):
 - Server: http://localhost:5000/health
 - Crawler: http://localhost:3001/health
 - Embedder: http://localhost:8000/health
-- RabbitMQ Management: http://localhost:15682/
+- RabbitMQ Management:
+  - `compose-ports`: http://localhost:15682/
+  - `aspire-infra`: http://localhost:16682/
 
 ### Option C: Start services individually
 
