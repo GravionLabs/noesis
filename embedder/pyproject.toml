@@ -21,6 +21,10 @@ dependencies = [
     "pydantic-settings>=2.9",
     "structlog>=24.2",
     "uvicorn[standard]>=0.34",
+    "transformers>=4.40",
+    "torch>=2.3",
+    "sentence-transformers>=3.0",
+    "numpy>=1.26",
 ]
 
 [dependency-groups]

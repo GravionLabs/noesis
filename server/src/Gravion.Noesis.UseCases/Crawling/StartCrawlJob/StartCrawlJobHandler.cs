@@ -4,11 +4,11 @@ using Ardalis.Result;
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
 
-using Wolverine;
+using MassTransit;
 
 namespace Gravion.Noesis.UseCases.Crawling.StartCrawlJob;
 
-public class StartCrawlJobHandler(IJobRepository jobs, ISourceRepository sources, IMessageBus bus)
+public class StartCrawlJobHandler(IJobRepository jobs, ISourceRepository sources, IPublishEndpoint publishEndpoint)
 {
     public async Task<Result<StartCrawlJobResult>> Handle(StartCrawlJobCommand cmd, CancellationToken ct)
     {
@@ -26,7 +26,7 @@ public class StartCrawlJobHandler(IJobRepository jobs, ISourceRepository sources
         };
         await jobs.AddAsync(job, ct);
 
-        await bus.PublishAsync(new StartImportSaga(job.Id, cmd.SourceId, source.Url, source.ImporterType));
+        await publishEndpoint.Publish(new StartImportSaga(job.Id, cmd.SourceId, source.Url, source.ImporterType), ct);
 
         return new StartCrawlJobResult(job.Id);
     }

@@ -8,8 +8,6 @@ using Gravion.Noesis.UseCases.Sources.CreateSource;
 using Gravion.Noesis.UseCases.Sources.DeleteSource;
 using Gravion.Noesis.UseCases.Sources.ListSources;
 
-using Wolverine;
-
 namespace Gravion.Noesis.Server.Endpoints.Sources;
 
 public class SourcesEndpoints : ICarterModule
@@ -19,9 +17,9 @@ public class SourcesEndpoints : ICarterModule
         var group = app.MapGroup("/api/sources").WithTags("Sources");
 
         group.MapGet("/",
-            async (IMessageBus bus) =>
+            async (ListSourcesHandler handler) =>
             {
-                var result = await bus.InvokeAsync<Result<List<Source>>>(new ListSourcesQuery());
+                var result = await handler.Handle(new ListSourcesQuery(), CancellationToken.None);
                 return Results.Ok(result.Value.Select(s => new SourceResponse(
                     s.Id,
                     s.Name,
@@ -33,10 +31,10 @@ public class SourcesEndpoints : ICarterModule
             });
 
         group.MapPost("/",
-            async (CreateSourceRequest req, IMessageBus bus) =>
+            async (CreateSourceRequest req, CreateSourceHandler handler) =>
             {
                 var cmd = new CreateSourceCommand(req.Name, req.Url, req.ImporterType, req.Config, req.Schedule);
-                var result = await bus.InvokeAsync<Result<Source>>(cmd);
+                var result = await handler.Handle(cmd, CancellationToken.None);
                 if (!result.IsSuccess)
                     return Results.BadRequest(result.Errors);
                 var source = result.Value;
@@ -52,16 +50,16 @@ public class SourcesEndpoints : ICarterModule
             });
 
         group.MapDelete("/{id:guid}",
-            async (Guid id, IMessageBus bus) =>
+            async (Guid id, DeleteSourceHandler handler) =>
             {
-                await bus.InvokeAsync<Result>(new DeleteSourceCommand(id));
+                await handler.Handle(new DeleteSourceCommand(id), CancellationToken.None);
                 return Results.NoContent();
             });
 
         group.MapPost("/{id:guid}/import",
-            async (Guid id, IMessageBus bus) =>
+            async (Guid id, TriggerImportHandler handler) =>
             {
-                var result = await bus.InvokeAsync<Result<TriggerImportResult>>(new TriggerImportCommand(id));
+                var result = await handler.Handle(new TriggerImportCommand(id), CancellationToken.None);
                 if (result.Status == ResultStatus.NotFound)
                     return Results.NotFound();
                 return Results.Accepted($"/api/jobs/{result.Value.JobId}",

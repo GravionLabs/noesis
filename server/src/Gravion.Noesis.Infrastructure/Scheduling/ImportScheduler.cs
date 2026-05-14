@@ -1,7 +1,7 @@
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.UseCases.Import.TriggerImport;
 
-using Wolverine;
+using MassTransit;
 
 namespace Gravion.Noesis.Infrastructure.Scheduling;
 
@@ -9,7 +9,7 @@ namespace Gravion.Noesis.Infrastructure.Scheduling;
 ///     Hangfire job class for running scheduled imports.
 ///     Hangfire resolves this via DI, so all dependencies are injected.
 /// </summary>
-public class ImportScheduler(IMessageBus bus, ISourceRepository sources)
+public class ImportScheduler(IPublishEndpoint publishEndpoint, ISourceRepository sources)
 {
     public async Task RunImportAsync(Guid sourceId)
     {
@@ -17,6 +17,6 @@ public class ImportScheduler(IMessageBus bus, ISourceRepository sources)
         if (source is null || !source.Enabled)
             return;
 
-        await bus.InvokeAsync(new TriggerImportCommand(sourceId));
+        await publishEndpoint.Publish(new TriggerImportCommand(sourceId));
     }
 }

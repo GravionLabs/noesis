@@ -2,7 +2,7 @@
   <ItemGroup>
     <PackageReference Include="Ardalis.GuardClauses"/>
     <PackageReference Include="Ardalis.Result"/>
-    <PackageReference Include="WolverineFx"/>
+    <PackageReference Include="MassTransit"/>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Gravion.Noesis.Core\Gravion.Noesis.Core.csproj"/>

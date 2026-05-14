@@ -188,6 +188,16 @@ curl http://localhost:5000/api/jobs/<jobId>
 # pending → running → embedding → done
 ```
 
+### Ollama embeddings
+
+To run the same Angular import with local Ollama embeddings, start Ollama, pull an embedding model such as `nomic-embed-text`, and restart the embedder with:
+
+```bash
+export EMBEDDING_PROVIDER=ollama
+export EMBEDDING_MODEL=nomic-embed-text
+export OLLAMA_URL=http://localhost:11434
+```
+
 ---
 
 ## MCP Tools

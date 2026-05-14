@@ -1,24 +1,26 @@
 using Carter;
 
 using Gravion.Noesis.Core.Events;
+using Gravion.Noesis.Core.Settings;
 using Gravion.Noesis.Infrastructure;
+using Gravion.Noesis.Infrastructure.Data;
+using Gravion.Noesis.UseCases.Crawling;
 using Gravion.Noesis.UseCases.Sources.CreateSource;
 
 using Hangfire;
 using Hangfire.PostgreSql;
 
-using Scalar.AspNetCore;
+using MassTransit;
 
-using Wolverine;
-using Wolverine.EntityFrameworkCore;
-using Wolverine.Postgresql;
-using Wolverine.RabbitMQ;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-var connectionString = builder.Configuration.GetConnectionString("noesis")!;
+var dbSettings = builder.Configuration.GetSection(DbSettings.SectionName).Get<DbSettings>() ?? new DbSettings();
+var rabbitMqSettings = builder.Configuration.GetSection(RabbitMqSettings.SectionName).Get<RabbitMqSettings>() ?? new RabbitMqSettings();
+var connectionString = dbSettings.BuildConnectionString();
 
 builder.Services.AddOpenApi();
 builder.Services.AddCarter();
@@ -39,31 +41,34 @@ builder.Services
     .WithHttpTransport()
     .WithToolsFromAssembly();
 
-builder.Host.UseWolverine(opts =>
+// MassTransit configuration
+builder.Services.AddMassTransit(x =>
 {
-    opts.PersistMessagesWithPostgresql(connectionString, "public")
-        .EnableMessageTransport();
-
-    opts.UseRabbitMq(rabbit =>
+    // Register saga state machine with EF Core persistence
+    x.AddSagaStateMachine<ImportJobStateMachine, ImportJobState>()
+        .EntityFrameworkRepository(r =>
         {
-            rabbit.HostName = builder.Configuration["RabbitMq:Host"] ?? "localhost";
-            if (int.TryParse(builder.Configuration["RabbitMq:Port"], out var port))
-                rabbit.Port = port;
-        })
-        .AutoProvision();
+            r.ExistingDbContext<AppDbContext>();
+        });
 
-    // Outbound: server → crawler / embedder
-    opts.PublishMessage<StartCrawlJob>().ToRabbitQueue("noesis.start-crawl-job");
-    opts.PublishMessage<StartEmbedJob>().ToRabbitQueue("noesis.start-embed-job");
+    x.AddConsumers(typeof(CreateSourceHandler).Assembly);
 
-    // Inbound: crawler / embedder → server (saga handlers)
-    // DefaultIncomingMessage tells Wolverine which .NET type to deserialize from each queue,
-    // so Python/Node don't need to set a message-type header.
-    opts.ListenToRabbitQueue("noesis.crawl-completed").DefaultIncomingMessage<CrawlCompleted>();
-    opts.ListenToRabbitQueue("noesis.embed-completed").DefaultIncomingMessage<EmbedCompleted>();
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host(new Uri($"rabbitmq://{rabbitMqSettings.Host}:{rabbitMqSettings.Port}/"));
 
-    opts.UseEntityFrameworkCoreTransactions();
-    opts.Discovery.IncludeAssembly(typeof(CreateSourceHandler).Assembly);
+        cfg.ReceiveEndpoint("noesis.crawl-completed", e =>
+        {
+            e.ConfigureConsumer<Gravion.Noesis.UseCases.Crawling.CrawlCompletedConsumer>(context);
+        });
+
+        cfg.ReceiveEndpoint("noesis.embed-completed", e =>
+        {
+            e.ConfigureConsumer<Gravion.Noesis.UseCases.Crawling.EmbedCompletedConsumer>(context);
+        });
+
+        cfg.ConfigureEndpoints(context);
+    });
 });
 
 var app = builder.Build();

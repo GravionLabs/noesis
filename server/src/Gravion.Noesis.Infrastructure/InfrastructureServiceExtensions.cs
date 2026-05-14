@@ -1,4 +1,5 @@
 using Gravion.Noesis.Core.Abstractions;
+using Gravion.Noesis.Core.Settings;
 using Gravion.Noesis.Infrastructure.Clients;
 using Gravion.Noesis.Infrastructure.Data;
 using Gravion.Noesis.Infrastructure.Data.Repositories;
@@ -8,6 +9,7 @@ using Gravion.Noesis.Infrastructure.Scheduling;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Gravion.Noesis.Infrastructure;
 
@@ -15,10 +17,16 @@ public static class InfrastructureServiceExtensions
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("noesis")!;
+        services.Configure<DbSettings>(configuration.GetSection(DbSettings.SectionName));
+        services.Configure<RabbitMqSettings>(configuration.GetSection(RabbitMqSettings.SectionName));
+        services.Configure<ServicesSettings>(configuration.GetSection(ServicesSettings.SectionName));
+        services.Configure<OllamaSettings>(configuration.GetSection(OllamaSettings.SectionName));
 
-        services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(connectionString, o => o.UseVector()));
+        services.AddDbContext<AppDbContext>((sp, options) =>
+        {
+            var dbSettings = sp.GetRequiredService<IOptions<DbSettings>>().Value;
+            options.UseNpgsql(dbSettings.BuildConnectionString(), o => o.UseVector());
+        });
 
         // Repositories
         services.AddScoped<ISourceRepository, SourceRepository>();
@@ -27,14 +35,20 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IDocRepository, DocRepository>();
 
         // Synchronous HTTP client for query-time embedding (user-facing, not event-driven)
-        services.AddHttpClient<IEmbedQueryClient, EmbedQueryHttpClient>(client =>
-            client.BaseAddress = new Uri(configuration["Services:EmbedderUrl"] ?? "http://embedder:8000"));
+        services.AddHttpClient<IEmbedQueryClient, EmbedQueryHttpClient>((sp, client) =>
+        {
+            var servicesSettings = sp.GetRequiredService<IOptions<ServicesSettings>>().Value;
+            client.BaseAddress = new Uri(servicesSettings.EmbedderUrl);
+        });
 
         // Named HttpClient for importers that fetch remote content directly
         services.AddHttpClient<LlmsTxtImporter>();
         services.AddHttpClient<LlmsMetaTxtImporter>();
-        services.AddHttpClient<LlmsTxtCrawlImporter>(client =>
-            client.BaseAddress = new Uri(configuration["Services:CrawlerUrl"] ?? "http://crawler:3000"));
+        services.AddHttpClient<LlmsTxtCrawlImporter>((sp, client) =>
+        {
+            var servicesSettings = sp.GetRequiredService<IOptions<ServicesSettings>>().Value;
+            client.BaseAddress = new Uri(servicesSettings.CrawlerUrl);
+        });
         services.AddHttpClient<NpmReadmeImporter>();
         services.AddHttpClient<OpenApiImporter>();
 

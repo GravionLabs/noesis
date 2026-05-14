@@ -6,9 +6,9 @@ using Gravion.Noesis.Core.Entities;
 using Gravion.Noesis.Core.Events;
 using Gravion.Noesis.Core.Models;
 
-using Microsoft.Extensions.Logging;
+using MassTransit;
 
-using Wolverine;
+using Microsoft.Extensions.Logging;
 
 namespace Gravion.Noesis.Infrastructure.Importers;
 
@@ -16,9 +16,9 @@ namespace Gravion.Noesis.Infrastructure.Importers;
 ///     Delegates crawling to the external Node.js Playwright crawler service.
 ///     Returns WaitForCallback=true because the crawler publishes CrawlCompleted to RabbitMQ when done.
 /// </summary>
-public class CrawlerImporter(IMessageBus bus, ILogger<CrawlerImporter> logger) : IImporter
+public class CrawlerImporter(IPublishEndpoint publishEndpoint, ILogger<CrawlerImporter> logger) : IImporter
 {
-    private readonly IMessageBus _bus = Guard.Against.Null(bus);
+    private readonly IPublishEndpoint _publishEndpoint = Guard.Against.Null(publishEndpoint);
     private readonly ILogger<CrawlerImporter> _logger = Guard.Against.Null(logger);
 
     public string ImporterType => "crawler";
@@ -30,7 +30,7 @@ public class CrawlerImporter(IMessageBus bus, ILogger<CrawlerImporter> logger) :
 
         _logger.LogInformation("Publishing StartCrawlJob for source {SourceId}", source.Id);
 
-        await _bus.PublishAsync(new StartCrawlJob(context.JobId, source.Id, source.Url, source.ImporterType));
+        await _publishEndpoint.Publish(new StartCrawlJob(context.JobId, source.Id, source.Url, source.ImporterType), ct);
 
         // The crawler is async — it will publish CrawlCompleted to RabbitMQ when done
         return new ImportResult(true, 0, 0, WaitForCallback: true);

@@ -11,6 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Gravion.Noesis.Core\Gravion.Noesis.Core.csproj" IsAspireProjectResource="false" />
     <ProjectReference Include="..\Gravion.Noesis.Server\Gravion.Noesis.Server.csproj"/>
     <ProjectReference Include="..\Gravion.Noesis.Migrator\Gravion.Noesis.Migrator.csproj"/>
   </ItemGroup>

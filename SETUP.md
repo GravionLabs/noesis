@@ -87,6 +87,23 @@ curl http://localhost:5000/api/jobs/{jobId}
 # Watch status progress: pending → running → embedding → done
 ```
 
+### 4. Run the same import with Ollama embeddings
+
+```bash
+# Start Ollama and fetch an embedding model
+ollama serve &
+ollama pull nomic-embed-text
+
+# Point the embedder at Ollama
+export EMBEDDING_PROVIDER=ollama
+export EMBEDDING_MODEL=nomic-embed-text
+export OLLAMA_URL=http://localhost:11434
+
+# Restart the embedder (or AppHost, if you use it)
+```
+
+When using `docker compose`, the embedder container can reach the host Ollama service via `host.docker.internal`.
+
 ---
 
 ## Alternative: All Services via AppHost
@@ -373,4 +390,3 @@ See:
 - [`README.md`](README.md) — Architecture, importers, MCP tools
 - [`AGENTS.md`](AGENTS.md) — Full endpoint reference, environment variables
 - [`infra/README.md`](infra/README.md) — Kubernetes / Helm deployment
-

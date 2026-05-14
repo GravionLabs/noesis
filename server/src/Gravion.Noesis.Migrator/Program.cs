@@ -1,4 +1,5 @@
-﻿using Gravion.Noesis.Infrastructure.Data;
+using Gravion.Noesis.Infrastructure.Data;
+using Gravion.Noesis.Core.Settings;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -31,11 +32,14 @@ builder.Services.AddSerilog((_, loggerConfiguration) =>
         loggerConfiguration.WriteTo.Seq(seqUrl);
 });
 
-var connectionString = builder.Configuration.GetConnectionString("noesis")
-                       ?? "Host=localhost;Port=5442;Database=noesis;Username=noesis;Password=noesis_dev";
+var dbSettings = builder.Configuration.GetSection(DbSettings.SectionName).Get<DbSettings>();
+var connectionString = builder.Configuration.GetConnectionString("noesis");
+var effectiveConnectionString = dbSettings?.BuildConnectionString()
+                               ?? connectionString
+                               ?? new DbSettings().BuildConnectionString();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString, o => o.UseVector()));
+    options.UseNpgsql(effectiveConnectionString, o => o.UseVector()));
 
 var host = builder.Build();
 using var scope = host.Services.CreateScope();

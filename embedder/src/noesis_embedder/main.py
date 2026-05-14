@@ -15,6 +15,7 @@ from pydantic_settings import BaseSettings
 from noesis_embedder.events import EmbedCompleted, StartEmbedJob
 from noesis_embedder.logging.logging import setup_logging
 from noesis_embedder.messages import Consumer, MessageBroker, setup_consumers
+from noesis_embedder.routes.repo_analyzer_routes import router as repo_analyzer_router
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -220,3 +221,7 @@ async def embed_query(req: EmbedQueryRequest):
     """Embed a single query string synchronously for search-time use."""
     vector = await embed_single(req.text)
     return {"vector": vector}
+
+
+# Include repo analyzer routes
+app.include_router(repo_analyzer_router)

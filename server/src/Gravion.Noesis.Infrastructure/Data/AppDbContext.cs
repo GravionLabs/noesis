@@ -1,4 +1,5 @@
 using Gravion.Noesis.Core.Entities;
+using Gravion.Noesis.UseCases.Crawling;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -14,6 +15,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Chunk> Chunks => Set<Chunk>();
     public DbSet<Embedding> Embeddings => Set<Embedding>();
     public DbSet<Job> Jobs => Set<Job>();
+    public DbSet<ImportJobState> ImportJobStates => Set<ImportJobState>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -108,6 +110,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.CreatedAt).HasColumnName("created_at");
             e.HasOne(x => x.Source).WithMany(x => x.Jobs).HasForeignKey(x => x.SourceId).IsRequired(false);
             e.HasIndex(x => x.Status);
+        });
+
+        model.Entity<ImportJobState>(e =>
+        {
+            e.ToTable("import_job_states");
+            e.HasKey(x => x.CorrelationId);
+            e.Property(x => x.CorrelationId).HasColumnName("correlation_id");
+            e.Property(x => x.JobId).HasColumnName("job_id");
+            e.Property(x => x.SourceId).HasColumnName("source_id");
+            e.Property(x => x.ImporterType).HasColumnName("importer_type");
+            e.Property(x => x.CurrentState).HasColumnName("current_state");
+            e.Property(x => x.DocCount).HasColumnName("doc_count");
+            e.Property(x => x.ChunkCount).HasColumnName("chunk_count");
+            e.Property(x => x.StartedAt).HasColumnName("started_at");
+            e.HasIndex(x => x.JobId).IsUnique();
         });
     }
 

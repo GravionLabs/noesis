@@ -1,6 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <PackageReference Include="Hangfire.PostgreSql"/>
+    <PackageReference Include="MassTransit"/>
+    <PackageReference Include="MassTransit.RabbitMQ"/>
+    <PackageReference Include="MassTransit.EntityFrameworkCore"/>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -8,9 +11,6 @@
     <PackageReference Include="Microsoft.Extensions.Http"/>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL"/>
     <PackageReference Include="Pgvector.EntityFrameworkCore"/>
-    <PackageReference Include="WolverineFx.Postgresql"/>
-    <PackageReference Include="WolverineFx.EntityFrameworkCore"/>
-    <PackageReference Include="WolverineFx.RabbitMQ"/>
   </ItemGroup>
 
   <ItemGroup>

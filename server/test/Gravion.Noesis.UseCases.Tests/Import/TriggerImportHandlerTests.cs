@@ -7,16 +7,16 @@ using Gravion.Noesis.Core.Entities;
 using Gravion.Noesis.UseCases.Crawling;
 using Gravion.Noesis.UseCases.Import.TriggerImport;
 
-using NSubstitute;
+using MassTransit;
 
-using Wolverine;
+using NSubstitute;
 
 namespace Gravion.Noesis.UseCases.Tests.Import;
 
 [TestFixture]
 public class TriggerImportHandlerTests
 {
-    private IMessageBus _bus = null!;
+    private IPublishEndpoint _publishEndpoint = null!;
     private TriggerImportHandler _handler = null!;
     private IJobRepository _jobs = null!;
     private ISourceRepository _sources = null!;
@@ -26,8 +26,8 @@ public class TriggerImportHandlerTests
     {
         _sources = Substitute.For<ISourceRepository>();
         _jobs = Substitute.For<IJobRepository>();
-        _bus = Substitute.For<IMessageBus>();
-        _handler = new TriggerImportHandler(_sources, _jobs, _bus);
+        _publishEndpoint = Substitute.For<IPublishEndpoint>();
+        _handler = new TriggerImportHandler(_sources, _jobs, _publishEndpoint);
     }
 
     [Test]
@@ -47,7 +47,7 @@ public class TriggerImportHandlerTests
             .AddAsync(
                 Arg.Is<Job>(j => j.SourceId == sourceId && j.Type == "import" && j.Status == "pending"),
                 Arg.Any<CancellationToken>());
-        await _bus.Received(1).PublishAsync(Arg.Is<StartImportSaga>(s => s.SourceId == sourceId));
+        await _publishEndpoint.Received(1).Publish(Arg.Is<StartImportSaga>(s => s.SourceId == sourceId), Arg.Any<CancellationToken>());
     }
 
     [Test]
@@ -59,7 +59,7 @@ public class TriggerImportHandlerTests
 
         result.IsSuccess.Should().BeFalse();
         result.Status.Should().Be(ResultStatus.NotFound);
-        await _bus.DidNotReceive().PublishAsync(Arg.Any<object>());
+        await _publishEndpoint.DidNotReceive().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
     }
 
     [Test]

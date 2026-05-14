@@ -5,27 +5,27 @@ using Gravion.Noesis.Core.Events;
 using Gravion.Noesis.Core.Models;
 using Gravion.Noesis.Infrastructure.Importers;
 
+using MassTransit;
+
 using Microsoft.Extensions.Logging;
 
 using NSubstitute;
-
-using Wolverine;
 
 namespace Gravion.Noesis.Infrastructure.Tests.Importers;
 
 [TestFixture]
 public class CrawlerImporterTests
 {
-    private IMessageBus _bus = null!;
+    private IPublishEndpoint _publishEndpoint = null!;
     private CrawlerImporter _importer = null!;
     private ILogger<CrawlerImporter> _logger = null!;
 
     [SetUp]
     public void SetUp()
     {
-        _bus = Substitute.For<IMessageBus>();
+        _publishEndpoint = Substitute.For<IPublishEndpoint>();
         _logger = Substitute.For<ILogger<CrawlerImporter>>();
-        _importer = new CrawlerImporter(_bus, _logger);
+        _importer = new CrawlerImporter(_publishEndpoint, _logger);
     }
 
     [Test]
@@ -42,10 +42,10 @@ public class CrawlerImporterTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.WaitForCallback.Should().BeTrue();
-        await _bus.Received(1).PublishAsync(Arg.Is<StartCrawlJob>(m =>
+        await _publishEndpoint.Received(1).Publish(Arg.Is<StartCrawlJob>(m =>
             m.JobId == jobId &&
             m.SourceId == source.Id &&
             m.Url == source.Url &&
-            m.Type == source.ImporterType));
+            m.Type == source.ImporterType), Arg.Any<CancellationToken>());
     }
 }

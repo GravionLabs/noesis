@@ -1,7 +1,7 @@
 namespace Gravion.Noesis.Core.Events;
 
-public record CrawlCompleted(Guid JobId, Guid SourceId, int DocCount)
+public record CrawlCompleted(Guid JobId, Guid SourceId, int DocCount, int ChunkCount)
 {
-    // Wolverine uses this property to correlate the message to the ImportJobSaga instance
+    // MassTransit uses this property to correlate the message to the saga instance
     public Guid SagaId => JobId;
 }

@@ -6,8 +6,6 @@ using Gravion.Noesis.Core.Entities;
 using Gravion.Noesis.UseCases.Jobs.GetJob;
 using Gravion.Noesis.UseCases.Jobs.ListJobs;
 
-using Wolverine;
-
 namespace Gravion.Noesis.Server.Endpoints.Jobs;
 
 public class JobsEndpoints : ICarterModule
@@ -17,9 +15,9 @@ public class JobsEndpoints : ICarterModule
         var group = app.MapGroup("/api/jobs").WithTags("Jobs");
 
         group.MapGet("/",
-            async (IMessageBus bus) =>
+            async (ListJobsHandler handler) =>
             {
-                var result = await bus.InvokeAsync<Result<List<Job>>>(new ListJobsQuery());
+                var result = await handler.Handle(new ListJobsQuery(), CancellationToken.None);
                 return Results.Ok(result.Value.Select(j => new JobResponse(
                     j.Id,
                     j.SourceId,
@@ -32,9 +30,9 @@ public class JobsEndpoints : ICarterModule
             });
 
         group.MapGet("/{id:guid}",
-            async (Guid id, IMessageBus bus) =>
+            async (Guid id, GetJobHandler handler) =>
             {
-                var result = await bus.InvokeAsync<Result<Job>>(new GetJobQuery(id));
+                var result = await handler.Handle(new GetJobQuery(id), CancellationToken.None);
                 if (result.Status == ResultStatus.NotFound)
                     return Results.NotFound();
                 return Results.Ok(new JobResponse(

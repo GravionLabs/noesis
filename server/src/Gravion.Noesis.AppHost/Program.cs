@@ -1,36 +1,63 @@
 using Projects;
+using Gravion.Noesis.Core.Settings;
+using Microsoft.Extensions.Configuration;
 
 var builder = DistributedApplication.CreateBuilder(args);
 var infraMode = (Environment.GetEnvironmentVariable("APPHOST_INFRA_MODE") ?? "external").ToLowerInvariant();
 var useManagedInfra = infraMode == "managed";
 
+var dbSettings = builder.Configuration.GetSection(DbSettings.SectionName).Get<DbSettings>() ?? new DbSettings();
+var rabbitMqSettings = builder.Configuration.GetSection(RabbitMqSettings.SectionName).Get<RabbitMqSettings>() ?? new RabbitMqSettings();
+var servicesSettings = builder.Configuration.GetSection(ServicesSettings.SectionName).Get<ServicesSettings>() ?? new ServicesSettings();
+var ollamaSettings = builder.Configuration.GetSection(OllamaSettings.SectionName).Get<OllamaSettings>() ?? new OllamaSettings();
+
 // Credentials with two infra modes:
 // - external: uses docker-compose ports
 // - managed: uses dedicated Aspire ports to avoid collisions with compose
-const string pgUser = "noesis";
-const string pgPassword = "noesis_dev";
-const string pgDb = "noesis";
 const int composePgHostPort = 5442;
 const int composeRmqHostPort = 5682;
 const int composeRmqManagementHostPort = 15682;
 const int managedPgHostPort = 5542;
 const int managedRmqHostPort = 5782;
 const int managedRmqManagementHostPort = 16682;
-var pgHostPort = useManagedInfra ? managedPgHostPort : composePgHostPort;
-var rmqHostPort = useManagedInfra ? managedRmqHostPort : composeRmqHostPort;
-var rmqManagementHostPort = useManagedInfra ? managedRmqManagementHostPort : composeRmqManagementHostPort;
+var pgHostPort = useManagedInfra ? managedPgHostPort : dbSettings.Port;
+var rmqHostPort = useManagedInfra ? managedRmqHostPort : rabbitMqSettings.Port;
+var rmqManagementHostPort = useManagedInfra ? managedRmqManagementHostPort : rabbitMqSettings.ManagementPort;
 
 // Connection strings for local executables (use localhost + host-mapped ports)
-var pgCsServer = $"Host=localhost;Port={pgHostPort};Database={pgDb};Username={pgUser};Password={pgPassword}";
-var pgUrlCrawler = $"postgres://{pgUser}:{pgPassword}@localhost:{pgHostPort}/{pgDb}";
-var pgUrlEmbedder = $"postgresql://{pgUser}:{pgPassword}@localhost:{pgHostPort}/{pgDb}";
-var rmqUrl = $"amqp://guest:guest@localhost:{rmqHostPort}/";
+var pgSettings = new DbSettings
+{
+    Host = "localhost",
+    Port = pgHostPort,
+    DatabaseName = dbSettings.DatabaseName,
+    Username = dbSettings.Username,
+    Password = dbSettings.Password
+};
+var rmqSettings = new RabbitMqSettings
+{
+    Host = "localhost",
+    Port = rmqHostPort,
+    Username = rabbitMqSettings.Username,
+    Password = rabbitMqSettings.Password,
+    VirtualHost = rabbitMqSettings.VirtualHost,
+    ManagementPort = rmqManagementHostPort
+};
+var services = new ServicesSettings
+{
+    CrawlerUrl = servicesSettings.CrawlerUrl,
+    EmbedderUrl = servicesSettings.EmbedderUrl
+};
+var ollama = new OllamaSettings
+{
+    Url = ollamaSettings.Url,
+    EmbeddingProvider = ollamaSettings.EmbeddingProvider,
+    EmbeddingModel = ollamaSettings.EmbeddingModel
+};
 
-// Python Embedder (uv run uvicorn ...)
-var openaiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? "";
-var embeddingProvider = Environment.GetEnvironmentVariable("EMBEDDING_PROVIDER") ?? "openai";
-var embeddingModel = Environment.GetEnvironmentVariable("EMBEDDING_MODEL") ?? "text-embedding-3-small";
-var ollamaUrl = Environment.GetEnvironmentVariable("OLLAMA_URL") ?? "http://localhost:11434";
+var pgCsServer = pgSettings.BuildConnectionString();
+var pgUrlCrawler = $"postgres://{pgSettings.Username}:{pgSettings.Password}@localhost:{pgHostPort}/{pgSettings.DatabaseName}";
+var pgUrlEmbedder = $"postgresql://{pgSettings.Username}:{pgSettings.Password}@localhost:{pgHostPort}/{pgSettings.DatabaseName}";
+var rmqUrl = $"amqp://{rmqSettings.Username}:{rmqSettings.Password}@localhost:{rmqHostPort}/";
 
 if (useManagedInfra)
 {
@@ -38,15 +65,15 @@ if (useManagedInfra)
     var postgres = builder.AddPostgres("postgres", port: pgHostPort)
         .WithDataVolume("noesis-postgres-data")
         .WithImage("pgvector/pgvector", "pg18")
-        .WithEnvironment("POSTGRES_USER", pgUser)
-        .WithEnvironment("POSTGRES_PASSWORD", pgPassword)
-        .WithEnvironment("POSTGRES_DB", pgDb);
+        .WithEnvironment("POSTGRES_USER", dbSettings.Username)
+        .WithEnvironment("POSTGRES_PASSWORD", dbSettings.Password)
+        .WithEnvironment("POSTGRES_DB", dbSettings.DatabaseName);
 
-    _ = postgres.AddDatabase(pgDb);
+    _ = postgres.AddDatabase(dbSettings.DatabaseName);
 
     // RabbitMQ — managed by Aspire
-    var rmqUser = builder.AddParameter("rmq-user", "guest", secret: false);
-    var rmqPass = builder.AddParameter("rmq-pass", "guest", secret: false);
+    var rmqUser = builder.AddParameter("rmq-user", rabbitMqSettings.Username, secret: false);
+    var rmqPass = builder.AddParameter("rmq-pass", rabbitMqSettings.Password, secret: false);
     var rabbitmq = builder.AddRabbitMQ("rabbitmq", rmqUser, rmqPass, port: rmqHostPort)
         .WithImage("rabbitmq", "management-alpine")
         .WithEndpoint(name: "management", port: rmqManagementHostPort, targetPort: 15672);
@@ -57,8 +84,18 @@ if (useManagedInfra)
 
     builder.AddProject<Gravion_Noesis_Server>("server")
         .WithEnvironment("ConnectionStrings__noesis", pgCsServer)
-        .WithEnvironment("RabbitMq__Host", "localhost")
-        .WithEnvironment("RabbitMq__Port", rmqHostPort.ToString())
+        .WithEnvironment("DbSettings__Host", pgSettings.Host)
+        .WithEnvironment("DbSettings__Port", pgSettings.Port.ToString())
+        .WithEnvironment("DbSettings__DatabaseName", pgSettings.DatabaseName)
+        .WithEnvironment("DbSettings__Username", pgSettings.Username)
+        .WithEnvironment("DbSettings__Password", pgSettings.Password)
+        .WithEnvironment("RabbitMqSettings__Host", rmqSettings.Host)
+        .WithEnvironment("RabbitMqSettings__Port", rmqSettings.Port.ToString())
+        .WithEnvironment("RabbitMqSettings__Username", rmqSettings.Username)
+        .WithEnvironment("RabbitMqSettings__Password", rmqSettings.Password)
+        .WithEnvironment("RabbitMqSettings__ManagementPort", rmqSettings.ManagementPort.ToString())
+        .WithEnvironment("Services__CrawlerUrl", services.CrawlerUrl)
+        .WithEnvironment("Services__EmbedderUrl", services.EmbedderUrl)
         .WaitFor(migrator)
         .WaitFor(rabbitmq);
 
@@ -83,10 +120,9 @@ if (useManagedInfra)
             "--reload")
         .WithEnvironment("DATABASE_URL", pgUrlEmbedder)
         .WithEnvironment("RABBITMQ_URL", rmqUrl)
-        .WithEnvironment("EMBEDDING_PROVIDER", embeddingProvider)
-        .WithEnvironment("EMBEDDING_MODEL", embeddingModel)
-        .WithEnvironment("OPENAI_API_KEY", openaiKey)
-        .WithEnvironment("OLLAMA_URL", ollamaUrl)
+        .WithEnvironment("EMBEDDING_PROVIDER", ollama.EmbeddingProvider)
+        .WithEnvironment("EMBEDDING_MODEL", ollama.EmbeddingModel)
+        .WithEnvironment("OLLAMA_URL", ollama.Url)
         .WithHttpEndpoint(port: 8000)
         .WaitFor(postgres)
         .WaitFor(rabbitmq);
@@ -99,8 +135,18 @@ else
 
     builder.AddProject<Gravion_Noesis_Server>("server")
         .WithEnvironment("ConnectionStrings__noesis", pgCsServer)
-        .WithEnvironment("RabbitMq__Host", "localhost")
-        .WithEnvironment("RabbitMq__Port", rmqHostPort.ToString())
+        .WithEnvironment("DbSettings__Host", pgSettings.Host)
+        .WithEnvironment("DbSettings__Port", pgSettings.Port.ToString())
+        .WithEnvironment("DbSettings__DatabaseName", pgSettings.DatabaseName)
+        .WithEnvironment("DbSettings__Username", pgSettings.Username)
+        .WithEnvironment("DbSettings__Password", pgSettings.Password)
+        .WithEnvironment("RabbitMqSettings__Host", rmqSettings.Host)
+        .WithEnvironment("RabbitMqSettings__Port", rmqSettings.Port.ToString())
+        .WithEnvironment("RabbitMqSettings__Username", rmqSettings.Username)
+        .WithEnvironment("RabbitMqSettings__Password", rmqSettings.Password)
+        .WithEnvironment("RabbitMqSettings__ManagementPort", rmqSettings.ManagementPort.ToString())
+        .WithEnvironment("Services__CrawlerUrl", services.CrawlerUrl)
+        .WithEnvironment("Services__EmbedderUrl", services.EmbedderUrl)
         .WaitFor(migrator);
 
     builder.AddExecutable("crawler", "npm", "../../../crawler", "run", "dev")
@@ -122,10 +168,9 @@ else
         "--reload")
     .WithEnvironment("DATABASE_URL", pgUrlEmbedder)
     .WithEnvironment("RABBITMQ_URL", rmqUrl)
-    .WithEnvironment("EMBEDDING_PROVIDER", embeddingProvider)
-    .WithEnvironment("EMBEDDING_MODEL", embeddingModel)
-    .WithEnvironment("OPENAI_API_KEY", openaiKey)
-    .WithEnvironment("OLLAMA_URL", ollamaUrl)
+    .WithEnvironment("EMBEDDING_PROVIDER", ollama.EmbeddingProvider)
+    .WithEnvironment("EMBEDDING_MODEL", ollama.EmbeddingModel)
+    .WithEnvironment("OLLAMA_URL", ollama.Url)
     .WithHttpEndpoint(port: 8000);
 }
 
