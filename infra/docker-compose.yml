@@ -67,10 +67,15 @@ services:
     environment:
       DATABASE_URL: "postgresql://noesis:noesis_dev@postgres:5432/noesis"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+      # Provider options: openai | ollama | huggingface
       EMBEDDING_PROVIDER: "${EMBEDDING_PROVIDER:-openai}"
       EMBEDDING_MODEL: "${EMBEDDING_MODEL:-text-embedding-3-small}"
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       OLLAMA_URL: "${OLLAMA_URL:-http://host.docker.internal:11434}"
+      # HuggingFace model cache — avoids re-downloading on container restart
+      HF_HOME: "/app/.hf_cache"
+    volumes:
+      - hf_model_cache:/app/.hf_cache
     ports:
       - "8000:8000"
     depends_on:
@@ -81,3 +86,4 @@ services:
 
 volumes:
   postgres_data:
+  hf_model_cache:

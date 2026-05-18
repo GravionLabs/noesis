@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -15,6 +16,7 @@ from pydantic_settings import BaseSettings
 from noesis_embedder.events import EmbedCompleted, StartEmbedJob
 from noesis_embedder.logging.logging import setup_logging
 from noesis_embedder.messages import Consumer, MessageBroker, setup_consumers
+from noesis_embedder.providers import huggingface as hf_provider
 from noesis_embedder.routes.repo_analyzer_routes import router as repo_analyzer_router
 
 setup_logging()
@@ -26,8 +28,9 @@ class Settings(BaseSettings):
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
     openai_api_key: str = ""
     ollama_url: str = "http://localhost:11434"
-    embedding_provider: Literal["openai", "ollama"] = "openai"
+    embedding_provider: Literal["openai", "ollama", "huggingface"] = "openai"
     embedding_model: str = "text-embedding-3-small"
+    # Used as fallback for openai/ollama — auto-detected for huggingface.
     embedding_dimensions: int = 1536
 
     class Config:
@@ -84,10 +87,23 @@ async def embed_ollama(texts: list[str]) -> list[list[float]]:
     return vectors
 
 
+async def embed_huggingface(texts: list[str]) -> list[list[float]]:
+    return await hf_provider.embed(texts, settings.embedding_model)
+
+
 async def embed(texts: list[str]) -> list[list[float]]:
     if settings.embedding_provider == "ollama":
         return await embed_ollama(texts)
+    if settings.embedding_provider == "huggingface":
+        return await embed_huggingface(texts)
     return await embed_openai(texts)
+
+
+def get_embedding_dimensions() -> int:
+    """Return the active embedding dimensions — auto-detected for huggingface."""
+    if settings.embedding_provider == "huggingface":
+        return hf_provider.get_dimensions(settings.embedding_model)
+    return settings.embedding_dimensions
 
 
 async def embed_single(text: str) -> list[float]:
@@ -144,7 +160,7 @@ async def _process_batch(source_id: str | None = None) -> int:
             """INSERT INTO embeddings (chunk_id, model, dimensions, vector)
                VALUES (%s, %s, %s, %s)
                ON CONFLICT (chunk_id, model) DO NOTHING""",
-            (chunk_id, settings.embedding_model, settings.embedding_dimensions, vector),
+            (chunk_id, settings.embedding_model, get_embedding_dimensions(), vector),
         )
 
     conn.commit()
@@ -177,6 +193,10 @@ async def handle_start_embed_job(event: StartEmbedJob) -> None:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    if settings.embedding_provider == "huggingface":
+        # Pre-load model on startup to avoid cold-start on first embed request.
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, hf_provider.get_dimensions, settings.embedding_model)
     try:
         await broker.connect()
         await setup_consumers(broker, consumer)
@@ -199,7 +219,12 @@ class EmbedQueryRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "provider": settings.embedding_provider, "model": settings.embedding_model}
+    return {
+        "status": "ok",
+        "provider": settings.embedding_provider,
+        "model": settings.embedding_model,
+        "dimensions": get_embedding_dimensions(),
+    }
 
 
 @app.post("/embed")
@@ -220,7 +245,7 @@ async def embed_sync(req: EmbedRequest):
 async def embed_query(req: EmbedQueryRequest):
     """Embed a single query string synchronously for search-time use."""
     vector = await embed_single(req.text)
-    return {"vector": vector}
+    return {"vector": vector, "model": settings.embedding_model, "dimensions": get_embedding_dimensions()}
 
 
 # Include repo analyzer routes

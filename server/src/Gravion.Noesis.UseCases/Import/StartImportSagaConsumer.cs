@@ -6,38 +6,26 @@ using MassTransit;
 
 namespace Gravion.Noesis.UseCases.Import;
 
-public class StartImportSagaConsumer : IConsumer<StartImportSaga>
+public class StartImportSagaConsumer(
+    IImporterRegistry importerRegistry,
+    ISourceRepository sources,
+    IJobRepository jobs,
+    IPublishEndpoint publishEndpoint)
+    : IConsumer<StartImportSaga>
 {
-    private readonly IImporterRegistry _importerRegistry;
-    private readonly ISourceRepository _sources;
-    private readonly IJobRepository _jobs;
-    private readonly IPublishEndpoint _publishEndpoint;
-
-    public StartImportSagaConsumer(
-        IImporterRegistry importerRegistry,
-        ISourceRepository sources,
-        IJobRepository jobs,
-        IPublishEndpoint publishEndpoint)
-    {
-        _importerRegistry = importerRegistry;
-        _sources = sources;
-        _jobs = jobs;
-        _publishEndpoint = publishEndpoint;
-    }
-
     public async Task Consume(ConsumeContext<StartImportSaga> context)
     {
         var cmd = context.Message;
 
-        var job = await _jobs.GetByIdAsync(cmd.JobId, context.CancellationToken);
+        var job = await jobs.GetByIdAsync(cmd.JobId, context.CancellationToken);
         if (job is not null)
         {
             job.Status = "running";
             job.StartedAt = DateTime.UtcNow;
-            await _jobs.UpdateAsync(job, context.CancellationToken);
+            await jobs.UpdateAsync(job, context.CancellationToken);
         }
 
-        var source = await _sources.GetByIdAsync(cmd.SourceId, context.CancellationToken);
+        var source = await sources.GetByIdAsync(cmd.SourceId, context.CancellationToken);
         if (source is null)
         {
             await FailJobAsync(cmd.JobId, "Source not found", context.CancellationToken);
@@ -46,7 +34,7 @@ public class StartImportSagaConsumer : IConsumer<StartImportSaga>
 
         try
         {
-            var importer = _importerRegistry.GetImporter(cmd.ImporterType);
+            var importer = importerRegistry.GetImporter(cmd.ImporterType);
             var result = await importer.ImportAsync(source, new ImportContext(cmd.JobId), context.CancellationToken);
 
             if (!result.IsSuccess)
@@ -64,7 +52,7 @@ public class StartImportSagaConsumer : IConsumer<StartImportSaga>
             else
             {
                 // In-process importer completed — trigger embedding
-                await _publishEndpoint.Publish(
+                await publishEndpoint.Publish(
                     new Core.Events.ImportCompleted(cmd.JobId, cmd.SourceId, importData.DocCount, importData.ChunkCount),
                     context.CancellationToken);
             }
@@ -77,12 +65,12 @@ public class StartImportSagaConsumer : IConsumer<StartImportSaga>
 
     private async Task FailJobAsync(Guid jobId, string error, CancellationToken ct)
     {
-        var job = await _jobs.GetByIdAsync(jobId, ct);
+        var job = await jobs.GetByIdAsync(jobId, ct);
         if (job is not null)
         {
             job.Status = "failed";
             job.FinishedAt = DateTime.UtcNow;
-            await _jobs.UpdateAsync(job, ct);
+            await jobs.UpdateAsync(job, ct);
         }
     }
 }

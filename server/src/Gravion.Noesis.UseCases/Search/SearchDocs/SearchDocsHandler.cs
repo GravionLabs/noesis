@@ -12,9 +12,9 @@ public class SearchDocsHandler(IChunkRepository chunks, IEmbedQueryClient embedQ
         Guard.Against.NullOrEmpty(query.Query, nameof(query.Query));
 
         // Try vector similarity search first; fall back to FTS if embedder is unavailable
-        var vector = await embedQuery.EmbedQueryAsync(query.Query, ct);
-        var results = vector is not null
-            ? await chunks.SearchByVectorAsync(vector, query.Limit, query.SourceName, ct)
+        var embedResult = await embedQuery.EmbedQueryAsync(query.Query, ct);
+        var results = embedResult is not null
+            ? await chunks.SearchByVectorAsync(embedResult.Vector, embedResult.Model, query.Limit, query.SourceName, ct)
             : await chunks.SearchByTextAsync(query.Query, query.Limit, query.SourceName, ct);
 
         return new SearchDocsResult(results.Select(c =>

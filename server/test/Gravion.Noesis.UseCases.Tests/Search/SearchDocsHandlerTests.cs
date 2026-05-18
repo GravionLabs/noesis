@@ -22,7 +22,7 @@ public class SearchDocsHandlerTests
         _embedQuery = Substitute.For<IEmbedQueryClient>();
         // Default: embedder unavailable → FTS fallback
         _embedQuery.EmbedQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns((float[]?)null);
+            .Returns((EmbedQueryResult?)null);
         _handler = new SearchDocsHandler(_chunks, _embedQuery);
     }
 
@@ -85,12 +85,13 @@ public class SearchDocsHandlerTests
     public async Task Handle_WhenEmbedderAvailable_UsesVectorSearch()
     {
         var vector = new float[] { 0.1f, 0.2f, 0.3f };
-        _embedQuery.EmbedQueryAsync("DI", Arg.Any<CancellationToken>()).Returns(vector);
-        _chunks.SearchByVectorAsync(vector, 5, null, Arg.Any<CancellationToken>()).Returns([]);
+        var model = "text-embedding-3-small";
+        _embedQuery.EmbedQueryAsync("DI", Arg.Any<CancellationToken>()).Returns(new EmbedQueryResult(vector, model));
+        _chunks.SearchByVectorAsync(vector, model, 5, null, Arg.Any<CancellationToken>()).Returns([]);
 
         await _handler.Handle(new SearchDocsQuery("DI"), CancellationToken.None);
 
-        await _chunks.Received(1).SearchByVectorAsync(vector, 5, null, Arg.Any<CancellationToken>());
+        await _chunks.Received(1).SearchByVectorAsync(vector, model, 5, null, Arg.Any<CancellationToken>());
         await _chunks.DidNotReceive().SearchByTextAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
     }
 }

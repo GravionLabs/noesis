@@ -30,11 +30,12 @@ public class ChunkRepository(AppDbContext db) : IChunkRepository
             .ToListAsync(ct);
     }
 
-    public async Task<List<Chunk>> SearchByVectorAsync(float[] vector, int limit, string? sourceName, CancellationToken ct = default)
+    public async Task<List<Chunk>> SearchByVectorAsync(float[] vector, string model, int limit, string? sourceName, CancellationToken ct = default)
     {
         var pgVector = new Vector(vector);
 
         // Use pgvector cosine distance to find the nearest chunks.
+        // Filter by embedding model to ensure dimension compatibility.
         // EF Core raw SQL is used because EF Core doesn't support vector operators via LINQ.
         var sourceFilter = sourceName is not null
             ? $"AND s.name = '{sourceName.Replace("'", "''")}'"
@@ -44,7 +45,7 @@ public class ChunkRepository(AppDbContext db) : IChunkRepository
             .SqlQuery<Guid>($"""
                 SELECT c.id
                 FROM chunks c
-                JOIN embeddings e ON e.chunk_id = c.id
+                JOIN embeddings e ON e.chunk_id = c.id AND e.model = {model}
                 JOIN docs d       ON d.id = c.doc_id
                 JOIN sources s    ON s.id = d.source_id
                 WHERE true {sourceFilter}

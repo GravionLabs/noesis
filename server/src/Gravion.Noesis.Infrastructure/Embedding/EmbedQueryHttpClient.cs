@@ -8,7 +8,7 @@ namespace Gravion.Noesis.Infrastructure.Clients;
 
 public class EmbedQueryHttpClient(HttpClient http, ILogger<EmbedQueryHttpClient> logger) : IEmbedQueryClient
 {
-    public async Task<float[]?> EmbedQueryAsync(string text, CancellationToken ct = default)
+    public async Task<EmbedQueryResult?> EmbedQueryAsync(string text, CancellationToken ct = default)
     {
         try
         {
@@ -21,7 +21,7 @@ public class EmbedQueryHttpClient(HttpClient http, ILogger<EmbedQueryHttpClient>
             }
 
             var result = await response.Content.ReadFromJsonAsync<EmbedQueryResponse>(ct);
-            return result?.Vector;
+            return result is null ? null : new EmbedQueryResult(result.Vector, result.Model);
         }
         catch (Exception ex)
         {
@@ -30,5 +30,5 @@ public class EmbedQueryHttpClient(HttpClient http, ILogger<EmbedQueryHttpClient>
         }
     }
 
-    private sealed record EmbedQueryResponse(float[] Vector);
+    private sealed record EmbedQueryResponse(float[] Vector, string Model);
 }
