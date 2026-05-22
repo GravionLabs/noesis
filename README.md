@@ -40,7 +40,7 @@ noesis/
 ├── server/    .NET 10 — MCP server, REST API, import orchestration (Wolverine Saga)
 ├── crawler/   Node.js/TypeScript — Playwright crawler + llms-full.txt ingest
 ├── embedder/  Python (uv) — embedding pipeline (OpenAI, Ollama)
-└── infra/     Docker Compose (Podman-compatible) + Helm chart
+└── infra/     Docker Compose + Helm chart
 ```
 
 ---
@@ -49,7 +49,7 @@ noesis/
 
 ### Prerequisites
 
-- Podman (or Docker) + Compose
+- Docker Desktop (macOS/Windows) or Docker Engine + Compose (Linux)
 - .NET 10 SDK
 - Node.js 20+
 - Python 3.12+ with [uv](https://docs.astral.sh/uv/)
@@ -59,8 +59,9 @@ noesis/
 Start all services (Postgres, RabbitMQ, Migrator, Crawler, Embedder) with:
 
 ```bash
-# Linux with Podman: enable socket once
-sudo systemctl enable --now podman.socket
+# Verify Docker is available
+docker --version
+docker compose version
 
 # Start all infrastructure services
 docker compose -f infra/docker-compose.yml up -d
@@ -236,5 +237,5 @@ All tools are **read-only** and **idempotent**.
 | Document | Description |
 |---|---|
 | [`AGENTS.md`](AGENTS.md) | Full architecture, all endpoints, environment variables, pipeline flow |
-| [`infra/README.md`](infra/README.md) | Port reference, connection strings, Podman setup |
+| [`infra/README.md`](infra/README.md) | Port reference, connection strings, Docker setup |
 | [`ROADMAP.md`](ROADMAP.md) | Planned features, migration strategies, import source roadmap |

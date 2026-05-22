@@ -7,17 +7,16 @@ inter-service communication, and how to bootstrap the first use case (Angular do
 
 ## Prerequisites / Local Setup
 
-### Podman as Docker Backend (Linux)
-
-The `docker` CLI is a Podman emulator. Enable the system-level Podman socket **once**:
+### Docker setup
 
 ```bash
-sudo systemctl enable --now podman.socket
+docker --version
+docker compose version
+docker info
 ```
 
-Verify: `docker info` — should show Podman info without errors.
-
-**Alternative (rootless):** `systemctl --user enable --now podman.socket` + `export DOCKER_HOST="unix:///run/user/$(id -u)/podman/podman.sock"`
+Use Docker Desktop on macOS/Windows or Docker Engine + Compose plugin on Linux.
+Ensure the Docker daemon is running before starting the stack.
 
 ### Start the dev stack
 

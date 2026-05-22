@@ -8,6 +8,7 @@
     </Folder>
     <Folder Name="/infra/">
         <File Path="../infra/docker-compose.yml" />
+        <File Path="..\infra\build.sh" />
     </Folder>
     <Folder Name="/src/">
         <Project Path="src/Gravion.Noesis.AppHost/Gravion.Noesis.AppHost.csproj" />

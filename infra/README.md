@@ -6,27 +6,16 @@ Local infrastructure for development: Postgres with pgvector, RabbitMQ, and the 
 
 ## Prerequisites
 
-### Podman (Linux)
-
-The `docker` CLI on this machine is a Podman emulator. Before running `docker compose`,
-the system-level Podman socket must be active:
+### Docker
 
 ```bash
-sudo systemctl enable --now podman.socket
+docker --version
+docker compose version
+docker info
 ```
 
-This only needs to be done once. Verify with:
-
-```bash
-docker info   # should show Podman info, no error
-```
-
-**Alternative (rootless, per session):**
-
-```bash
-systemctl --user enable --now podman.socket
-export DOCKER_HOST="unix:///run/user/$(id -u)/podman/podman.sock"
-```
+Use Docker Desktop on macOS/Windows or Docker Engine + Compose plugin on Linux.
+Ensure the Docker daemon is running before executing `docker compose`.
 
 ---
 

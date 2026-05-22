@@ -11,8 +11,9 @@ This is the fastest way to get everything running for testing.
 ### Prerequisites
 
 ```bash
-# Podman (or Docker)
-sudo systemctl enable --now podman.socket
+# Docker Desktop (macOS/Windows) or Docker Engine (Linux)
+docker --version
+docker compose version
 
 # .NET 10 SDK
 dotnet --version  # Should show 10.x.x
