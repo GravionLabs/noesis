@@ -1,7 +1,5 @@
 using Ardalis.Result;
 
-using FluentAssertions;
-
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
 using Gravion.Noesis.UseCases.Chunks.GetChunk;
@@ -44,13 +42,13 @@ public class GetChunkHandlerTests
 
         var result = await _handler.Handle(new GetChunkQuery(chunkId), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
-        result.Value.Id.Should().Be(chunkId);
-        result.Value.Content.Should().Be("Some important content");
-        result.Value.Heading.Should().Be("Introduction");
-        result.Value.SourceName.Should().Be("Test Source");
-        result.Value.DocUrl.Should().Be("https://example.com/doc");
-        result.Value.ChunkIndex.Should().Be(2);
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Id.ShouldBe(chunkId);
+        result.Value.Content.ShouldBe("Some important content");
+        result.Value.Heading.ShouldBe("Introduction");
+        result.Value.SourceName.ShouldBe("Test Source");
+        result.Value.DocUrl.ShouldBe("https://example.com/doc");
+        result.Value.ChunkIndex.ShouldBe(2);
     }
 
     [Test]
@@ -60,8 +58,8 @@ public class GetChunkHandlerTests
 
         var result = await _handler.Handle(new GetChunkQuery(Guid.NewGuid()), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.Status.Should().Be(ResultStatus.NotFound);
+        result.IsSuccess.ShouldBeFalse();
+        result.Status.ShouldBe(ResultStatus.NotFound);
     }
 
     [Test]
@@ -69,6 +67,6 @@ public class GetChunkHandlerTests
     {
         var act = async () => await _handler.Handle(new GetChunkQuery(Guid.Empty), CancellationToken.None);
 
-        act.Should().ThrowAsync<ArgumentException>();
+        Should.Throw<ArgumentException>(() => act().GetAwaiter().GetResult());
     }
 }

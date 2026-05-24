@@ -1,7 +1,5 @@
 using Ardalis.Result;
 
-using FluentAssertions;
-
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
 using Gravion.Noesis.UseCases.Crawling;
@@ -41,8 +39,8 @@ public class TriggerImportHandlerTests
 
         var result = await _handler.Handle(new TriggerImportCommand(sourceId), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
-        result.Value.JobId.Should().NotBe(Guid.Empty);
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.JobId.ShouldNotBe(Guid.Empty);
         await _jobs.Received(1)
             .AddAsync(
                 Arg.Is<Job>(j => j.SourceId == sourceId && j.Type == "import" && j.Status == "pending"),
@@ -57,8 +55,8 @@ public class TriggerImportHandlerTests
 
         var result = await _handler.Handle(new TriggerImportCommand(Guid.NewGuid()), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.Status.Should().Be(ResultStatus.NotFound);
+        result.IsSuccess.ShouldBeFalse();
+        result.Status.ShouldBe(ResultStatus.NotFound);
         await _publishEndpoint.DidNotReceive().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
     }
 
@@ -67,6 +65,6 @@ public class TriggerImportHandlerTests
     {
         var act = async () => await _handler.Handle(new TriggerImportCommand(Guid.Empty), CancellationToken.None);
 
-        act.Should().ThrowAsync<ArgumentException>();
+        Should.Throw<ArgumentException>(() => act().GetAwaiter().GetResult());
     }
 }

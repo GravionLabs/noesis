@@ -1,5 +1,3 @@
-using FluentAssertions;
-
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
 using Gravion.Noesis.UseCases.Sources.CreateSource;
@@ -30,11 +28,11 @@ public class CreateSourceHandlerTests
 
         var result = await _handler.Handle(cmd, CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
-        result.Value.Name.Should().Be("My Docs");
-        result.Value.Url.Should().Be("https://example.com/llms.txt");
-        result.Value.ImporterType.Should().Be("llmstxt");
-        result.Value.Schedule.Should().Be("0 0 * * *");
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Name.ShouldBe("My Docs");
+        result.Value.Url.ShouldBe("https://example.com/llms.txt");
+        result.Value.ImporterType.ShouldBe("llmstxt");
+        result.Value.Schedule.ShouldBe("0 0 * * *");
     }
 
     [Test]
@@ -59,7 +57,7 @@ public class CreateSourceHandlerTests
 
         var act = async () => await _handler.Handle(cmd, CancellationToken.None);
 
-        act.Should().ThrowAsync<ArgumentException>();
+        Should.Throw<ArgumentException>(() => act().GetAwaiter().GetResult());
     }
 
     [Test]
@@ -69,6 +67,6 @@ public class CreateSourceHandlerTests
 
         var act = async () => await _handler.Handle(cmd, CancellationToken.None);
 
-        act.Should().ThrowAsync<ArgumentException>();
+        Should.Throw<ArgumentException>(() => act().GetAwaiter().GetResult());
     }
 }

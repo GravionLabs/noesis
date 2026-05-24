@@ -1,5 +1,3 @@
-using FluentAssertions;
-
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
 using Gravion.Noesis.UseCases.Jobs.ListJobs;
@@ -33,8 +31,8 @@ public class ListJobsHandlerTests
 
         var result = await _handler.Handle(new ListJobsQuery(), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
-        result.Value.Should().HaveCount(2);
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Count().ShouldBe(2);
     }
 
     [Test]

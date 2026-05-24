@@ -1,5 +1,3 @@
-using FluentAssertions;
-
 using Gravion.Noesis.Core.Entities;
 
 namespace Gravion.Noesis.Core.Tests.Entities;
@@ -13,22 +11,22 @@ public class JobTests
         var job1 = new Job();
         var job2 = new Job();
 
-        job1.Id.Should().NotBe(Guid.Empty);
-        job1.Id.Should().NotBe(job2.Id);
+        job1.Id.ShouldNotBe(Guid.Empty);
+        job1.Id.ShouldNotBe(job2.Id);
     }
 
     [Test]
     public void NewJob_HasDefaultStatus_Pending()
     {
         var job = new Job();
-        job.Status.Should().Be("pending");
+        job.Status.ShouldBe("pending");
     }
 
     [Test]
     public void NewJob_HasDefaultType_Crawl()
     {
         var job = new Job();
-        job.Type.Should().Be("crawl");
+        job.Type.ShouldBe("crawl");
     }
 
     [Test]
@@ -38,21 +36,22 @@ public class JobTests
         var job = new Job();
         var after = DateTime.UtcNow;
 
-        job.CreatedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(after);
+        job.CreatedAt.ShouldBeGreaterThanOrEqualTo(before);
+        job.CreatedAt.ShouldBeLessThanOrEqualTo(after);
     }
 
     [Test]
     public void NewJob_StartedAt_AndFinishedAt_AreNull()
     {
         var job = new Job();
-        job.StartedAt.Should().BeNull();
-        job.FinishedAt.Should().BeNull();
+        job.StartedAt.ShouldBeNull();
+        job.FinishedAt.ShouldBeNull();
     }
 
     [Test]
     public void NewJob_Error_IsNull()
     {
         var job = new Job();
-        job.Error.Should().BeNull();
+        job.Error.ShouldBeNull();
     }
 }

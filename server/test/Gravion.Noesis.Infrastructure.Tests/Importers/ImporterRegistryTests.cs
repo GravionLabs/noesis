@@ -1,5 +1,3 @@
-using FluentAssertions;
-
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Infrastructure.Importers;
 
@@ -25,7 +23,7 @@ public class ImporterRegistryTests
 
         var result = registry.GetImporter("llmstxt");
 
-        result.Should().BeSameAs(llmsTxt);
+        result.ShouldBeSameAs(llmsTxt);
     }
 
     [Test]
@@ -34,8 +32,8 @@ public class ImporterRegistryTests
         var llmsTxt = MakeImporter("llmstxt");
         var registry = new ImporterRegistry([llmsTxt]);
 
-        registry.GetImporter("LLMSTXT").Should().BeSameAs(llmsTxt);
-        registry.GetImporter("LlmsTxt").Should().BeSameAs(llmsTxt);
+        registry.GetImporter("LLMSTXT").ShouldBeSameAs(llmsTxt);
+        registry.GetImporter("LlmsTxt").ShouldBeSameAs(llmsTxt);
     }
 
     [Test]
@@ -45,9 +43,7 @@ public class ImporterRegistryTests
 
         var act = () => registry.GetImporter("github");
 
-        act.Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*github*");
+        Should.Throw<InvalidOperationException>(() => act()).Message.ShouldContain("github");
     }
 
     [Test]
@@ -59,7 +55,7 @@ public class ImporterRegistryTests
             MakeImporter("github")
         ]);
 
-        registry.RegisteredTypes.Should().BeEquivalentTo("llmstxt", "crawler", "github");
+        registry.RegisteredTypes.OrderBy(x => x).ToList().ShouldBe(new[] { "crawler", "github", "llmstxt" });
     }
 
     [Test]
@@ -69,8 +65,8 @@ public class ImporterRegistryTests
 
         var act = () => registry.GetImporter("unknown");
 
-        var exception = act.Should().Throw<InvalidOperationException>().Which;
-        exception.Message.Should().Contain("llmstxt");
-        exception.Message.Should().Contain("crawler");
+        var exception = Should.Throw<InvalidOperationException>(() => act());
+        exception.Message.ShouldContain("llmstxt");
+        exception.Message.ShouldContain("crawler");
     }
 }

@@ -25,6 +25,8 @@
 
   <ItemGroup>
     <Using Include="NUnit.Framework"/>
+    <Using Include="Shouldly"/>
+    <Using Include="static Shouldly.Should"/>
   </ItemGroup>
 
 </Project>

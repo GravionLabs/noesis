@@ -1,5 +1,3 @@
-using FluentAssertions;
-
 using Gravion.Noesis.Core.Entities;
 using Gravion.Noesis.Core.Events;
 using Gravion.Noesis.Core.Models;
@@ -29,7 +27,7 @@ public class CrawlerImporterTests
     }
 
     [Test]
-    public void ImporterType_IsCrawler() => _importer.ImporterType.Should().Be("crawler");
+    public void ImporterType_IsCrawler() => _importer.ImporterType.ShouldBe("crawler");
 
     [Test]
     public async Task ImportAsync_PublishesStartCrawlJob_AndReturnsWaitForCallback()
@@ -40,8 +38,8 @@ public class CrawlerImporterTests
 
         var result = await _importer.ImportAsync(source, context);
 
-        result.IsSuccess.Should().BeTrue();
-        result.Value.WaitForCallback.Should().BeTrue();
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.WaitForCallback.ShouldBeTrue();
         await _publishEndpoint.Received(1).Publish(Arg.Is<StartCrawlJob>(m =>
             m.JobId == jobId &&
             m.SourceId == source.Id &&

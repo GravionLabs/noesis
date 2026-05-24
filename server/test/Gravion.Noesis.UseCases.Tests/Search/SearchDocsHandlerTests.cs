@@ -1,5 +1,3 @@
-using FluentAssertions;
-
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
 using Gravion.Noesis.UseCases.Search.SearchDocs;
@@ -43,12 +41,12 @@ public class SearchDocsHandlerTests
 
         var result = await _handler.Handle(new SearchDocsQuery("authentication"), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
-        result.Value.Chunks.Should().HaveCount(1);
-        result.Value.Chunks[0].Content.Should().Be("Authentication overview");
-        result.Value.Chunks[0].SourceName.Should().Be("API Docs");
-        result.Value.Chunks[0].DocUrl.Should().Be("https://example.com/api");
-        result.Value.Chunks[0].Heading.Should().Be("Auth");
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Chunks.Count().ShouldBe(1);
+        result.Value.Chunks[0].Content.ShouldBe("Authentication overview");
+        result.Value.Chunks[0].SourceName.ShouldBe("API Docs");
+        result.Value.Chunks[0].DocUrl.ShouldBe("https://example.com/api");
+        result.Value.Chunks[0].Heading.ShouldBe("Auth");
     }
 
     [Test]
@@ -69,8 +67,8 @@ public class SearchDocsHandlerTests
 
         var result = await _handler.Handle(new SearchDocsQuery("nothing here"), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
-        result.Value.Chunks.Should().BeEmpty();
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Chunks.ShouldBeEmpty();
     }
 
     [Test]
@@ -78,7 +76,7 @@ public class SearchDocsHandlerTests
     {
         var act = async () => await _handler.Handle(new SearchDocsQuery(""), CancellationToken.None);
 
-        act.Should().ThrowAsync<ArgumentException>();
+        Should.Throw<ArgumentException>(() => act().GetAwaiter().GetResult());
     }
 
     [Test]

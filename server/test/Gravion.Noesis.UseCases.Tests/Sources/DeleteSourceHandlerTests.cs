@@ -1,5 +1,3 @@
-using FluentAssertions;
-
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.UseCases.Sources.DeleteSource;
 
@@ -28,7 +26,7 @@ public class DeleteSourceHandlerTests
 
         var result = await _handler.Handle(cmd, CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
+        result.IsSuccess.ShouldBeTrue();
         await _sources.Received(1).DeleteAsync(id, Arg.Any<CancellationToken>());
     }
 
@@ -39,6 +37,6 @@ public class DeleteSourceHandlerTests
 
         var act = async () => await _handler.Handle(cmd, CancellationToken.None);
 
-        act.Should().ThrowAsync<ArgumentException>();
+        Should.Throw<ArgumentException>(() => act().GetAwaiter().GetResult());
     }
 }

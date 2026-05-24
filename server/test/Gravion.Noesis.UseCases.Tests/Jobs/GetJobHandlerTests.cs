@@ -1,7 +1,5 @@
 using Ardalis.Result;
 
-using FluentAssertions;
-
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
 using Gravion.Noesis.UseCases.Jobs.GetJob;
@@ -32,9 +30,9 @@ public class GetJobHandlerTests
 
         var result = await _handler.Handle(new GetJobQuery(id), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
-        result.Value.Id.Should().Be(id);
-        result.Value.Status.Should().Be("done");
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Id.ShouldBe(id);
+        result.Value.Status.ShouldBe("done");
     }
 
     [Test]
@@ -44,8 +42,8 @@ public class GetJobHandlerTests
 
         var result = await _handler.Handle(new GetJobQuery(Guid.NewGuid()), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.Status.Should().Be(ResultStatus.NotFound);
+        result.IsSuccess.ShouldBeFalse();
+        result.Status.ShouldBe(ResultStatus.NotFound);
     }
 
     [Test]
@@ -53,6 +51,6 @@ public class GetJobHandlerTests
     {
         var act = async () => await _handler.Handle(new GetJobQuery(Guid.Empty), CancellationToken.None);
 
-        act.Should().ThrowAsync<ArgumentException>();
+        Should.Throw<ArgumentException>(() => act().GetAwaiter().GetResult());
     }
 }

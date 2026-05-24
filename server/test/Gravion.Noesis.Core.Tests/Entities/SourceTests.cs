@@ -1,5 +1,3 @@
-using FluentAssertions;
-
 using Gravion.Noesis.Core.Entities;
 
 namespace Gravion.Noesis.Core.Tests.Entities;
@@ -13,37 +11,37 @@ public class SourceTests
         var s1 = new Source();
         var s2 = new Source();
 
-        s1.Id.Should().NotBe(Guid.Empty);
-        s1.Id.Should().NotBe(s2.Id);
+        s1.Id.ShouldNotBe(Guid.Empty);
+        s1.Id.ShouldNotBe(s2.Id);
     }
 
     [Test]
     public void NewSource_IsEnabledByDefault()
     {
         var source = new Source();
-        source.Enabled.Should().BeTrue();
+        source.Enabled.ShouldBeTrue();
     }
 
     [Test]
     public void NewSource_HasDefaultImporterType_LlmsTxt()
     {
         var source = new Source();
-        source.ImporterType.Should().Be("llmstxt");
+        source.ImporterType.ShouldBe("llmstxt");
     }
 
     [Test]
     public void NewSource_LastImportedAt_IsNull()
     {
         var source = new Source();
-        source.LastImportedAt.Should().BeNull();
+        source.LastImportedAt.ShouldBeNull();
     }
 
     [Test]
     public void NewSource_HasEmptyCollections()
     {
         var source = new Source();
-        source.Docs.Should().BeEmpty();
-        source.Jobs.Should().BeEmpty();
+        source.Docs.ShouldBeEmpty();
+        source.Jobs.ShouldBeEmpty();
     }
 
     [Test]
@@ -53,7 +51,9 @@ public class SourceTests
         var source = new Source();
         var after = DateTime.UtcNow;
 
-        source.CreatedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(after);
-        source.UpdatedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(after);
+        source.CreatedAt.ShouldBeGreaterThanOrEqualTo(before);
+        source.CreatedAt.ShouldBeLessThanOrEqualTo(after);
+        source.UpdatedAt.ShouldBeGreaterThanOrEqualTo(before);
+        source.UpdatedAt.ShouldBeLessThanOrEqualTo(after);
     }
 }

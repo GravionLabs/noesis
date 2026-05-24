@@ -1,5 +1,3 @@
-using FluentAssertions;
-
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
 using Gravion.Noesis.UseCases.Sources.ListSources;
@@ -33,10 +31,10 @@ public class ListSourcesHandlerTests
 
         var result = await _handler.Handle(new ListSourcesQuery(), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
-        result.Value.Should().HaveCount(2);
-        result.Value.Should().ContainSingle(s => s.Name == "Source A");
-        result.Value.Should().ContainSingle(s => s.Name == "Source B");
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Count().ShouldBe(2);
+        result.Value.ShouldContain(s => s.Name == "Source A");
+        result.Value.ShouldContain(s => s.Name == "Source B");
     }
 
     [Test]
@@ -46,7 +44,7 @@ public class ListSourcesHandlerTests
 
         var result = await _handler.Handle(new ListSourcesQuery(), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
-        result.Value.Should().BeEmpty();
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBeEmpty();
     }
 }
