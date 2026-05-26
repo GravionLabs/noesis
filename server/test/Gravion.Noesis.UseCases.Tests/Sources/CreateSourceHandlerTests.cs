@@ -26,7 +26,7 @@ public class CreateSourceHandlerTests
         _sources.AddAsync(Arg.Any<Source>(), Arg.Any<CancellationToken>())
             .Returns(call => call.Arg<Source>());
 
-        var result = await _handler.Handle(cmd, CancellationToken.None);
+        var result = await _handler.HandleAsync(cmd, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Name.ShouldBe("My Docs");
@@ -42,7 +42,7 @@ public class CreateSourceHandlerTests
         _sources.AddAsync(Arg.Any<Source>(), Arg.Any<CancellationToken>())
             .Returns(call => call.Arg<Source>());
 
-        await _handler.Handle(cmd, CancellationToken.None);
+        await _handler.HandleAsync(cmd, CancellationToken.None);
 
         await _sources.Received(1)
             .AddAsync(
@@ -55,7 +55,7 @@ public class CreateSourceHandlerTests
     {
         var cmd = new CreateSourceCommand("", "https://example.com");
 
-        var act = async () => await _handler.Handle(cmd, CancellationToken.None);
+        var act = async () => await _handler.HandleAsync(cmd, CancellationToken.None);
 
         Should.Throw<ArgumentException>(() => act().GetAwaiter().GetResult());
     }
@@ -65,7 +65,7 @@ public class CreateSourceHandlerTests
     {
         var cmd = new CreateSourceCommand("Test Source", "");
 
-        var act = async () => await _handler.Handle(cmd, CancellationToken.None);
+        var act = async () => await _handler.HandleAsync(cmd, CancellationToken.None);
 
         Should.Throw<ArgumentException>(() => act().GetAwaiter().GetResult());
     }

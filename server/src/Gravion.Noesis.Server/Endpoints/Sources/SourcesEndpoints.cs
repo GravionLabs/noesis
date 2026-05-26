@@ -8,6 +8,9 @@ using Gravion.Noesis.UseCases.Sources.CreateSource;
 using Gravion.Noesis.UseCases.Sources.DeleteSource;
 using Gravion.Noesis.UseCases.Sources.ListSources;
 
+using LiteBus.Commands.Abstractions;
+using LiteBus.Queries.Abstractions;
+
 namespace Gravion.Noesis.Server.Endpoints.Sources;
 
 public class SourcesEndpoints : ICarterModule
@@ -17,9 +20,9 @@ public class SourcesEndpoints : ICarterModule
         var group = app.MapGroup("/api/sources").WithTags("Sources");
 
         group.MapGet("/",
-            async (ListSourcesHandler handler) =>
+            async (IQueryMediator qry) =>
             {
-                var result = await handler.Handle(new ListSourcesQuery(), CancellationToken.None);
+                var result = await qry.QueryAsync(new ListSourcesQuery());
                 return Results.Ok(result.Value.Select(s => new SourceResponse(
                     s.Id,
                     s.Name,
@@ -31,10 +34,10 @@ public class SourcesEndpoints : ICarterModule
             });
 
         group.MapPost("/",
-            async (CreateSourceRequest req, CreateSourceHandler handler) =>
+            async (CreateSourceRequest req, ICommandMediator cmd) =>
             {
-                var cmd = new CreateSourceCommand(req.Name, req.Url, req.ImporterType, req.Config, req.Schedule);
-                var result = await handler.Handle(cmd, CancellationToken.None);
+                var command = new CreateSourceCommand(req.Name, req.Url, req.ImporterType, req.Config, req.Schedule);
+                var result = await cmd.SendAsync(command);
                 if (!result.IsSuccess)
                     return Results.BadRequest(result.Errors);
                 var source = result.Value;
@@ -50,16 +53,16 @@ public class SourcesEndpoints : ICarterModule
             });
 
         group.MapDelete("/{id:guid}",
-            async (Guid id, DeleteSourceHandler handler) =>
+            async (Guid id, ICommandMediator cmd) =>
             {
-                await handler.Handle(new DeleteSourceCommand(id), CancellationToken.None);
+                await cmd.SendAsync(new DeleteSourceCommand(id));
                 return Results.NoContent();
             });
 
         group.MapPost("/{id:guid}/import",
-            async (Guid id, TriggerImportHandler handler) =>
+            async (Guid id, ICommandMediator cmd) =>
             {
-                var result = await handler.Handle(new TriggerImportCommand(id), CancellationToken.None);
+                var result = await cmd.SendAsync(new TriggerImportCommand(id));
                 if (result.Status == ResultStatus.NotFound)
                     return Results.NotFound();
                 return Results.Accepted($"/api/jobs/{result.Value.JobId}",

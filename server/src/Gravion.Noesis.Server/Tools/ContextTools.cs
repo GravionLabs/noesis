@@ -7,6 +7,8 @@ using Gravion.Noesis.UseCases.Chunks.GetChunk;
 using Gravion.Noesis.UseCases.Search.SearchDocs;
 using Gravion.Noesis.UseCases.Sources.ListSources;
 
+using LiteBus.Queries.Abstractions;
+
 using ModelContextProtocol.Server;
 
 using GetChunkResult = Gravion.Noesis.UseCases.Chunks.GetChunk.ChunkResult;
@@ -14,7 +16,7 @@ using GetChunkResult = Gravion.Noesis.UseCases.Chunks.GetChunk.ChunkResult;
 namespace Gravion.Noesis.Server.Tools;
 
 [McpServerToolType]
-public class ContextTools(SearchDocsHandler searchHandler, GetChunkHandler getChunkHandler, ListSourcesHandler listSourcesHandler)
+public class ContextTools(IQueryMediator queryMediator)
 {
     [McpServerTool(Name = "search_docs", ReadOnly = true, Idempotent = true)]
     [Description("Search documentation using semantic similarity. Returns relevant text chunks.")]
@@ -25,7 +27,7 @@ public class ContextTools(SearchDocsHandler searchHandler, GetChunkHandler getCh
         [Description("Optional: filter by source name")]
         string? source = null)
     {
-        var result = await searchHandler.Handle(new SearchDocsQuery(query, limit, source), CancellationToken.None);
+        var result = await queryMediator.QueryAsync(new SearchDocsQuery(query, limit, source));
         if (!result.IsSuccess)
             return "Search failed.";
         if (result.Value.Chunks.Count == 0)
@@ -44,7 +46,7 @@ public class ContextTools(SearchDocsHandler searchHandler, GetChunkHandler getCh
         if (!Guid.TryParse(chunkId, out var id))
             return "Invalid chunk ID format.";
 
-        var result = await getChunkHandler.Handle(new GetChunkQuery(id), CancellationToken.None);
+        var result = await queryMediator.QueryAsync(new GetChunkQuery(id));
         if (result.Status == ResultStatus.NotFound)
             return $"Chunk {id} not found.";
 
@@ -57,7 +59,7 @@ public class ContextTools(SearchDocsHandler searchHandler, GetChunkHandler getCh
     [Description("List all registered documentation sources.")]
     public async Task<string> ListSourcesAsync()
     {
-        var result = await listSourcesHandler.Handle(new ListSourcesQuery(), CancellationToken.None);
+        var result = await queryMediator.QueryAsync(new ListSourcesQuery());
         if (!result.IsSuccess || result.Value.Count == 0)
             return "No sources registered yet. Use the API to add sources.";
         return string.Join("\n",

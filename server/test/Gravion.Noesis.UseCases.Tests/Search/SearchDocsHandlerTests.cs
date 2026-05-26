@@ -39,7 +39,7 @@ public class SearchDocsHandlerTests
         _chunks.SearchByTextAsync("authentication", 5, null, Arg.Any<CancellationToken>())
             .Returns([chunk]);
 
-        var result = await _handler.Handle(new SearchDocsQuery("authentication"), CancellationToken.None);
+        var result = await _handler.HandleAsync(new SearchDocsQuery("authentication"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Chunks.Count().ShouldBe(1);
@@ -54,7 +54,7 @@ public class SearchDocsHandlerTests
     {
         _chunks.SearchByTextAsync("query", 10, "My Source", Arg.Any<CancellationToken>()).Returns([]);
 
-        await _handler.Handle(new SearchDocsQuery("query", 10, "My Source"), CancellationToken.None);
+        await _handler.HandleAsync(new SearchDocsQuery("query", 10, "My Source"), CancellationToken.None);
 
         await _chunks.Received(1).SearchByTextAsync("query", 10, "My Source", Arg.Any<CancellationToken>());
     }
@@ -65,7 +65,7 @@ public class SearchDocsHandlerTests
         _chunks.SearchByTextAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns([]);
 
-        var result = await _handler.Handle(new SearchDocsQuery("nothing here"), CancellationToken.None);
+        var result = await _handler.HandleAsync(new SearchDocsQuery("nothing here"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Chunks.ShouldBeEmpty();
@@ -74,7 +74,7 @@ public class SearchDocsHandlerTests
     [Test]
     public void Handle_WithEmptyQuery_ThrowsArgumentException()
     {
-        var act = async () => await _handler.Handle(new SearchDocsQuery(""), CancellationToken.None);
+        var act = async () => await _handler.HandleAsync(new SearchDocsQuery(""), CancellationToken.None);
 
         Should.Throw<ArgumentException>(() => act().GetAwaiter().GetResult());
     }
@@ -87,7 +87,7 @@ public class SearchDocsHandlerTests
         _embedQuery.EmbedQueryAsync("DI", Arg.Any<CancellationToken>()).Returns(new EmbedQueryResult(vector, model));
         _chunks.SearchByVectorAsync(vector, model, 5, null, Arg.Any<CancellationToken>()).Returns([]);
 
-        await _handler.Handle(new SearchDocsQuery("DI"), CancellationToken.None);
+        await _handler.HandleAsync(new SearchDocsQuery("DI"), CancellationToken.None);
 
         await _chunks.Received(1).SearchByVectorAsync(vector, model, 5, null, Arg.Any<CancellationToken>());
         await _chunks.DidNotReceive().SearchByTextAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());

@@ -29,7 +29,7 @@ public class ListSourcesHandlerTests
         };
         _sources.ListAsync(Arg.Any<CancellationToken>()).Returns(expected);
 
-        var result = await _handler.Handle(new ListSourcesQuery(), CancellationToken.None);
+        var result = await _handler.HandleAsync(new ListSourcesQuery(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Count().ShouldBe(2);
@@ -42,7 +42,7 @@ public class ListSourcesHandlerTests
     {
         _sources.ListAsync(Arg.Any<CancellationToken>()).Returns([]);
 
-        var result = await _handler.Handle(new ListSourcesQuery(), CancellationToken.None);
+        var result = await _handler.HandleAsync(new ListSourcesQuery(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBeEmpty();

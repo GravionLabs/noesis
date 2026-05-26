@@ -2,6 +2,8 @@
   <ItemGroup>
     <PackageReference Include="Ardalis.GuardClauses"/>
     <PackageReference Include="Ardalis.Result"/>
+    <PackageReference Include="LiteBus.Commands.Extensions.Microsoft.DependencyInjection"/>
+    <PackageReference Include="LiteBus.Queries.Extensions.Microsoft.DependencyInjection"/>
     <PackageReference Include="MassTransit"/>
   </ItemGroup>
   <ItemGroup>

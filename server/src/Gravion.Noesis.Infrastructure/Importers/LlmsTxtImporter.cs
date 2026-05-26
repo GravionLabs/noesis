@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using Ardalis.GuardClauses;
 using Ardalis.Result;
@@ -55,6 +56,8 @@ public class LlmsTxtImporter(
                 SourceId = source.Id,
                 Url = source.Url,
                 Title = ExtractTitle(markdown),
+                ContentMd = markdown,
+                ContentHash = ComputeHash(markdown),
                 IndexedAt = DateTime.UtcNow
             },
             ct);
@@ -86,6 +89,12 @@ public class LlmsTxtImporter(
     {
         var firstLine = markdown.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
         return firstLine?.TrimStart('#').Trim();
+    }
+
+    private static string ComputeHash(string content)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(content));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
     private static List<Section> SplitIntoSections(string markdown)

@@ -1,4 +1,7 @@
+using Ardalis.GuardClauses;
+
 using Gravion.Noesis.Core.Abstractions;
+using Gravion.Noesis.Core.Events;
 using Gravion.Noesis.Core.Models;
 using Gravion.Noesis.UseCases.Crawling;
 
@@ -15,6 +18,8 @@ public class StartImportSagaConsumer(
 {
     public async Task Consume(ConsumeContext<StartImportSaga> context)
     {
+        Guard.Against.Null(context);
+
         var cmd = context.Message;
 
         var job = await jobs.GetByIdAsync(cmd.JobId, context.CancellationToken);
@@ -53,7 +58,7 @@ public class StartImportSagaConsumer(
             {
                 // In-process importer completed — trigger embedding
                 await publishEndpoint.Publish(
-                    new Core.Events.ImportCompleted(cmd.JobId, cmd.SourceId, importData.DocCount, importData.ChunkCount),
+                    new ImportCompleted(cmd.JobId, cmd.SourceId, importData.DocCount, importData.ChunkCount),
                     context.CancellationToken);
             }
         }

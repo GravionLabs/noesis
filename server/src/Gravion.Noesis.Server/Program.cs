@@ -1,6 +1,5 @@
 using Carter;
 
-using Gravion.Noesis.Core.Events;
 using Gravion.Noesis.Core.Settings;
 using Gravion.Noesis.Infrastructure;
 using Gravion.Noesis.Infrastructure.Data;
@@ -10,7 +9,12 @@ using Gravion.Noesis.UseCases.Sources.CreateSource;
 using Hangfire;
 using Hangfire.PostgreSql;
 
+using LiteBus.Commands;
+using LiteBus.Extensions.Microsoft.DependencyInjection;
+using LiteBus.Queries;
+
 using MassTransit;
+using MassTransit.EntityFrameworkCoreIntegration;
 
 using Scalar.AspNetCore;
 
@@ -20,11 +24,24 @@ builder.AddServiceDefaults();
 
 var dbSettings = builder.Configuration.GetSection(DbSettings.SectionName).Get<DbSettings>() ?? new DbSettings();
 var rabbitMqSettings = builder.Configuration.GetSection(RabbitMqSettings.SectionName).Get<RabbitMqSettings>() ?? new RabbitMqSettings();
+var mcpSettings = builder.Configuration.GetSection(McpSettings.SectionName).Get<McpSettings>() ?? new McpSettings();
+var mcpAllowedOrigins = mcpSettings.InspectorAllowedOrigins
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+var mcpAllowedOriginsSet = new HashSet<string>(mcpAllowedOrigins, StringComparer.OrdinalIgnoreCase);
 var connectionString = dbSettings.BuildConnectionString();
 
 builder.Services.AddOpenApi();
 builder.Services.AddCarter();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+var useCasesAssembly = typeof(CreateSourceHandler).Assembly;
+builder.Services.AddLiteBus(liteBus =>
+{
+    liteBus.AddCommandModule(module => module.RegisterFromAssembly(useCasesAssembly));
+    liteBus.AddQueryModule(module => module.RegisterFromAssembly(useCasesAssembly));
+});
 
 // Hangfire with PostgreSQL storage
 builder.Services.AddHangfire(config => config
@@ -49,6 +66,7 @@ builder.Services.AddMassTransit(x =>
         .EntityFrameworkRepository(r =>
         {
             r.ExistingDbContext<AppDbContext>();
+            r.LockStatementProvider = new PostgresLockStatementProvider();
         });
 
     x.AddConsumers(typeof(CreateSourceHandler).Assembly);
@@ -57,21 +75,38 @@ builder.Services.AddMassTransit(x =>
     {
         cfg.Host(new Uri($"rabbitmq://{rabbitMqSettings.Host}:{rabbitMqSettings.Port}/"));
 
-        cfg.ReceiveEndpoint("noesis.crawl-completed", e =>
-        {
-            e.ConfigureConsumer<Gravion.Noesis.UseCases.Crawling.CrawlCompletedConsumer>(context);
-        });
-
-        cfg.ReceiveEndpoint("noesis.embed-completed", e =>
-        {
-            e.ConfigureConsumer<Gravion.Noesis.UseCases.Crawling.EmbedCompletedConsumer>(context);
-        });
-
         cfg.ConfigureEndpoints(context);
     });
 });
 
 var app = builder.Build();
+
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.Equals("/mcp", StringComparison.OrdinalIgnoreCase))
+    {
+        var origin = context.Request.Headers.Origin.ToString();
+        var isAllowedOrigin = !string.IsNullOrWhiteSpace(origin) && mcpAllowedOriginsSet.Contains(origin);
+        if (isAllowedOrigin)
+        {
+            context.Response.Headers["Access-Control-Allow-Origin"] = origin;
+            context.Response.Headers.Append("Vary", "Origin");
+            context.Response.Headers["Access-Control-Allow-Methods"] = "GET,POST,DELETE,OPTIONS";
+            context.Response.Headers["Access-Control-Allow-Headers"] =
+                context.Request.Headers["Access-Control-Request-Headers"].ToString();
+        }
+
+        if (HttpMethods.IsOptions(context.Request.Method))
+        {
+            context.Response.StatusCode = isAllowedOrigin
+                ? StatusCodes.Status204NoContent
+                : StatusCodes.Status403Forbidden;
+            return;
+        }
+    }
+
+    await next();
+});
 
 app.MapDefaultEndpoints();
 
@@ -84,6 +119,6 @@ app.UseHangfireDashboard();
 
 app.MapCarter();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" })).WithTags("Health");
+app.MapGet("/health", () => Results.Ok(new { Status = "ok" })).WithTags("Health");
 
 app.Run();

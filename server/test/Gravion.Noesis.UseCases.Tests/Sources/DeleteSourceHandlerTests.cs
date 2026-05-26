@@ -24,7 +24,7 @@ public class DeleteSourceHandlerTests
         var id = Guid.NewGuid();
         var cmd = new DeleteSourceCommand(id);
 
-        var result = await _handler.Handle(cmd, CancellationToken.None);
+        var result = await _handler.HandleAsync(cmd, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         await _sources.Received(1).DeleteAsync(id, Arg.Any<CancellationToken>());
@@ -35,7 +35,7 @@ public class DeleteSourceHandlerTests
     {
         var cmd = new DeleteSourceCommand(Guid.Empty);
 
-        var act = async () => await _handler.Handle(cmd, CancellationToken.None);
+        var act = async () => await _handler.HandleAsync(cmd, CancellationToken.None);
 
         Should.Throw<ArgumentException>(() => act().GetAwaiter().GetResult());
     }

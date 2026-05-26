@@ -16,6 +16,24 @@ namespace Gravion.Noesis.Infrastructure.Data.Migrations
                 .Annotation("Npgsql:PostgresExtension:vector", ",,");
 
             migrationBuilder.CreateTable(
+                name: "import_job_states",
+                columns: table => new
+                {
+                    correlation_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    current_state = table.Column<string>(type: "text", nullable: true),
+                    job_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    source_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    importer_type = table.Column<string>(type: "text", nullable: false),
+                    doc_count = table.Column<int>(type: "integer", nullable: false),
+                    chunk_count = table.Column<int>(type: "integer", nullable: false),
+                    started_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_import_job_states", x => x.correlation_id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "sources",
                 columns: table => new
                 {
@@ -153,6 +171,12 @@ namespace Gravion.Noesis.Infrastructure.Data.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_import_job_states_job_id",
+                table: "import_job_states",
+                column: "job_id",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_jobs_source_id",
                 table: "jobs",
                 column: "source_id");
@@ -174,6 +198,9 @@ namespace Gravion.Noesis.Infrastructure.Data.Migrations
         {
             migrationBuilder.DropTable(
                 name: "embeddings");
+
+            migrationBuilder.DropTable(
+                name: "import_job_states");
 
             migrationBuilder.DropTable(
                 name: "jobs");

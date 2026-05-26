@@ -5,17 +5,20 @@ using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
 using Gravion.Noesis.UseCases.Crawling;
 
+using LiteBus.Commands.Abstractions;
+
 using MassTransit;
 
 namespace Gravion.Noesis.UseCases.Import.TriggerImport;
 
 public class TriggerImportHandler(ISourceRepository sources, IJobRepository jobs, IPublishEndpoint publishEndpoint)
+    : ICommandHandler<TriggerImportCommand, Result<TriggerImportResult>>
 {
-    public async Task<Result<TriggerImportResult>> Handle(TriggerImportCommand cmd, CancellationToken ct)
+    public async Task<Result<TriggerImportResult>> HandleAsync(TriggerImportCommand cmd, CancellationToken cancellationToken = default)
     {
         Guard.Against.Default(cmd.SourceId, nameof(cmd.SourceId));
 
-        var source = await sources.GetByIdAsync(cmd.SourceId, ct);
+        var source = await sources.GetByIdAsync(cmd.SourceId, cancellationToken);
         if (source is null)
             return Result.NotFound($"Source {cmd.SourceId} not found");
 
@@ -26,8 +29,8 @@ public class TriggerImportHandler(ISourceRepository sources, IJobRepository jobs
             Status = "pending"
         };
 
-        await jobs.AddAsync(job, ct);
-        await publishEndpoint.Publish(new StartImportSaga(job.Id, cmd.SourceId, source.Url, source.ImporterType), ct);
+        await jobs.AddAsync(job, cancellationToken);
+        await publishEndpoint.Publish(new StartImportSaga(job.Id, cmd.SourceId, source.Url, source.ImporterType), cancellationToken);
 
         return new TriggerImportResult(job.Id);
     }

@@ -37,7 +37,7 @@ public class TriggerImportHandlerTests
         _jobs.AddAsync(Arg.Any<Job>(), Arg.Any<CancellationToken>())
             .Returns(call => call.Arg<Job>());
 
-        var result = await _handler.Handle(new TriggerImportCommand(sourceId), CancellationToken.None);
+        var result = await _handler.HandleAsync(new TriggerImportCommand(sourceId), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.JobId.ShouldNotBe(Guid.Empty);
@@ -53,7 +53,7 @@ public class TriggerImportHandlerTests
     {
         _sources.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Source?)null);
 
-        var result = await _handler.Handle(new TriggerImportCommand(Guid.NewGuid()), CancellationToken.None);
+        var result = await _handler.HandleAsync(new TriggerImportCommand(Guid.NewGuid()), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
         result.Status.ShouldBe(ResultStatus.NotFound);
@@ -63,7 +63,7 @@ public class TriggerImportHandlerTests
     [Test]
     public void Handle_WithEmptySourceId_ThrowsArgumentException()
     {
-        var act = async () => await _handler.Handle(new TriggerImportCommand(Guid.Empty), CancellationToken.None);
+        var act = async () => await _handler.HandleAsync(new TriggerImportCommand(Guid.Empty), CancellationToken.None);
 
         Should.Throw<ArgumentException>(() => act().GetAwaiter().GetResult());
     }

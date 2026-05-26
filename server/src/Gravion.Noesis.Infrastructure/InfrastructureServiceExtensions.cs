@@ -41,6 +41,13 @@ public static class InfrastructureServiceExtensions
             client.BaseAddress = new Uri(servicesSettings.EmbedderUrl);
         });
 
+        // HTTP client for triggering batch embedding (event-driven, called by StartEmbedJobConsumer)
+        services.AddHttpClient<IEmbedJobClient, EmbedJobHttpClient>((sp, client) =>
+        {
+            var servicesSettings = sp.GetRequiredService<IOptions<ServicesSettings>>().Value;
+            client.BaseAddress = new Uri(servicesSettings.EmbedderUrl);
+        });
+
         // Named HttpClient for importers that fetch remote content directly
         services.AddHttpClient<LlmsTxtImporter>();
         services.AddHttpClient<LlmsMetaTxtImporter>();

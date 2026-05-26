@@ -18,6 +18,9 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2"/>
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1"/>
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1"/>
+    <!-- LiteBus -->
+    <PackageVersion Include="LiteBus.Commands.Extensions.Microsoft.DependencyInjection" Version="4.4.0"/>
+    <PackageVersion Include="LiteBus.Queries.Extensions.Microsoft.DependencyInjection" Version="4.4.0"/>
     <!-- Core & Infrastructure -->
     <PackageVersion Include="Carter" Version="10.0.0"/>
     <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.23"/>
@@ -44,6 +47,7 @@
     <PackageVersion Include="Serilog.Sinks.Seq" Version="9.0.0"/>
     <PackageVersion Include="Shouldly" Version="4.3.0"/>
     <!-- Testing -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0"/>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.5.1"/>
     <PackageVersion Include="NUnit" Version="4.6.0"/>
     <PackageVersion Include="NUnit3TestAdapter" Version="6.2.0"/>

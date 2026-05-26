@@ -5,7 +5,10 @@
     <PackageReference Include="Carter"/>
     <PackageReference Include="Hangfire.AspNetCore"/>
     <PackageReference Include="Hangfire.Core"/>
+    <PackageReference Include="LiteBus.Commands.Extensions.Microsoft.DependencyInjection"/>
+    <PackageReference Include="LiteBus.Queries.Extensions.Microsoft.DependencyInjection"/>
     <PackageReference Include="MassTransit"/>
+    <PackageReference Include="MassTransit.EntityFrameworkCore"/>
     <PackageReference Include="MassTransit.RabbitMQ"/>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi"/>
     <PackageReference Include="Microsoft.EntityFrameworkCore"/>

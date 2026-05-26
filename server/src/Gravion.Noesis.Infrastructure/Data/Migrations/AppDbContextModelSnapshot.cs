@@ -257,6 +257,50 @@ namespace Gravion.Noesis.Infrastructure.Data.Migrations
                     b.ToTable("sources", (string)null);
                 });
 
+            modelBuilder.Entity("Gravion.Noesis.UseCases.Crawling.ImportJobState", b =>
+                {
+                    b.Property<Guid>("CorrelationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("correlation_id");
+
+                    b.Property<int>("ChunkCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("chunk_count");
+
+                    b.Property<string>("CurrentState")
+                        .HasColumnType("text")
+                        .HasColumnName("current_state");
+
+                    b.Property<int>("DocCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("doc_count");
+
+                    b.Property<string>("ImporterType")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("importer_type");
+
+                    b.Property<Guid>("JobId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("job_id");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_id");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.HasKey("CorrelationId");
+
+                    b.HasIndex("JobId")
+                        .IsUnique();
+
+                    b.ToTable("import_job_states", (string)null);
+                });
+
             modelBuilder.Entity("Gravion.Noesis.Core.Entities.Chunk", b =>
                 {
                     b.HasOne("Gravion.Noesis.Core.Entities.Doc", "Doc")

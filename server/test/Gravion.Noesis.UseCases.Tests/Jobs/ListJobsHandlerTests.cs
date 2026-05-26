@@ -29,7 +29,7 @@ public class ListJobsHandlerTests
         };
         _jobs.ListRecentAsync(50, Arg.Any<CancellationToken>()).Returns(expected);
 
-        var result = await _handler.Handle(new ListJobsQuery(), CancellationToken.None);
+        var result = await _handler.HandleAsync(new ListJobsQuery(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Count().ShouldBe(2);
@@ -40,7 +40,7 @@ public class ListJobsHandlerTests
     {
         _jobs.ListRecentAsync(10, Arg.Any<CancellationToken>()).Returns([]);
 
-        await _handler.Handle(new ListJobsQuery(10), CancellationToken.None);
+        await _handler.HandleAsync(new ListJobsQuery(10), CancellationToken.None);
 
         await _jobs.Received(1).ListRecentAsync(10, Arg.Any<CancellationToken>());
     }
@@ -50,7 +50,7 @@ public class ListJobsHandlerTests
     {
         _jobs.ListRecentAsync(50, Arg.Any<CancellationToken>()).Returns([]);
 
-        await _handler.Handle(new ListJobsQuery(), CancellationToken.None);
+        await _handler.HandleAsync(new ListJobsQuery(), CancellationToken.None);
 
         await _jobs.Received(1).ListRecentAsync(50, Arg.Any<CancellationToken>());
     }

@@ -1,6 +1,10 @@
+using Ardalis.Result;
+
+using LiteBus.Queries.Abstractions;
+
 namespace Gravion.Noesis.UseCases.Chunks.GetChunk;
 
-public record GetChunkQuery(Guid ChunkId);
+public record GetChunkQuery(Guid ChunkId) : IQuery<Result<ChunkResult>>;
 
 public record ChunkResult(
     Guid Id,

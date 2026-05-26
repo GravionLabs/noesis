@@ -28,7 +28,7 @@ public class GetJobHandlerTests
         var job = new Job { Id = id, Type = "import", Status = "done" };
         _jobs.GetByIdAsync(id, Arg.Any<CancellationToken>()).Returns(job);
 
-        var result = await _handler.Handle(new GetJobQuery(id), CancellationToken.None);
+        var result = await _handler.HandleAsync(new GetJobQuery(id), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Id.ShouldBe(id);
@@ -40,7 +40,7 @@ public class GetJobHandlerTests
     {
         _jobs.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Job?)null);
 
-        var result = await _handler.Handle(new GetJobQuery(Guid.NewGuid()), CancellationToken.None);
+        var result = await _handler.HandleAsync(new GetJobQuery(Guid.NewGuid()), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
         result.Status.ShouldBe(ResultStatus.NotFound);
@@ -49,7 +49,7 @@ public class GetJobHandlerTests
     [Test]
     public void Handle_WithEmptyId_ThrowsArgumentException()
     {
-        var act = async () => await _handler.Handle(new GetJobQuery(Guid.Empty), CancellationToken.None);
+        var act = async () => await _handler.HandleAsync(new GetJobQuery(Guid.Empty), CancellationToken.None);
 
         Should.Throw<ArgumentException>(() => act().GetAwaiter().GetResult());
     }

@@ -40,7 +40,7 @@ public class GetChunkHandlerTests
         };
         _chunks.GetByIdAsync(chunkId, Arg.Any<CancellationToken>()).Returns(chunk);
 
-        var result = await _handler.Handle(new GetChunkQuery(chunkId), CancellationToken.None);
+        var result = await _handler.HandleAsync(new GetChunkQuery(chunkId), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Id.ShouldBe(chunkId);
@@ -56,7 +56,7 @@ public class GetChunkHandlerTests
     {
         _chunks.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Chunk?)null);
 
-        var result = await _handler.Handle(new GetChunkQuery(Guid.NewGuid()), CancellationToken.None);
+        var result = await _handler.HandleAsync(new GetChunkQuery(Guid.NewGuid()), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
         result.Status.ShouldBe(ResultStatus.NotFound);
@@ -65,7 +65,7 @@ public class GetChunkHandlerTests
     [Test]
     public void Handle_WithEmptyChunkId_ThrowsArgumentException()
     {
-        var act = async () => await _handler.Handle(new GetChunkQuery(Guid.Empty), CancellationToken.None);
+        var act = async () => await _handler.HandleAsync(new GetChunkQuery(Guid.Empty), CancellationToken.None);
 
         Should.Throw<ArgumentException>(() => act().GetAwaiter().GetResult());
     }
