@@ -3,6 +3,8 @@ using Gravion.Noesis.Core.Entities;
 
 using Microsoft.EntityFrameworkCore;
 
+using Npgsql;
+
 using Pgvector;
 
 namespace Gravion.Noesis.Infrastructure.Data.Repositories;
@@ -34,24 +36,31 @@ public class ChunkRepository(AppDbContext db) : IChunkRepository
     {
         var pgVector = new Vector(vector);
 
-        // Use pgvector cosine distance to find the nearest chunks.
-        // Filter by embedding model to ensure dimension compatibility.
-        // EF Core raw SQL is used because EF Core doesn't support vector operators via LINQ.
-        var sourceFilter = sourceName is not null
-            ? $"AND s.name = '{sourceName.Replace("'", "''")}'"
-            : "";
+        var sourceFilter = sourceName is not null ? "AND s.name = @sourceName" : "";
+
+        var sql = $"""
+            SELECT c.id
+            FROM chunks c
+            JOIN embeddings e ON e.chunk_id = c.id AND e.model = @model
+            JOIN docs d       ON d.id = c.doc_id
+            JOIN sources s    ON s.id = d.source_id
+            WHERE true {sourceFilter}
+            ORDER BY e.vector <=> @vector
+            LIMIT @limit
+            """;
+
+        List<NpgsqlParameter> parameters =
+        [
+            new NpgsqlParameter("model", model),
+            new NpgsqlParameter("vector", pgVector) { DataTypeName = "vector" },
+            new NpgsqlParameter("limit", limit),
+        ];
+
+        if (sourceName is not null)
+            parameters.Add(new NpgsqlParameter("sourceName", sourceName));
 
         var ids = await db.Database
-            .SqlQuery<Guid>($"""
-                SELECT c.id
-                FROM chunks c
-                JOIN embeddings e ON e.chunk_id = c.id AND e.model = {model}
-                JOIN docs d       ON d.id = c.doc_id
-                JOIN sources s    ON s.id = d.source_id
-                WHERE true {sourceFilter}
-                ORDER BY e.vector <=> {pgVector}
-                LIMIT {limit}
-                """)
+            .SqlQueryRaw<Guid>(sql, parameters.ToArray())
             .ToListAsync(ct);
 
         if (ids.Count == 0)
