@@ -176,6 +176,21 @@ Register a source with `POST /api/sources` using one of these `importerType` val
 ### Example: index Angular docs
 
 ```bash
+# Alternative: one-shot script (Bash)
+chmod +x scripts/import-angular-llms-full.sh
+./scripts/import-angular-llms-full.sh
+# Optional: führt vorher gezielt ef-migrate aus
+# ./scripts/import-angular-llms-full.sh --ensure-migrations
+```
+
+```powershell
+# Alternative: one-shot script (PowerShell)
+./scripts/import-angular-llms-full.ps1
+# Optional: führt vorher gezielt ef-migrate aus
+# ./scripts/import-angular-llms-full.ps1 -EnsureMigrations
+```
+
+```bash
 # 1. Register source
 curl -X POST http://localhost:5000/api/sources \
   -H 'Content-Type: application/json' \

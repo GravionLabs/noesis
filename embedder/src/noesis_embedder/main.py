@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Literal
 
 import httpx
@@ -26,10 +28,11 @@ logger = logging.getLogger(__name__)
 class Settings(BaseSettings):
     database_url: str = "postgres://noesis:noesis_dev@localhost:5432/noesis"
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
+    server_url: str = "http://localhost:5000"
     openai_api_key: str = ""
     ollama_url: str = "http://localhost:11434"
-    embedding_provider: Literal["openai", "ollama", "huggingface"] = "openai"
-    embedding_model: str = "text-embedding-3-small"
+    embedding_provider: Literal["openai", "ollama", "huggingface"] = "huggingface"
+    embedding_model: str = "BAAI/bge-large-en-v1.5"
     # Used as fallback for openai/ollama — auto-detected for huggingface.
     embedding_dimensions: int = 1536
 
@@ -61,6 +64,11 @@ def get_db():
 # ---------------------------------------------------------------------------
 
 async def embed_openai(texts: list[str]) -> list[list[float]]:
+    if not settings.openai_api_key:
+        raise ValueError(
+            "OPENAI_API_KEY is not set. "
+            "Set the OPENAI_API_KEY environment variable or switch EMBEDDING_PROVIDER."
+        )
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             "https://api.openai.com/v1/embeddings",
@@ -142,30 +150,58 @@ async def _process_batch(source_id: str | None = None) -> int:
         params.append(source_id)
     query += " LIMIT 100"
 
-    cur.execute(query, params)
-    rows = cur.fetchall()
+    try:
+        cur.execute(query, params)
+        rows = cur.fetchall()
 
-    if not rows:
+        if not rows:
+            return 0
+
+        chunk_ids = [str(r[0]) for r in rows]
+        texts = [r[1] for r in rows]
+
+        vectors = await embed(texts)
+
+        for chunk_id, vector in zip(chunk_ids, vectors):
+            cur.execute(
+                """INSERT INTO embeddings (id, chunk_id, model, dimensions, vector, created_at)
+                   VALUES (%s, %s, %s, %s, %s, %s)
+                   ON CONFLICT (chunk_id, model) DO NOTHING""",
+                (str(uuid.uuid4()), chunk_id, settings.embedding_model, get_embedding_dimensions(), vector, datetime.now(timezone.utc)),
+            )
+
+        conn.commit()
+        return len(rows)
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
         cur.close()
         conn.close()
-        return 0
 
-    chunk_ids = [str(r[0]) for r in rows]
-    texts = [r[1] for r in rows]
 
-    vectors = await embed(texts)
+async def embed_and_callback(source_id: str | None, job_id: str | None) -> None:
+    """Embed pending chunks then notify the server via callback."""
+    try:
+        count = await process_pending_chunks(source_id)
+        logger.info("Embedding complete — job=%s chunks=%d", job_id, count)
+    except Exception:
+        logger.exception("Embedding failed — job=%s source=%s", job_id, source_id)
+        count = 0
 
-    for chunk_id, vector in zip(chunk_ids, vectors):
-        cur.execute(
-            """INSERT INTO embeddings (chunk_id, model, dimensions, vector)
-               VALUES (%s, %s, %s, %s)
-               ON CONFLICT (chunk_id, model) DO NOTHING""",
-            (chunk_id, settings.embedding_model, get_embedding_dimensions(), vector),
-        )
+    if job_id:
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"{settings.server_url}/api/internal/embed-completed",
+                    json={"jobId": job_id, "sourceId": source_id, "chunkCount": count},
+                    timeout=10,
+                )
+                logger.info("Callback sent — job=%s chunks=%d", job_id, count)
+        except Exception:
+            logger.exception("Failed to send embed-completed callback for job %s", job_id)
 
-    conn.commit()
-    cur.close()
-    conn.close()
+
     return len(rows)
 
 
@@ -193,6 +229,11 @@ async def handle_start_embed_job(event: StartEmbedJob) -> None:
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    if settings.embedding_provider == "openai" and not settings.openai_api_key:
+        logger.error(
+            "OPENAI_API_KEY is not set but EMBEDDING_PROVIDER=openai. "
+            "Embedding requests will fail. Set OPENAI_API_KEY or change EMBEDDING_PROVIDER."
+        )
     if settings.embedding_provider == "huggingface":
         # Pre-load model on startup to avoid cold-start on first embed request.
         loop = asyncio.get_event_loop()
@@ -211,6 +252,7 @@ app = FastAPI(title="Noesis Embedder", lifespan=lifespan)
 
 class EmbedRequest(BaseModel):
     source_id: str | None = None
+    job_id: str | None = None
 
 
 class EmbedQueryRequest(BaseModel):
@@ -229,8 +271,8 @@ def health():
 
 @app.post("/embed")
 async def trigger_embed(req: EmbedRequest, background_tasks: BackgroundTasks):
-    """Trigger async embedding (manual/dev use — production path is RabbitMQ)."""
-    background_tasks.add_task(process_pending_chunks, req.source_id)
+    """Trigger async embedding. Calls back via POST /api/internal/embed-completed when done."""
+    background_tasks.add_task(embed_and_callback, req.source_id, req.job_id)
     return {"status": "accepted"}
 
 

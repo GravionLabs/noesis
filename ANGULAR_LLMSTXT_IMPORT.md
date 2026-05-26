@@ -8,24 +8,27 @@ docker compose -f infra/docker-compose.yml up -d
 cd server
 dotnet run --project src/Gravion.Noesis.Server
 
-# 3) Angular Source registrieren
-curl -X POST http://localhost:5000/api/sources \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "name": "Angular",
-    "url": "https://next.angular.dev/assets/context/llms-full.txt",
-    "importerType": "llmstxt"
-  }'
+# 3) Einmaligen Angular-Import starten (Bash, legt Source an oder nutzt vorhandene)
+chmod +x scripts/import-angular-llms-full.sh
+./scripts/import-angular-llms-full.sh
 
-# 4) Import starten (SOURCE_ID ersetzen)
-SOURCE_ID="<source-id>"
-curl -X POST http://localhost:5000/api/sources/$SOURCE_ID/import
+# Optional: vorab Migrationen über ef-migrate erzwingen
+# ./scripts/import-angular-llms-full.sh --ensure-migrations
 
-# 5) Job prüfen (JOB_ID ersetzen)
-JOB_ID="<job-id>"
-curl http://localhost:5000/api/jobs/$JOB_ID
+# Optional: abweichende API-URL
+# API_BASE_URL=http://localhost:5000 ./scripts/import-angular-llms-full.sh
+```
 
-# 6) Suche testen
+```powershell
+# 3b) Alternativ unter PowerShell
+./scripts/import-angular-llms-full.ps1
+
+# Optional: Migrationen vor dem Import ausführen
+# ./scripts/import-angular-llms-full.ps1 -EnsureMigrations
+```
+
+```bash
+# 4) Suche testen
 curl -X POST http://localhost:5000/mcp \
   -H 'Content-Type: application/json' \
   -d '{

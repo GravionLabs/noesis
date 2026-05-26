@@ -1,3 +1,5 @@
+name: noesis
+
 services:
   postgres:
     image: pgvector/pgvector:pg18
@@ -67,9 +69,10 @@ services:
     environment:
       DATABASE_URL: "postgresql://noesis:noesis_dev@postgres:5432/noesis"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+      SERVER_URL: "${SERVER_URL:-http://host.docker.internal:5000}"
       # Provider options: openai | ollama | huggingface
-      EMBEDDING_PROVIDER: "${EMBEDDING_PROVIDER:-openai}"
-      EMBEDDING_MODEL: "${EMBEDDING_MODEL:-text-embedding-3-small}"
+      EMBEDDING_PROVIDER: "${EMBEDDING_PROVIDER:-huggingface}"
+      EMBEDDING_MODEL: "${EMBEDDING_MODEL:-BAAI/bge-large-en-v1.5}"
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       OLLAMA_URL: "${OLLAMA_URL:-http://host.docker.internal:11434}"
       # HuggingFace model cache — avoids re-downloading on container restart
@@ -83,6 +86,29 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+
+  mcp-inspector:
+    image: node:22-alpine
+    container_name: noesis-mcp-inspector
+    working_dir: /app
+    command:
+      - sh
+      - -lc
+      - >
+        npx -y @modelcontextprotocol/inspector@0.21.2
+        --transport http
+        --server-url ${MCP_SERVER_URL:-http://host.docker.internal:5000/mcp}
+    environment:
+      HOST: "0.0.0.0"
+      CLIENT_PORT: "6274"
+      SERVER_PORT: "6277"
+      MCP_AUTO_OPEN_ENABLED: "false"
+      DANGEROUSLY_OMIT_AUTH: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "6274:6274"
+      - "6277:6277"
 
 volumes:
   postgres_data:

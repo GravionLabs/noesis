@@ -224,7 +224,7 @@ docker compose -f docker-compose.yml up -d
 
 **Solution:** Pull fresh images:
 ```bash
-docker pull mcr.microsoft.com/dotnet/runtime:10.0-alpine
+docker pull mcr.microsoft.com/dotnet/aspnet:10.0-alpine
 docker compose -f docker-compose.yml down
 docker compose -f docker-compose.yml up -d
 ```

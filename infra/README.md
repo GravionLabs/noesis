@@ -1,6 +1,6 @@
 # Noesis – Infra
 
-Local infrastructure for development: Postgres with pgvector, RabbitMQ, and the EF Core migrator.
+Local infrastructure for development: Postgres with pgvector, RabbitMQ, crawler, embedder, EF Core migrator, and MCP Inspector.
 
 ---
 
@@ -30,6 +30,33 @@ This starts:
 - **Postgres** (with pgvector) — waits for healthy before migrator runs
 - **RabbitMQ** — with management UI
 - **ef-migrate** — runs EF Core migrations then exits
+- **crawler** — Playwright-based crawler service
+- **embedder** — embedding service
+- **mcp-inspector** — web UI for testing MCP endpoints
+
+### Build images
+
+```bash
+# Default: rebuild only ef-migrate
+./infra/build.sh
+
+# Rebuild all app images (ef-migrate, crawler, embedder)
+./infra/build.sh --all
+
+# Optional: disable Docker cache
+./infra/build.sh --all --no-cache
+```
+
+```powershell
+# Default: rebuild only ef-migrate
+./infra/build.ps1
+
+# Rebuild all app images
+./infra/build.ps1 -All
+
+# Optional: disable Docker cache
+./infra/build.ps1 -All -NoCache
+```
 
 ### Stop & clean up
 
@@ -47,6 +74,35 @@ docker compose -f infra/docker-compose.yml down -v       # remove volumes
 | Postgres | 5432 | **5442** | `noesis` DB, user `noesis` / `noesis_dev` |
 | RabbitMQ AMQP | 5672 | **5682** | Used by Wolverine |
 | RabbitMQ Management | 15672 | **15682** | Web UI: http://localhost:15682 (guest/guest) |
+| Crawler | 3001 | **3001** | Node.js crawler API |
+| Embedder | 8000 | **8000** | Python embedder API |
+| MCP Inspector (UI) | 6274 | **6274** | UI: http://localhost:6274 |
+| MCP Inspector (Proxy) | 6277 | **6277** | Internal proxy/API used by the UI |
+
+---
+
+## MCP Inspector
+
+After `docker compose -f infra/docker-compose.yml up -d`, open:
+
+`http://localhost:6274`
+
+The Inspector service is preconfigured to connect via HTTP transport to:
+
+`http://host.docker.internal:5000/mcp`
+
+> `localhost` inside the `mcp-inspector` container points to the container itself, not your host machine.  
+> Use `host.docker.internal` to reach a locally running Noesis server.
+
+Override the target MCP endpoint when starting compose:
+
+```bash
+MCP_SERVER_URL=http://host.docker.internal:5000/mcp docker compose -f infra/docker-compose.yml up -d
+```
+
+> The compose setup currently disables Inspector auth (`DANGEROUSLY_OMIT_AUTH=true`) for local development convenience.
+> The current Inspector image uses Node 22 because `@modelcontextprotocol/inspector@0.21.2` requires Node `>=22.7.5`.
+> For **Direct + HTTP** in Inspector, the Noesis server must allow the UI origin via CORS (default: `http://localhost:6274`, `http://127.0.0.1:6274` in `server/src/Gravion.Noesis.Server/appsettings.json` under `Mcp:InspectorAllowedOrigins`).
 
 ---
 

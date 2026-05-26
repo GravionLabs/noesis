@@ -53,6 +53,13 @@ def pop_message_field(_, __, event_dict: EventDict) -> EventDict:
     return event_dict
 
 
+def rename_event_to_message(_, __, event_dict: EventDict) -> EventDict:
+    event = event_dict.pop("event", None)
+    if event is not None:
+        event_dict["message"] = event
+    return event_dict
+
+
 def add_cloud_environment(_, __, event_dict: EventDict) -> EventDict:
     labels: dict[str, Any] = event_dict.get("labels") or {}
     labels.setdefault("EnvironmentName", str(Environment.current()))
@@ -155,6 +162,7 @@ def configure_logger(
         add_ecs_metadata,
         add_cloud_environment,
         structlog.processors.TimeStamper(fmt="iso"),
+        rename_event_to_message,
     ]
 
     formatter = structlog.stdlib.ProcessorFormatter(
