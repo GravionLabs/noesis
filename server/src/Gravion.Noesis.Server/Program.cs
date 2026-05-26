@@ -55,7 +55,7 @@ builder.Services.AddHangfireServer();
 
 builder.Services
     .AddMcpServer()
-    .WithHttpTransport()
+    .WithHttpTransport(options => options.Stateless = true)
     .WithToolsFromAssembly();
 
 // MassTransit configuration
