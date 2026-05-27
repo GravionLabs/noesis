@@ -36,7 +36,9 @@ async function startRabbitMqConsumer(): Promise<void> {
     const ch = await conn.createChannel();
     ch.prefetch(1);
 
+    await ch.assertExchange('noesis.start-crawl-job', 'fanout', { durable: true });
     await ch.assertQueue('noesis.start-crawl-job', { durable: true });
+    await ch.bindQueue('noesis.start-crawl-job', 'noesis.start-crawl-job', '');
     app.log.info('RabbitMQ consumer ready — listening on noesis.start-crawl-job');
 
     ch.consume('noesis.start-crawl-job', async (msg) => {

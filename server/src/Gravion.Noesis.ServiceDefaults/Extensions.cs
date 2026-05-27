@@ -1,7 +1,10 @@
+using System.Diagnostics.CodeAnalysis;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 using OpenTelemetry;
@@ -12,8 +15,9 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
 
-namespace Microsoft.Extensions.Hosting;
+namespace Gravion.Noesis.ServiceDefaults;
 
+[SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
 public static class Extensions
 {
     public static IHostApplicationBuilder AddServiceDefaults(this IHostApplicationBuilder builder)
@@ -34,6 +38,7 @@ public static class Extensions
         return builder;
     }
 
+    [SuppressMessage("Design", "CA1062:Validate arguments of public methods")]
     public static IHostApplicationBuilder ConfigureSerilog(this IHostApplicationBuilder builder)
     {
         builder.Services.AddSerilog((services, loggerConfiguration) =>
@@ -58,6 +63,7 @@ public static class Extensions
         return builder;
     }
 
+    [SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
     public static IHostApplicationBuilder ConfigureOpenTelemetry(this IHostApplicationBuilder builder)
     {
         builder.Logging.AddOpenTelemetry(logging =>

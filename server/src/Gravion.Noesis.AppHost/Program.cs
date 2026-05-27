@@ -14,9 +14,6 @@ var ollamaSettings = builder.Configuration.GetSection(OllamaSettings.SectionName
 // Credentials with two infra modes:
 // - external: uses docker-compose ports
 // - managed: uses dedicated Aspire ports to avoid collisions with compose
-const int composePgHostPort = 5442;
-const int composeRmqHostPort = 5682;
-const int composeRmqManagementHostPort = 15682;
 const int managedPgHostPort = 5542;
 const int managedRmqHostPort = 5782;
 const int managedRmqManagementHostPort = 16682;

@@ -3,6 +3,7 @@ using Carter;
 using Gravion.Noesis.Core.Settings;
 using Gravion.Noesis.Infrastructure;
 using Gravion.Noesis.Infrastructure.Data;
+using Gravion.Noesis.ServiceDefaults;
 using Gravion.Noesis.UseCases.Crawling;
 using Gravion.Noesis.UseCases.Sources.CreateSource;
 
@@ -74,7 +75,6 @@ builder.Services.AddMassTransit(x =>
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(new Uri($"rabbitmq://{rabbitMqSettings.Host}:{rabbitMqSettings.Port}/"));
-
         cfg.ConfigureEndpoints(context);
     });
 });

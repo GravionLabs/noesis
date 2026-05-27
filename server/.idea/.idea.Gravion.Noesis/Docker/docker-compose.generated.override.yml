@@ -1,0 +1,20 @@
+# This is a generated file. Not intended for manual editing.
+services:
+  ef-migrate:
+    build:
+      context: "/home/jkaufmann/Source/Gravion/noesis/server"
+      dockerfile: "src/Gravion.Noesis.Migrator/Dockerfile"
+    command: []
+    entrypoint:
+    - "dotnet"
+    - "/app/../../bin/src/Debug/net10.0/Gravion.Noesis.Migrator.dll"
+    environment:
+      DOTNET_ENVIRONMENT: "Development"
+      DOTNET_USE_POLLING_FILE_WATCHER: "true"
+    image: "gravion.noesis.migrator:dev"
+    ports: []
+    volumes:
+    - "/home/jkaufmann/Source/Gravion/noesis/server/src/Gravion.Noesis.Migrator:/app:rw"
+    - "/home/jkaufmann/Source/Gravion/noesis/server:/src:rw"
+    - "/home/jkaufmann/.nuget/packages:/root/.nuget/packages"
+    working_dir: "/app"
