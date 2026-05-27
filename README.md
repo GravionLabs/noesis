@@ -167,7 +167,7 @@ Register a source with `POST /api/sources` using one of these `importerType` val
 | `llmstxt` | Fetches `llms-full.txt`, chunks by heading | `https://next.angular.dev/assets/context/llms-full.txt` |
 | `llmstxt-meta` | Fetches `llms.txt`, extracts metadata | `https://next.angular.dev/llms.txt` |
 | `llmstxt-crawl` | Fetches `llms.txt`, crawls each linked page via Playwright | `https://next.angular.dev/llms.txt` |
-| `crawler` | Playwright full-page crawl | `https://angular.dev/guide` |
+| `crawler` | Playwright docs crawl with internal links + sitemap discovery | `https://angular.dev/guide` |
 | `github` | GitHub repository README | `https://github.com/angular/angular` |
 | `azuredevops` | Azure DevOps wiki / repo | `https://dev.azure.com/org/project` |
 | `npm-readme` | npm package README from registry API | `https://registry.npmjs.org/lodash` |
@@ -203,6 +203,28 @@ curl -X POST http://localhost:5000/api/sources/<id>/import
 curl http://localhost:5000/api/jobs/<jobId>
 # pending → running → embedding → done
 ```
+
+### Example: crawl a docs website
+
+```bash
+curl -X POST http://localhost:5000/api/sources \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "MassTransit Docs",
+    "url": "https://masstransit.massient.com/",
+    "importerType": "crawler",
+    "config": "{\"maxDepth\":2,\"maxPages\":100,\"includeSitemap\":true}"
+  }'
+```
+
+The crawler follows internal links, normalizes URLs, and seeds the crawl from
+`robots.txt`/`sitemap.xml` when available.
+
+Useful `config` options:
+- `maxDepth`: crawl depth from the starting page
+- `maxPages`: upper bound on pages to ingest
+- `crawlDelayMs`: optional delay between fetches
+- `allowedPathPrefixes` / `excludePathPrefixes`: narrow the crawl scope
 
 ### Ollama embeddings
 

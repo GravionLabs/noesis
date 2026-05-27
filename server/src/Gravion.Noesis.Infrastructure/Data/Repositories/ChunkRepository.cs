@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 using Gravion.Noesis.Core.Abstractions;
 using Gravion.Noesis.Core.Entities;
 
@@ -32,6 +34,7 @@ public class ChunkRepository(AppDbContext db) : IChunkRepository
             .ToListAsync(ct);
     }
 
+    [SuppressMessage("ReSharper", "CoVariantArrayConversion")]
     public async Task<List<Chunk>> SearchByVectorAsync(float[] vector, string model, int limit, string? sourceName, CancellationToken ct = default)
     {
         var pgVector = new Vector(vector);
@@ -51,9 +54,9 @@ public class ChunkRepository(AppDbContext db) : IChunkRepository
 
         List<NpgsqlParameter> parameters =
         [
-            new NpgsqlParameter("model", model),
-            new NpgsqlParameter("vector", pgVector) { DataTypeName = "vector" },
-            new NpgsqlParameter("limit", limit),
+            new("model", model),
+            new("vector", pgVector) { DataTypeName = "vector" },
+            new("limit", limit),
         ];
 
         if (sourceName is not null)

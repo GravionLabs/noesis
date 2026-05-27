@@ -30,7 +30,9 @@ public class CrawlerImporter(IPublishEndpoint publishEndpoint, ILogger<CrawlerIm
 
         _logger.LogInformation("Publishing StartCrawlJob for source {SourceId}", source.Id);
 
-        await _publishEndpoint.Publish(new StartCrawlJob(context.JobId, source.Id, source.Url, source.ImporterType), ct);
+        await _publishEndpoint.Publish(
+            new StartCrawlJob(context.JobId, source.Id, source.Url, source.ImporterType, source.Config),
+            ct);
 
         // The crawler is async — it will publish CrawlCompleted to RabbitMQ when done
         return new ImportResult(true, 0, 0, WaitForCallback: true);
