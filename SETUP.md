@@ -25,7 +25,7 @@ node --version && npm --version
 python3 --version && uv --version
 ```
 
-### Step 1: Start Infrastructure (Postgres, RabbitMQ, Migrator, Crawler, Embedder)
+### Step 1: Start Infrastructure (Postgres, RabbitMQ, Seq, Vector, Migrator, Crawler, Embedder)
 
 ```bash
 cd infra
@@ -35,7 +35,7 @@ docker compose -f docker-compose.yml up -d
 **Verify all services are running:**
 ```bash
 docker compose -f docker-compose.yml ps
-# Should show: postgres, rabbitmq, ef-migrate (exited), crawler, embedder
+# Should show: postgres, rabbitmq, seq, vector, ef-migrate (exited), crawler, embedder
 ```
 
 **Check service health:**
@@ -45,6 +45,12 @@ docker compose -f docker-compose.yml logs postgres | grep "database system is re
 
 # RabbitMQ
 docker compose -f docker-compose.yml logs rabbitmq | grep "Server startup complete"
+
+# Seq
+docker compose -f docker-compose.yml logs seq | grep "Seq"
+
+# Vector
+docker compose -f docker-compose.yml logs vector | grep "source"
 
 # Crawler
 docker compose -f docker-compose.yml logs crawler | grep "listening on"
@@ -124,7 +130,7 @@ dotnet tool install -g Aspire.Hosting.Cli
 
 ```bash
 cd server/src/Gravion.Noesis.AppHost
-dotnet run
+dotnet run --launch-profile compose-ports
 ```
 
 **Verify all services:**
@@ -132,6 +138,11 @@ dotnet run
 - Crawler: http://localhost:3001/health
 - Embedder: http://localhost:8000/health
 - RabbitMQ Management UI: http://localhost:15682/
+
+This profile connects to the existing Docker Compose Postgres/RabbitMQ stack on the standard compose ports.
+The Docker Compose stack also includes Seq at http://localhost:5341, with Vector forwarding all container logs into it.
+The local .NET server launch profiles already point at the same Seq instance.
+Default Seq login: `admin` / `seq-dev-password`, API key: `seq-dev-api-key`. If Seq was started before this change, recreate the `seq_data` volume with `down -v`.
 
 (Same import test as above applies)
 

@@ -1,0 +1,31 @@
+data_dir = "/var/lib/vector"
+
+[sources.docker]
+type = "docker_logs"
+docker_host = "unix:///var/run/docker.sock"
+include_containers = ["noesis-"]
+exclude_containers = ["noesis-seq", "noesis-vector"]
+
+[transforms.to_clef]
+type = "remap"
+inputs = ["docker"]
+source = '''
+."@t" = format_timestamp!(.timestamp, format: "%+")
+."@m" = .message
+'''
+
+[sinks.seq]
+type = "http"
+inputs = ["to_clef"]
+uri = "http://seq:80/api/events/raw"
+method = "post"
+
+[sinks.seq.encoding]
+codec = "json"
+
+[sinks.seq.framing]
+method = "newline_delimited"
+
+[sinks.seq.request.headers]
+Content-Type = "application/vnd.serilog.clef"
+X-Seq-ApiKey = "seq-dev-api-key"

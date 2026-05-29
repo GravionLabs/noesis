@@ -11,6 +11,8 @@ using Gravion.Noesis.UseCases.Sources.ListSources;
 using LiteBus.Commands.Abstractions;
 using LiteBus.Queries.Abstractions;
 
+using Microsoft.EntityFrameworkCore;
+
 namespace Gravion.Noesis.Server.Endpoints.Sources;
 
 public class SourcesEndpoints : ICarterModule
@@ -37,19 +39,32 @@ public class SourcesEndpoints : ICarterModule
             async (CreateSourceRequest req, ICommandMediator cmd) =>
             {
                 var command = new CreateSourceCommand(req.Name, req.Url, req.ImporterType, req.Config, req.Schedule);
-                var result = await cmd.SendAsync(command);
-                if (!result.IsSuccess)
-                    return Results.BadRequest(result.Errors);
-                var source = result.Value;
-                return Results.Created($"/api/sources/{source.Id}",
-                    new SourceResponse(
-                        source.Id,
-                        source.Name,
-                        source.Url,
-                        source.ImporterType,
-                        source.Enabled,
-                        source.Schedule,
-                        source.LastImportedAt));
+                try
+                {
+                    var result = await cmd.SendAsync(command);
+                    if (!result.IsSuccess)
+                    {
+                        if (result.Status == ResultStatus.Conflict)
+                            return SourceConflictResponses.DuplicateSource();
+
+                        return Results.BadRequest(result.Errors);
+                    }
+
+                    var source = result.Value;
+                    return Results.Created($"/api/sources/{source.Id}",
+                        new SourceResponse(
+                            source.Id,
+                            source.Name,
+                            source.Url,
+                            source.ImporterType,
+                            source.Enabled,
+                            source.Schedule,
+                            source.LastImportedAt));
+                }
+                catch (DbUpdateException ex) when (SourceConflictResponses.IsUniqueConstraintViolation(ex))
+                {
+                    return SourceConflictResponses.DuplicateSource();
+                }
             });
 
         group.MapDelete("/{id:guid}",

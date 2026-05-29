@@ -1,6 +1,6 @@
 # Noesis – Infra
 
-Local infrastructure for development: Postgres with pgvector, RabbitMQ, crawler, embedder, EF Core migrator, and MCP Inspector.
+Local infrastructure for development: Postgres with pgvector, RabbitMQ, Seq, Vector, crawler, embedder, EF Core migrator, and MCP Inspector.
 
 ---
 
@@ -29,6 +29,8 @@ docker compose -f infra/docker-compose.yml up -d
 This starts:
 - **Postgres** (with pgvector) — waits for healthy before migrator runs
 - **RabbitMQ** — with management UI
+- **Seq** — central log store for all container stdout/stderr
+- **Vector** — Docker log collector that forwards container logs to Seq
 - **ef-migrate** — runs EF Core migrations then exits
 - **crawler** — Playwright-based crawler service
 - **embedder** — embedding service
@@ -74,6 +76,7 @@ docker compose -f infra/docker-compose.yml down -v       # remove volumes
 | Postgres | 5432 | **5442** | `noesis` DB, user `noesis` / `noesis_dev` |
 | RabbitMQ AMQP | 5672 | **5682** | Used by Wolverine |
 | RabbitMQ Management | 15672 | **15682** | Web UI: http://localhost:15682 (guest/guest) |
+| Seq | 80 | **5341** | Web UI + ingestion: http://localhost:5341 (`admin` / `seq-dev-password`, API key `seq-dev-api-key`) |
 | Crawler | 3001 | **3001** | Node.js crawler API |
 | Embedder | 8000 | **8000** | Python embedder API |
 | MCP Inspector (UI) | 6274 | **6274** | UI: http://localhost:6274 |
@@ -129,3 +132,14 @@ DATABASE_URL=postgres://noesis:noesis_dev@localhost:5442/noesis
 ```env
 DATABASE_URL=postgres://noesis:noesis_dev@localhost:5442/noesis
 ```
+
+### Seq
+
+If Seq was started once with a broken first-run state, remove the `seq_data` volume before restarting:
+
+```bash
+docker compose -f infra/docker-compose.yml down -v
+docker compose -f infra/docker-compose.yml up -d
+```
+
+Vector forwards logs to Seq at `http://seq:80/api/events/raw` with the `X-Seq-ApiKey: seq-dev-api-key` header.

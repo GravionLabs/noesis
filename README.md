@@ -56,7 +56,7 @@ noesis/
 
 ### Option A: Docker Compose (Recommended for first-time setup)
 
-Start all services (Postgres, RabbitMQ, Migrator, Crawler, Embedder) with:
+Start all services (Postgres, RabbitMQ, Seq, Vector, Migrator, Crawler, Embedder) with:
 
 ```bash
 # Verify Docker is available
@@ -71,32 +71,30 @@ cd server && dotnet run --project src/Gravion.Noesis.Server
 ```
 
 See [`infra/README.md`](infra/README.md) for port reference and connection strings.
+Seq is available at http://localhost:5341 and receives the Docker container logs via Vector.
+The local .NET server also writes to the same Seq instance through its launch profile.
+Default login: `admin` / `seq-dev-password`, API key: `seq-dev-api-key`.
 
 ### Option B: Run all services locally (via AppHost)
 
-Run via one of two AppHost launch profiles:
+Run the AppHost against the existing Docker Compose Postgres/RabbitMQ instance:
 
 ```bash
 cd server/src/Gravion.Noesis.AppHost
 
-# 1) Use existing docker-compose infra (fixed compose ports)
+# Use existing docker-compose infra (fixed compose ports)
 dotnet run --launch-profile compose-ports
-
-# 2) Let Aspire start its own infra (separate managed ports)
-dotnet run --launch-profile aspire-infra
 ```
 
 Profile behavior:
-- `compose-ports` → uses existing Postgres/RabbitMQ on compose ports (`5442`, `5682`, `15682`)
-- `aspire-infra` → Aspire starts Postgres/RabbitMQ itself on managed ports (`5542`, `5782`, `16682`)
+- `compose-ports` → uses the existing Docker Compose Postgres/RabbitMQ on ports `5442`, `5682`, `15682`
 
-Verify services are running (both profiles):
+Verify services are running:
 - Server: http://localhost:5000/health
 - Crawler: http://localhost:3001/health
 - Embedder: http://localhost:8000/health
 - RabbitMQ Management:
   - `compose-ports`: http://localhost:15682/
-  - `aspire-infra`: http://localhost:16682/
 
 ### Option C: Start services individually
 
