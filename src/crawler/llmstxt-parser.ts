@@ -11,14 +11,10 @@ export interface LlmsMetadata {
   optionalLinks: LlmsLink[];
 }
 
-/**
- * Parses the SHORT llms.txt format as defined by https://llmstxt.org/.
- * Extracts title, description, important links, and optional links.
- */
 export function parseLlmsTxt(content: string): LlmsMetadata {
-  const lines = content.split('\n');
-  let title = '';
-  let description = '';
+  const lines = content.split("\n");
+  let title = "";
+  let description = "";
   const importantLinks: LlmsLink[] = [];
   const optionalLinks: LlmsLink[] = [];
   let inOptionalSection = false;
@@ -26,24 +22,23 @@ export function parseLlmsTxt(content: string): LlmsMetadata {
   for (const rawLine of lines) {
     const line = rawLine.trimEnd();
 
-    if (line.startsWith('# ')) {
+    if (line.startsWith("# ")) {
       title = line.slice(2).trim();
       inOptionalSection = false;
       continue;
     }
 
-    if (line.startsWith('## ')) {
-      const section = line.slice(3).trim();
-      inOptionalSection = section.toLowerCase() === 'optional';
+    if (line.startsWith("## ")) {
+      inOptionalSection = line.slice(3).trim().toLowerCase() === "optional";
       continue;
     }
 
-    if (line.startsWith('> ')) {
+    if (line.startsWith("> ")) {
       description = description ? `${description} ${line.slice(2).trim()}` : line.slice(2).trim();
       continue;
     }
 
-    if (line.startsWith('- ')) {
+    if (line.startsWith("- ")) {
       const link = parseLink(line.slice(2));
       if (link) {
         if (inOptionalSection) optionalLinks.push(link);
@@ -56,19 +51,17 @@ export function parseLlmsTxt(content: string): LlmsMetadata {
 }
 
 function parseLink(text: string): LlmsLink | null {
-  // Pattern: [Label](url): description   or   [Label](url)
   const match = text.match(/^\[([^\]]+)\]\(([^)]+)\)(?::\s*(.*))?$/);
   if (!match) return null;
   return {
     label: match[1],
     url: match[2],
-    description: match[3]?.trim() ?? '',
+    description: match[3]?.trim() ?? "",
   };
 }
 
-/** Returns all URLs to crawl, honouring the includeOptional flag. */
 export function extractUrls(metadata: LlmsMetadata, includeOptional: boolean): string[] {
-  const urls = metadata.importantLinks.map(l => l.url);
-  if (includeOptional) urls.push(...metadata.optionalLinks.map(l => l.url));
+  const urls = metadata.importantLinks.map((l) => l.url);
+  if (includeOptional) urls.push(...metadata.optionalLinks.map((l) => l.url));
   return urls;
 }

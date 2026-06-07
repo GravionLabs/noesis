@@ -1,4 +1,13 @@
-import { query } from "../db/pool.js";
+import { query, getClient } from "../db/pool.js";
+
+export interface CrawlChunkData {
+  docUrl: string;
+  docTitle: string | undefined;
+  content: string;
+  heading: string | undefined;
+  headingPath: string[];
+  chunkIndex: number;
+}
 
 export interface ChunkWithSource {
   chunkId: string;
@@ -50,4 +59,45 @@ export async function getChunksBySourceId(sourceId: string) {
     [sourceId],
   );
   return result.rows;
+}
+
+export async function saveChunks(
+  chunks: CrawlChunkData[],
+  sourceId: string,
+): Promise<{ docCount: number; chunkCount: number }> {
+  if (chunks.length === 0) return { docCount: 0, chunkCount: 0 };
+
+  const client = await getClient();
+  try {
+    await client.query("BEGIN");
+    let docCount = 0;
+
+    for (const chunk of chunks) {
+      const docResult = await client.query<{ id: string }>(
+        `INSERT INTO docs (source_id, url, title, updated_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (source_id, url) DO UPDATE SET title = EXCLUDED.title, updated_at = NOW()
+         RETURNING id`,
+        [sourceId, chunk.docUrl, chunk.docTitle],
+      );
+      const docId = docResult.rows[0].id;
+
+      await client.query(
+        `INSERT INTO chunks (doc_id, source_id, content, heading, heading_path, chunk_index)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT DO NOTHING`,
+        [docId, sourceId, chunk.content, chunk.heading, chunk.headingPath, chunk.chunkIndex],
+      );
+
+      docCount++;
+    }
+
+    await client.query("COMMIT");
+    return { docCount, chunkCount: chunks.length };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
