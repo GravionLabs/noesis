@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { searchChunks } from "../services/search-service.js";
+import { searchDocs } from "../search/search.js";
 import { getChunkWithSource } from "../services/chunk-service.js";
 import { listSources } from "../services/source-service.js";
 
@@ -34,10 +34,13 @@ export function createMcpServer() {
     },
     async ({ query: searchQuery, limit, source }) => {
       try {
-        const { embedText } = await import("../services/embedding-service.js");
-        const vector = await embedText(searchQuery);
+        const results = await searchDocs(searchQuery, limit, source);
 
-        const results = await searchChunks(vector, limit, source);
+        if (results.length === 0) {
+          return {
+            content: [{ type: "text" as const, text: "No results found." }],
+          };
+        }
 
         return {
           content: results.map((r) => ({
