@@ -1,6 +1,7 @@
 {
   "name": "noesis-server",
   "version": "0.1.0",
+  "packageManager": "pnpm@11.5.0",
   "type": "module",
   "description": "Self-hosted documentation context engine — TypeScript server",
   "main": "dist/index.js",
