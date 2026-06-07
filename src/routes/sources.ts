@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import {
   listSources,
   createSource,
@@ -7,17 +8,13 @@ import {
 } from "../services/source-service.js";
 import { triggerImport } from "../services/import-service.js";
 
-const createSourceSchema = {
-  type: "object",
-  required: ["name", "url"],
-  properties: {
-    name: { type: "string" },
-    url: { type: "string" },
-    importerType: { type: "string" },
-    config: { type: "string" },
-    schedule: { type: "string" },
-  },
-} as const;
+const createSourceSchema = z.object({
+  name: z.string().min(1),
+  url: z.string().url(),
+  importerType: z.string().optional(),
+  config: z.string().optional(),
+  schedule: z.string().optional(),
+});
 
 export function registerSourceRoutes(app: FastifyInstance) {
   app.get("/api/sources", async (_req, reply) => {
@@ -34,31 +31,24 @@ export function registerSourceRoutes(app: FastifyInstance) {
     }));
   });
 
-  app.post<{ Body: { name: string; url: string; importerType?: string; config?: string; schedule?: string } }>(
-    "/api/sources",
-    {
-      schema: { body: createSourceSchema },
-    },
-    async (req, reply) => {
-      const source = await createSource({
-        name: req.body.name,
-        url: req.body.url,
-        importerType: req.body.importerType,
-        config: req.body.config,
-        schedule: req.body.schedule,
-      });
-      if (!source) {
-        return reply.code(409).send({ error: "Source with this URL already exists" });
-      }
-      return reply.code(201).send({
-        id: source.id,
-        name: source.name,
-        url: source.url,
-        importerType: source.importerType,
-        enabled: source.enabled,
-      });
-    },
-  );
+  app.post("/api/sources", async (req, reply) => {
+    const parsed = createSourceSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Validation failed", details: parsed.error.issues });
+    }
+
+    const source = await createSource(parsed.data);
+    if (!source) {
+      return reply.code(409).send({ error: "Source with this URL already exists" });
+    }
+    return reply.code(201).send({
+      id: source.id,
+      name: source.name,
+      url: source.url,
+      importerType: source.importerType,
+      enabled: source.enabled,
+    });
+  });
 
   app.delete<{ Params: { id: string } }>(
     "/api/sources/:id",

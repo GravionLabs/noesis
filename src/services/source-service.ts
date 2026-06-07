@@ -11,7 +11,7 @@ export interface CreateSourceInput {
 }
 
 export async function listSources() {
-  return db.select().from(sources).orderBy(sources.createdAt);
+  return db.select().from(sources).orderBy(sources.name);
 }
 
 export async function getSource(id: string) {
