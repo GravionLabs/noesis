@@ -7,7 +7,7 @@ describe("config", () => {
     const { config } = await import("../src/config.js");
     expect(config.PORT).toBe(5000);
     expect(config.DATABASE_URL).toContain("postgres://");
-    expect(config.EMBEDDING_PROVIDER).toBe("huggingface");
+    expect(config.EMBEDDING_PROVIDER).toBe("local");
     expect(config.EMBEDDING_MODEL).toBe("Xenova/bge-base-en-v1.5");
   });
 });

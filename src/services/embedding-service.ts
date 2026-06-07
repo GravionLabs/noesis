@@ -13,6 +13,9 @@ export function getProvider(): EmbeddingProvider {
   if (provider) return provider;
 
   switch (config.EMBEDDING_PROVIDER) {
+    case "local":
+      provider = new LocalEmbeddingProvider(config.EMBEDDING_MODEL);
+      break;
     case "openai":
       provider = new OpenAIEmbeddingProvider({
         model: config.EMBEDDING_MODEL,
