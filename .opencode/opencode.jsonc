@@ -10,8 +10,5 @@
         "edit": "allow"
       }
     }
-  },
-  "skills": {
-    "paths": [".opencode/skills"]
   }
 }
