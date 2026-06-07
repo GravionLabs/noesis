@@ -12,8 +12,8 @@ const envSchema = z.object({
     .default("amqp://guest:guest@localhost:5682/"),
 
   EMBEDDING_PROVIDER: z
-    .enum(["huggingface", "ollama", "openai"])
-    .default("huggingface"),
+    .enum(["local", "ollama", "openai"])
+    .default("local"),
 
   EMBEDDING_MODEL: z
     .string()
