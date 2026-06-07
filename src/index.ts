@@ -1,4 +1,7 @@
 import Fastify from "fastify";
+import cors from "@fastify/cors";
+import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
 import { config } from "./config.js";
 import { pool } from "./db/pool.js";
 import { registerHealthRoutes } from "./routes/health.js";
@@ -29,6 +32,19 @@ async function main() {
 
   const app = Fastify({ logger: true });
 
+  // ---- Plugins ----
+  await app.register(cors, { origin: true });
+  await app.register(swagger, {
+    openapi: {
+      info: {
+        title: "Noesis API",
+        description: "Self-hosted documentation context engine",
+        version: "0.1.0",
+      },
+    },
+  });
+  await app.register(swaggerUi, { routePrefix: "/openapi" });
+
   // ---- REST API Routes ----
   registerHealthRoutes(app);
   registerSourceRoutes(app);
@@ -42,6 +58,7 @@ async function main() {
   });
 
   app.all("/mcp", async (req, reply) => {
+    // CORS handled by @fastify/cors for all origins
     const rawReq = req.raw;
     const rawRes = reply.raw;
     try {
