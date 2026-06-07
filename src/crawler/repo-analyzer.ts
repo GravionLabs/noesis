@@ -1,7 +1,3 @@
-/**
- * Main repository analyzer - coordinates code extraction, embeddings, and llms.txt generation.
- */
-
 import { promises as fs } from "fs";
 import path from "path";
 import { spawn } from "child_process";
@@ -69,51 +65,26 @@ export class RepoAnalyzer {
   async analyze(): Promise<RepoAnalysisResult> {
     console.log(`Analyzing repository: ${this.repoUrl}`);
 
-    // 1. Get repository structure
     const structure = await this._buildStructure();
-
-    // 2. Get README
     const readme = await this._getReadme();
-
-    // 3. List documentation files
     const docFiles = await this._getDocFiles();
-
-    // 4. Extract API definitions
     const apiDefinitions = await this._extractApis();
-
-    // 5. Generate llms.txt
     const llmsTxt = await this._generateLlmsTxt(structure, readme, docFiles, apiDefinitions);
 
-    return {
-      repoUrl: this.repoUrl,
-      structure,
-      readme,
-      documentationFiles: docFiles,
-      apiDefinitions,
-      llmsTxt,
-    };
+    return { repoUrl: this.repoUrl, structure, readme, documentationFiles: docFiles, apiDefinitions, llmsTxt };
   }
 
   private async _buildStructure(): Promise<string> {
-    if (!this.config.includeStructure) {
-      return "";
-    }
+    if (!this.config.includeStructure) return "";
 
     console.log("Building repository structure...");
-
     const files = await this.provider.listFiles(this.repoUrl);
-
-    // Build tree structure
     const lines: string[] = [];
     lines.push("Repository Structure:");
     lines.push("```");
 
-    // Simple tree formatting
     for (const file of files) {
-      if (this._shouldExclude(file.path)) {
-        continue;
-      }
-
+      if (this._shouldExclude(file.path)) continue;
       const indent = (file.path.match(/\//g) || []).length * 2;
       const name = file.path.split("/").pop();
       const marker = file.isDirectory ? "📁" : "📄";
@@ -121,53 +92,36 @@ export class RepoAnalyzer {
     }
 
     lines.push("```");
-
     return lines.join("\n");
   }
 
   private async _getReadme(): Promise<string | null> {
-    if (!this.config.includeReadme) {
-      return null;
-    }
-
+    if (!this.config.includeReadme) return null;
     console.log("Fetching README...");
-
     try {
       const readme = await this.provider.getReadme(this.repoUrl);
-      if (readme) {
-        return readme.content;
-      }
+      if (readme) return readme.content;
     } catch (error) {
       console.error(`Failed to get README: ${error}`);
     }
-
     return null;
   }
 
   private async _getDocFiles(): Promise<string[]> {
-    if (!this.config.includeDocumentation) {
-      return [];
-    }
-
+    if (!this.config.includeDocumentation) return [];
     console.log("Finding documentation files...");
-
     try {
       const docFiles = await this.provider.getDocFiles(this.repoUrl);
       return docFiles.map((f) => f.path);
     } catch (error) {
       console.error(`Failed to get doc files: ${error}`);
     }
-
     return [];
   }
 
   private async _extractApis(): Promise<string> {
-    if (!this.config.includeApis) {
-      return "";
-    }
-
+    if (!this.config.includeApis) return "";
     console.log("Extracting API definitions...");
-    // TODO: Implement code analysis to extract public functions/classes
     return "## Public APIs\n\n(API extraction coming soon)";
   }
 
@@ -178,55 +132,39 @@ export class RepoAnalyzer {
     apiDefinitions: string,
   ): Promise<string> {
     const sections: string[] = [];
-
-    // Header
     sections.push("# Repository Documentation\n");
     sections.push(`**Source:** ${this.repoUrl}\n`);
 
-    // README
     if (readme) {
       sections.push("## Overview\n");
       sections.push(readme);
       sections.push("");
     }
 
-    // Structure
     if (structure) {
       sections.push(structure);
       sections.push("");
     }
 
-    // Documentation files
     if (docFiles.length > 0) {
       sections.push("## Documentation Files\n");
-      for (const file of docFiles) {
-        sections.push(`- ${file}`);
-      }
+      for (const file of docFiles) sections.push(`- ${file}`);
       sections.push("");
     }
 
-    // APIs
-    if (apiDefinitions) {
-      sections.push(apiDefinitions);
-      sections.push("");
-    }
+    if (apiDefinitions) sections.push(apiDefinitions);
 
     return sections.join("\n");
   }
 
   private _shouldExclude(filePath: string): boolean {
     for (const pattern of this.config.excludePatterns) {
-      if (filePath.includes(pattern)) {
-        return true;
-      }
+      if (filePath.includes(pattern)) return true;
     }
     return false;
   }
 }
 
-/**
- * Main entry point for repo analysis.
- */
 export async function analyzeRepository(
   repoUrl: string,
   config: RepoAnalyzerConfig = {},

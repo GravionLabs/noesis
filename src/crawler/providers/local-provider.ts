@@ -1,50 +1,29 @@
-/**
- * Local file system repository provider.
- */
-
 import { promises as fs } from "fs";
 import path from "path";
-import { RepositoryProvider, RepositoryFileInfo, RepositoryContent } from "./repository-provider.js";
+import { RepositoryProvider, type RepositoryFileInfo, type RepositoryContent } from "./repository-provider.js";
 
 export class LocalProvider implements RepositoryProvider {
   name = "local";
 
   canHandle(url: string): boolean {
-    // Treat relative or absolute paths as local
     return url.startsWith(".") || url.startsWith("/") || !url.includes("://");
   }
 
-  async listFiles(
-    repoUrl: string,
-    pathSuffix = "",
-    maxDepth = 4,
-  ): Promise<RepositoryFileInfo[]> {
+  async listFiles(repoUrl: string, pathSuffix = "", maxDepth = 4): Promise<RepositoryFileInfo[]> {
     const basePath = path.resolve(repoUrl);
     const fullPath = pathSuffix ? path.join(basePath, pathSuffix) : basePath;
-
     const files: RepositoryFileInfo[] = [];
 
     try {
       const entries = await fs.readdir(fullPath, { withFileTypes: true });
 
       for (const entry of entries) {
-        // Skip hidden files and common non-essential directories
-        if (
-          entry.name.startsWith(".")
-          || ["node_modules", "dist", "build", ".git", "__pycache__"].includes(
-            entry.name,
-          )
-        ) {
-          continue;
-        }
+        if (entry.name.startsWith(".") || ["node_modules", "dist", "build", ".git", "__pycache__"].includes(entry.name)) continue;
 
         const fullEntryPath = path.join(fullPath, entry.name);
         const relativePath = path.relative(basePath, fullEntryPath);
 
-        files.push({
-          path: relativePath,
-          isDirectory: entry.isDirectory(),
-        });
+        files.push({ path: relativePath, isDirectory: entry.isDirectory() });
       }
     } catch (error) {
       console.error(`Failed to list files from local path: ${error}`);
@@ -76,7 +55,7 @@ export class LocalProvider implements RepositoryProvider {
         const content = await fs.readFile(fullPath, "utf-8");
         return { path: name, content };
       } catch {
-        // Continue to next name
+        // continue
       }
     }
 
@@ -93,12 +72,9 @@ export class LocalProvider implements RepositoryProvider {
 
         return entries
           .filter((e) => !e.isDirectory() && e.name.endsWith(".md"))
-          .map((e) => ({
-            path: path.join(docDir, e.name),
-            isDirectory: false,
-          }));
+          .map((e) => ({ path: path.join(docDir, e.name), isDirectory: false }));
       } catch {
-        // Continue to next directory name
+        // continue
       }
     }
 
