@@ -9,14 +9,13 @@ import { registerSourceRoutes } from "./routes/sources.js";
 import { registerJobRoutes } from "./routes/jobs.js";
 import { registerInternalRoutes } from "./routes/internal.js";
 import { createMcpServer } from "./mcp/handler.js";
-import { startRabbitConsumers } from "./services/import-service.js";
+import { startScheduler } from "./pipeline/scheduler.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 async function main() {
   console.log("Noesis server starting...");
   console.log("  Port: %d", config.PORT);
   console.log("  Database: %s", config.DATABASE_URL);
-  console.log("  RabbitMQ: %s", config.RABBITMQ_URL);
   console.log("  Embedding: %s (%s)", config.EMBEDDING_PROVIDER, config.EMBEDDING_MODEL);
 
   // Verify database connectivity
@@ -74,12 +73,9 @@ async function main() {
   await mcpServer.connect(mcpTransport);
   console.log("  MCP server: ready at /mcp");
 
-  // ---- RabbitMQ Consumers ----
-  try {
-    await startRabbitConsumers();
-  } catch (err) {
-    app.log.warn({ err }, "RabbitMQ consumers not started — will retry on next import");
-  }
+  // ---- Scheduler (optional) ----
+  // Uncomment to enable periodic scheduled imports:
+  // startScheduler();
 
   // ---- Startup ----
   await app.listen({ port: config.PORT, host: "0.0.0.0" });
