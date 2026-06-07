@@ -2,6 +2,7 @@
 
 This document describes the Noesis system architecture, component roles,
 inter-service communication, and how to bootstrap the first use case (Angular documentation).
+For canonical behavior and contracts, read [`specs/`](specs/) first.
 
 ---
 

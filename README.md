@@ -6,6 +6,10 @@ for use in GitHub Copilot CLI, VS Code, and any MCP-compatible client.
 
 **Stack:** .NET 10 · Node.js/TypeScript · Python (uv) · Postgres + pgvector · RabbitMQ
 
+Canonical behavior, contracts, and workflows live in [`specs/`](specs/).
+
+See [`COPILOT-WORKFLOW.md`](COPILOT-WORKFLOW.md) for a short guide on structured Copilot prompts and the repo skills that fit this codebase best.
+
 ---
 
 ## Architecture
@@ -271,6 +275,7 @@ All tools are **read-only** and **idempotent**.
 
 | Document | Description |
 |---|---|
+| [`specs/README.md`](specs/README.md) | Canonical spec collection and reading order |
 | [`AGENTS.md`](AGENTS.md) | Full architecture, all endpoints, environment variables, pipeline flow |
 | [`infra/README.md`](infra/README.md) | Port reference, connection strings, Docker setup |
 | [`ROADMAP.md`](ROADMAP.md) | Planned features, migration strategies, import source roadmap |

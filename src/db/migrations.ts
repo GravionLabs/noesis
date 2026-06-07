@@ -1,0 +1,130 @@
+import { config } from "../config.js";
+import pg from "pg";
+
+const CREATE_EXTENSION = `CREATE EXTENSION IF NOT EXISTS vector`;
+
+const CREATE_SOURCES = `
+CREATE TABLE IF NOT EXISTS sources (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  url text NOT NULL,
+  importer_type text NOT NULL DEFAULT 'llmstxt',
+  enabled boolean NOT NULL DEFAULT true,
+  config text,
+  schedule text,
+  last_imported_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_sources_url ON sources (url);
+`;
+
+const CREATE_DOCS = `
+CREATE TABLE IF NOT EXISTS docs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_id uuid NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+  url text NOT NULL,
+  title text,
+  content_md text,
+  content_hash text,
+  indexed_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_docs_source_id_url ON docs (source_id, url);
+`;
+
+const CREATE_CHUNKS = `
+CREATE TABLE IF NOT EXISTS chunks (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  doc_id uuid NOT NULL REFERENCES docs(id) ON DELETE CASCADE,
+  source_id uuid NOT NULL,
+  content text NOT NULL,
+  heading text,
+  heading_path text[],
+  chunk_index integer NOT NULL,
+  token_count integer,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_chunks_doc_id ON chunks (doc_id);
+CREATE INDEX IF NOT EXISTS ix_chunks_source_id ON chunks (source_id);
+`;
+
+const CREATE_EMBEDDINGS = `
+CREATE TABLE IF NOT EXISTS embeddings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  chunk_id uuid NOT NULL REFERENCES chunks(id) ON DELETE CASCADE,
+  model text NOT NULL,
+  dimensions integer NOT NULL,
+  vector vector,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_embeddings_chunk_id_model ON embeddings (chunk_id, model);
+`;
+
+const CREATE_JOBS = `
+CREATE TABLE IF NOT EXISTS jobs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  type text NOT NULL DEFAULT 'import',
+  source_id uuid REFERENCES sources(id),
+  status text NOT NULL DEFAULT 'pending',
+  error text,
+  started_at timestamptz,
+  finished_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_jobs_source_id ON jobs (source_id);
+CREATE INDEX IF NOT EXISTS ix_jobs_status ON jobs (status);
+`;
+
+const CREATE_IMPORT_JOB_STATES = `
+CREATE TABLE IF NOT EXISTS import_job_states (
+  correlation_id uuid PRIMARY KEY,
+  current_state text,
+  job_id uuid NOT NULL,
+  source_id uuid NOT NULL,
+  importer_type text NOT NULL,
+  doc_count integer NOT NULL DEFAULT 0,
+  chunk_count integer NOT NULL DEFAULT 0,
+  started_at timestamptz
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_import_job_states_job_id ON import_job_states (job_id);
+`;
+
+async function migrate() {
+  const pool = new pg.Pool({ connectionString: config.DATABASE_URL });
+
+  try {
+    console.log("Running migrations...");
+
+    await pool.query(CREATE_EXTENSION);
+    console.log("  ✓ vector extension");
+
+    await pool.query(CREATE_SOURCES);
+    console.log("  ✓ sources");
+
+    await pool.query(CREATE_DOCS);
+    console.log("  ✓ docs");
+
+    await pool.query(CREATE_CHUNKS);
+    console.log("  ✓ chunks");
+
+    await pool.query(CREATE_EMBEDDINGS);
+    console.log("  ✓ embeddings");
+
+    await pool.query(CREATE_JOBS);
+    console.log("  ✓ jobs");
+
+    await pool.query(CREATE_IMPORT_JOB_STATES);
+    console.log("  ✓ import_job_states (legacy saga table)");
+
+    console.log("\nAll migrations complete.");
+  } finally {
+    await pool.end();
+  }
+}
+
+migrate().catch((err) => {
+  console.error("Migration failed:", err);
+  process.exit(1);
+});

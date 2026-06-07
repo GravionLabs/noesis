@@ -2,6 +2,7 @@
 
 > Erstellungsdatum: Mai 2026  
 > Dokument enthält Architekturentscheidungen, Vergleichstabellen und Roadmap.
+> Canonical behavior and contracts live in [`specs/`](specs/).
 
 ---
 
