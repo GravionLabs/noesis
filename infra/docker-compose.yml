@@ -29,44 +29,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  seq:
-    image: datalust/seq:latest
-    container_name: noesis-seq
-    restart: unless-stopped
-    environment:
-      ACCEPT_EULA: "Y"
-      SEQ_FIRSTRUN_ADMINUSERNAME: "admin"
-      SEQ_FIRSTRUN_ADMINPASSWORD: "seq-dev-password"
-      SEQ_API_KEY: "seq-dev-api-key"
-    ports:
-      - "5341:80"
-    volumes:
-      - seq_data:/data
-
-  vector:
-    image: timberio/vector:latest-alpine
-    container_name: noesis-vector
-    user: root
-    restart: unless-stopped
-    command: [ "--config", "/etc/vector/vector.toml" ]
-    volumes:
-      - ./vector/vector.toml:/etc/vector/vector.toml:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    depends_on:
-      - seq
-
-  ef-migrate:
-    build:
-      context: ../server
-      dockerfile: src/Gravion.Noesis.Migrator/Dockerfile
-    container_name: noesis-ef-migrate
-    restart: "no"
-    environment:
-      CONNECTIONSTRINGS__NOESIS: "Host=postgres;Port=5432;Database=noesis;Username=noesis;Password=noesis_dev"
-    depends_on:
-      postgres:
-        condition: service_healthy
+    profiles:
+      - all
 
   crawler:
     build:
@@ -75,68 +39,28 @@ services:
     container_name: noesis-crawler
     environment:
       DATABASE_URL: "postgres://noesis:noesis_dev@postgres:5432/noesis"
-      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
       PORT: "3001"
     ports:
       - "3001:3001"
     depends_on:
       postgres:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
 
-  embedder:
+  server:
     build:
-      context: ../embedder
+      context: ..
       dockerfile: Dockerfile
-    container_name: noesis-embedder
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    container_name: noesis-server
     environment:
-      DATABASE_URL: "postgresql://noesis:noesis_dev@postgres:5432/noesis"
-      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
-      SERVER_URL: "${SERVER_URL:-http://host.docker.internal:5000}"
-      # Provider options: openai | ollama | huggingface
-      EMBEDDING_PROVIDER: "${EMBEDDING_PROVIDER:-huggingface}"
-      EMBEDDING_MODEL: "${EMBEDDING_MODEL:-BAAI/bge-large-en-v1.5}"
-      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
-      OLLAMA_URL: "${OLLAMA_URL:-http://host.docker.internal:11434}"
-      # HuggingFace model cache — avoids re-downloading on container restart
-      HF_HOME: "/app/.hf_cache"
-    volumes:
-      - hf_model_cache:/app/.hf_cache
+      DATABASE_URL: "postgres://noesis:noesis_dev@postgres:5432/noesis"
+      EMBEDDING_PROVIDER: "${EMBEDDING_PROVIDER:-local}"
+      EMBEDDING_MODEL: "${EMBEDDING_MODEL:-Xenova/bge-base-en-v1.5}"
+      CRAWLER_URL: "http://crawler:3001"
     ports:
-      - "8000:8000"
+      - "5000:5000"
     depends_on:
       postgres:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-
-  mcp-inspector:
-    image: node:22-alpine
-    container_name: noesis-mcp-inspector
-    working_dir: /app
-    command:
-      - sh
-      - -lc
-      - >
-        npx -y @modelcontextprotocol/inspector@0.21.2
-        --transport http
-        --server-url ${MCP_SERVER_URL:-http://host.docker.internal:5000/mcp}
-    environment:
-      HOST: "0.0.0.0"
-      CLIENT_PORT: "6274"
-      SERVER_PORT: "6277"
-      MCP_AUTO_OPEN_ENABLED: "false"
-      DANGEROUSLY_OMIT_AUTH: "true"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      - "6274:6274"
-      - "6277:6277"
 
 volumes:
   postgres_data:
-  hf_model_cache:
-  seq_data:

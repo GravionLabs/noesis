@@ -1,56 +1,17 @@
-# Embedder
+# Embedder (superseded)
 
-## Role
-- Python/FastAPI service that creates vector embeddings and stores them in Postgres.
-- Supports synchronous embedding, async background embedding, and query-time embedding.
+> The standalone Python embedder has been replaced by the in-process embedding module
+> at `src/embedding/`. See `src/embedding/provider.ts` for the `EmbeddingProvider` interface
+> and `src/services/embedding-service.ts` for the active embedding service.
 
-## Configuration
-- `EMBEDDING_PROVIDER`: `openai`, `ollama`, or `huggingface`
-- `EMBEDDING_MODEL`
-- `OPENAI_API_KEY`
-- `OLLAMA_URL`
-- `DATABASE_URL`
-- `RABBITMQ_URL`
-- `SERVER_URL`
+## Original role (archived)
 
-## HTTP endpoints
+The Python/FastAPI service (`embedder/`) was a standalone embedding pipeline that
+consumed RabbitMQ messages and wrote vectors to pgvector. It supported OpenAI, Ollama,
+and HuggingFace providers via HTTP endpoints.
 
-### `GET /health`
-- Returns status, provider, model, and dimensions.
-
-### `POST /embed`
-- Body:
-  - `source_id?`
-  - `job_id?`
-- Behavior:
-  - Queues embedding work in the background.
-  - Calls back to `/api/internal/embed-completed` when finished.
-
-### `POST /embed/sync`
-- Body:
-  - `source_id?`
-  - `job_id?`
-- Behavior:
-  - Processes all pending chunks synchronously.
-  - Returns the embedded chunk count.
-
-### `POST /embed/query`
-- Body:
-  - `text`
-- Behavior:
-  - Returns a single query vector for search-time use.
-
-### Repo analyzer routes
-- `POST /repo-analyzer/embed`
-- `POST /repo-analyzer/chunk`
-- `GET /repo-analyzer/health`
-
-## Queue behavior
-- Consumes `noesis.start-embed-job`.
-- Publishes `noesis.embed-completed`.
-
-## Embedding rules
-- OpenAI embeddings are batched.
-- Ollama embeddings are requested per text.
-- HuggingFace dimensions are auto-detected at startup.
-- The embedder inserts into `embeddings` with `(chunk_id, model)` uniqueness.
+All functionality is now provided natively in the TypeScript server:
+- `LocalEmbeddingProvider` — ONNX inference via `@xenova/transformers`
+- `OllamaEmbeddingProvider` — HTTP client to local Ollama instance
+- `OpenAIEmbeddingProvider` — OpenAI API client
+- `processPendingChunks()` — batched embedding of unembedded chunks
