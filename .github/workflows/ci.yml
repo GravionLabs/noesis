@@ -5,38 +5,61 @@ on:
     branches: [main]
     paths:
       - "src/**"
-      - "crawler/**"
       - "test/**"
       - "package.json"
       - "pnpm-lock.yaml"
       - "Dockerfile"
+      - "biome.json"
+      - ".github/workflows/ci.yml"
   pull_request:
-    branches: [main]
     paths:
       - "src/**"
-      - "crawler/**"
       - "test/**"
       - "package.json"
       - "pnpm-lock.yaml"
       - "Dockerfile"
+      - "biome.json"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+    inputs:
+      force-publish:
+        description: "Force Docker publish (skip branch check)"
+        type: boolean
+        default: false
 
 jobs:
-  test:
+  ci:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install
-      - run: pnpm test
-      - run: pnpm typecheck
+          fetch-depth: 0
 
-  docker:
-    needs: [test]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: docker build -t noesis-server .
+      - name: Determine version
+        id: version
+        uses: GravionLabs/ci/versioning/determine-version@v1
+
+      - uses: GravionLabs/ci/node/ci@v1
+        with:
+          package-manager: pnpm
+          run-lint: true
+          run-tests: true
+
+      - uses: GravionLabs/ci/docker/lint@v1
+
+      - name: Publish Docker image
+        if: |
+          github.ref == 'refs/heads/main' ||
+          (github.event_name == 'workflow_dispatch' && inputs.force-publish)
+        uses: GravionLabs/ci/docker/publish@v1
+        with:
+          image-name: ${{ github.repository }}
+          registry-username: ${{ github.actor }}
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+          docker-version: ${{ steps.version.outputs.docker-version }}
+          major: ${{ steps.version.outputs.major }}
+          minor: ${{ steps.version.outputs.minor }}
+          patch: ${{ steps.version.outputs.patch }}

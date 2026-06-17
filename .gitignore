@@ -60,6 +60,9 @@ nunit-*.xml
 ~$*
 CodeCoverage/
 
+# Test & Coverage
+coverage/
+
 # OS
 .DS_Store
 Thumbs.db
