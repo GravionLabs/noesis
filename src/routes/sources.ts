@@ -7,13 +7,17 @@ import {
   deleteSource,
 } from "../services/source-service.js";
 import { triggerImport } from "../services/import-service.js";
+import { isValidCron } from "../pipeline/scheduler.js";
 
 const createSourceSchema = z.object({
   name: z.string().min(1),
   url: z.string().url(),
   importerType: z.string().optional(),
   config: z.string().optional(),
-  schedule: z.string().optional(),
+  schedule: z.string().optional().refine(
+    (val) => !val || isValidCron(val),
+    { message: "Invalid cron expression" },
+  ),
 });
 
 export function registerSourceRoutes(app: FastifyInstance) {

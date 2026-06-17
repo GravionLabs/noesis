@@ -73,9 +73,8 @@ async function main() {
   await mcpServer.connect(mcpTransport);
   console.log("  MCP server: ready at /mcp");
 
-  // ---- Scheduler (optional) ----
-  // Uncomment to enable periodic scheduled imports:
-  // startScheduler();
+  // ---- Scheduler ----
+  startScheduler();
 
   // ---- Startup ----
   await app.listen({ port: config.PORT, host: "0.0.0.0" });
