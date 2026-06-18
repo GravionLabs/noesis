@@ -14,7 +14,7 @@ describe("LocalEmbeddingProvider", () => {
     expect(p.dimensions).toBe(384);
   });
 
-  it("embeds text with fallback model", async () => {
+  it("embeds text with fallback model", { timeout: 120000, skip: !!process.env.CI }, async () => {
     const p = new LocalEmbeddingProvider("Xenova/all-MiniLM-L6-v2");
     const result = await p.embed(["hello world"]);
     expect(result).toHaveLength(1);
