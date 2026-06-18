@@ -1,7 +1,6 @@
 # Node.js / TypeScript
 node_modules/
 dist/
-pnpm-workspace.yaml
 build/
 *.tsbuildinfo
 *.js.map
