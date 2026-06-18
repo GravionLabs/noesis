@@ -52,7 +52,8 @@ jobs:
           publish-results: false
 
       - name: Upload test results artifact
-        if: success() || failure()
+        if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: test-results
@@ -60,7 +61,8 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload coverage artifact
-        if: success() || failure()
+        if: success()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: coverage
@@ -68,7 +70,8 @@ jobs:
           if-no-files-found: warn
 
       - name: Publish test results
-        if: success() || failure()
+        if: always()
+        continue-on-error: true
         uses: dorny/test-reporter@v1
         with:
           name: Test Results
@@ -78,7 +81,8 @@ jobs:
           fail-on-empty: false
 
       - name: Publish coverage summary
-        if: success() || failure()
+        if: success()
+        continue-on-error: true
         uses: irongut/CodeCoverageSummary@v1.3.0
         with:
           filename: coverage/cobertura-coverage.xml

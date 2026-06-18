@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["src/**/*.test.ts", "test/**/*.test.ts"],
+    exclude: ["test/integration/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "cobertura"],
