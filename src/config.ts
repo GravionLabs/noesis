@@ -25,6 +25,9 @@ const envSchema = z.object({
 
   OLLAMA_URL: z.string().default("http://localhost:11434"),
 
+  AZURE_DEVOPS_TOKEN: z.string().default(""),
+  AZURE_DEVOPS_ORG: z.string().default(""),
+
   CRAWLER_URL: z.string().default("http://localhost:3001"),
 
   SERVER_URL: z.string().default("http://localhost:5000"),
