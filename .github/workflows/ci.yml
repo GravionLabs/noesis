@@ -48,6 +48,44 @@ jobs:
           package-manager: pnpm
           run-lint: true
           run-tests: true
+          upload-results: false
+          publish-results: false
+
+      - name: Upload test results artifact
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/junit.xml
+          if-no-files-found: warn
+
+      - name: Upload coverage artifact
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: warn
+
+      - name: Publish test results
+        if: success() || failure()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Test Results
+          path: test-results/junit.xml
+          reporter: jest-junit
+          fail-on-error: false
+          fail-on-empty: false
+
+      - name: Publish coverage summary
+        if: success() || failure()
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: coverage/cobertura-coverage.xml
+          badge: true
+          fail_below_min: false
+          format: markdown
+          output: both
 
       - uses: GravionLabs/ci/docker/lint@main
 
