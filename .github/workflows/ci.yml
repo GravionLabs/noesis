@@ -40,21 +40,21 @@ jobs:
 
       - name: Determine version
         id: version
-        uses: GravionLabs/ci/versioning/determine-version@v1
+        uses: GravionLabs/ci/versioning/determine-version@main
 
-      - uses: GravionLabs/ci/node/ci@v1
+      - uses: GravionLabs/ci/node/ci@main
         with:
           package-manager: pnpm
           run-lint: true
           run-tests: true
 
-      - uses: GravionLabs/ci/docker/lint@v1
+      - uses: GravionLabs/ci/docker/lint@main
 
       - name: Publish Docker image
         if: |
           github.ref == 'refs/heads/main' ||
           (github.event_name == 'workflow_dispatch' && inputs.force-publish)
-        uses: GravionLabs/ci/docker/publish@v1
+        uses: GravionLabs/ci/docker/publish@main
         with:
           image-name: ${{ github.repository }}
           registry-username: ${{ github.actor }}
