@@ -6,6 +6,7 @@ import {
   getSource,
   updateSource,
   deleteSource,
+  getSourceStats,
 } from "../services/source-service.js";
 import { triggerImport } from "../services/import-service.js";
 import { isValidCron, scheduleNextRun } from "../pipeline/scheduler.js";
@@ -152,6 +153,33 @@ const deleteSourceSchema = {
   },
 };
 
+const sourceStatsObject = {
+  type: "object",
+  properties: {
+    docCount: { type: "integer" },
+    chunkCount: { type: "integer" },
+    avgTokenCount: { type: "integer", nullable: true },
+    latestJobStatus: { type: "string", nullable: true },
+    latestJobDurationMs: { type: "integer", nullable: true },
+  },
+};
+
+const sourceStatsSchema = {
+  tags: ["Sources"],
+  params: {
+    type: "object",
+    properties: { id: { type: "string", format: "uuid" } },
+    required: ["id"],
+  },
+  response: {
+    200: sourceStatsObject,
+    404: {
+      type: "object",
+      properties: { error: { type: "string" } },
+    },
+  },
+};
+
 const importSourceSchema = {
   tags: ["Sources"],
   params: {
@@ -268,6 +296,24 @@ export function registerSourceRoutes(app: FastifyInstance) {
       const deleted = await deleteSource(req.params.id);
       if (!deleted) return reply.code(404).send({ error: "Source not found" });
       return reply.code(204).send();
+    },
+  );
+
+  app.get<{ Params: { id: string } }>(
+    "/api/sources/:id/stats",
+    { schema: sourceStatsSchema },
+    async (req, reply) => {
+      const source = await getSource(req.params.id);
+      if (!source) return reply.code(404).send({ error: "Source not found" });
+
+      const stats = await getSourceStats(req.params.id);
+      return {
+        docCount: stats.docCount,
+        chunkCount: stats.chunkCount,
+        avgTokenCount: stats.avgTokenCount,
+        latestJobStatus: stats.latestJobStatus,
+        latestJobDurationMs: stats.latestJobDurationMs,
+      };
     },
   );
 

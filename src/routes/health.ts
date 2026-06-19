@@ -1,5 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { config } from "../config.js";
+import { isSchedulerRunning } from "../pipeline/scheduler.js";
+import { getPendingJobCount } from "../services/job-service.js";
+import { getTotalSourceCount } from "../services/source-service.js";
 
 const aliveSchema = {
   tags: ["Health"],
@@ -21,6 +24,9 @@ const healthSchema = {
         provider: { type: "string" },
         model: { type: "string" },
         dimensions: { type: "number" },
+        schedulerRunning: { type: "boolean" },
+        pendingJobs: { type: "integer" },
+        totalSources: { type: "integer" },
       },
     },
   },
@@ -34,5 +40,8 @@ export function registerHealthRoutes(app: FastifyInstance) {
     provider: config.EMBEDDING_PROVIDER,
     model: config.EMBEDDING_MODEL,
     dimensions: config.EMBEDDING_DIMENSIONS,
+    schedulerRunning: isSchedulerRunning(),
+    pendingJobs: await getPendingJobCount(),
+    totalSources: await getTotalSourceCount(),
   }));
 }

@@ -1,6 +1,9 @@
 import cron from "node-cron";
 import { runImport } from "./job-runner.js";
 import { listSources } from "../services/source-service.js";
+import { logger } from "../logger.js";
+
+const log = logger.child({ module: "scheduler" });
 
 export interface SourceSchedule {
   id: string;
@@ -21,32 +24,24 @@ export async function scheduleNextRun(source: SourceSchedule): Promise<void> {
   }
 
   if (!source.schedule) {
-    console.log("[scheduler] source %s: no schedule, unscheduled", source.id);
+    log.debug({ sourceId: source.id }, "Source has no schedule, removed from scheduler");
     return;
   }
 
   if (!isValidCron(source.schedule)) {
-    console.error(
-      "[scheduler] source %s: invalid cron expression '%s'",
-      source.id,
-      source.schedule,
-    );
+    log.error({ sourceId: source.id, schedule: source.schedule }, "Invalid cron expression, source will not be scheduled");
     return;
   }
 
   const task = cron.schedule(source.schedule, () => {
-    console.log("[scheduler] triggering import for source %s", source.id);
+    log.info({ sourceId: source.id }, "Scheduler triggering import");
     runImport(source.id).catch((err) =>
-      console.error("[scheduler] import error for source %s: %s", source.id, err),
+      log.error({ sourceId: source.id, err }, "Scheduled import failed"),
     );
   });
 
   scheduledTasks.set(source.id, task);
-  console.log(
-    "[scheduler] source %s scheduled with cron '%s'",
-    source.id,
-    source.schedule,
-  );
+  log.info({ sourceId: source.id, schedule: source.schedule }, "Source scheduled with cron");
 }
 
 export async function refreshSchedules(): Promise<void> {
@@ -66,7 +61,7 @@ export async function refreshSchedules(): Promise<void> {
       const task = scheduledTasks.get(id)!;
       task.stop();
       scheduledTasks.delete(id);
-      console.log("[scheduler] source %s: schedule removed, unscheduled", id);
+      log.debug({ sourceId: id }, "Source schedule removed during refresh");
     }
   }
 }
@@ -77,15 +72,19 @@ export function startScheduler(intervalMs = 60_000): void {
   if (intervalHandle) return;
 
   refreshSchedules().catch((err) =>
-    console.error("[scheduler] initial refresh error:", err),
+    log.error({ err }, "Scheduler initial refresh failed"),
   );
 
-  console.log("[scheduler] started (poll every %dms)", intervalMs);
+  log.info({ intervalMs }, "Scheduler started");
   intervalHandle = setInterval(() => {
     refreshSchedules().catch((err) =>
-      console.error("[scheduler] refresh error:", err),
+      log.error({ err }, "Scheduler refresh failed"),
     );
   }, intervalMs);
+}
+
+export function isSchedulerRunning(): boolean {
+  return intervalHandle !== null;
 }
 
 export function stopScheduler(): void {
@@ -96,9 +95,9 @@ export function stopScheduler(): void {
 
   for (const [id, task] of scheduledTasks) {
     task.stop();
-    console.log("[scheduler] source %s: stopped", id);
+    log.debug({ sourceId: id }, "Scheduler cron task stopped");
   }
   scheduledTasks.clear();
 
-  console.log("[scheduler] stopped");
+  log.info("Scheduler stopped");
 }

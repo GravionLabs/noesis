@@ -16,6 +16,7 @@ vi.mock("../../src/services/source-service.js", () => ({
   getSource: (...args: unknown[]) => mockGetSource(...args),
   updateSource: (...args: unknown[]) => mockUpdateSource(...args),
   deleteSource: (...args: unknown[]) => mockDeleteSource(...args),
+  getSourceStats: vi.fn(),
 }));
 
 vi.mock("../../src/services/import-service.js", () => ({

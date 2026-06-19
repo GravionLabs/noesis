@@ -4,30 +4,29 @@ import swagger from "@fastify/swagger";
 import apiReference from "@scalar/fastify-api-reference";
 import rateLimit from "@fastify/rate-limit";
 import { config } from "./config.js";
+import { logger } from "./logger.js";
 import { pool } from "./db/pool.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerSourceRoutes } from "./routes/sources.js";
 import { registerJobRoutes } from "./routes/jobs.js";
 import { registerInternalRoutes } from "./routes/internal.js";
+import { registerStatsRoutes } from "./routes/stats.js";
 import { createMcpServer } from "./mcp/handler.js";
 import { startScheduler } from "./pipeline/scheduler.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { requireApiKey } from "./middleware/auth.js";
 
 async function main() {
-  console.log("Noesis server starting...");
-  console.log("  Port: %d", config.PORT);
-  console.log("  Database: %s", config.DATABASE_URL);
-  console.log("  Embedding: %s (%s)", config.EMBEDDING_PROVIDER, config.EMBEDDING_MODEL);
+  logger.info({ port: config.PORT, database: config.DATABASE_URL, embeddingProvider: config.EMBEDDING_PROVIDER, embeddingModel: config.EMBEDDING_MODEL }, "Noesis server starting");
 
   // Verify database connectivity
   try {
     const client = await pool.connect();
     await client.query("SELECT 1");
     client.release();
-    console.log("  Database: connected");
+    logger.info("Database connection verified");
   } catch (err) {
-    console.error("  Database: connection failed", err);
+    logger.fatal({ err }, "Database connection failed");
     process.exit(1);
   }
 
@@ -57,6 +56,7 @@ async function main() {
   registerSourceRoutes(app);
   registerJobRoutes(app);
   registerInternalRoutes(app);
+  registerStatsRoutes(app);
 
   // ---- MCP Server (Streamable HTTP) ----
   const mcpServer = createMcpServer();
@@ -79,18 +79,18 @@ async function main() {
   });
 
   await mcpServer.connect(mcpTransport);
-  console.log("  MCP server: ready at /mcp");
+  logger.info("MCP server ready at /mcp");
 
   // ---- Scheduler ----
   startScheduler();
 
   // ---- Startup ----
   await app.listen({ port: config.PORT, host: "0.0.0.0" });
-  console.log("\nNoesis server ready on port %d", config.PORT);
+  logger.info({ port: config.PORT }, "Noesis server listening");
 
   // ---- Graceful shutdown ----
   const shutdown = async () => {
-    console.log("\nShutting down...");
+    logger.info("Shutdown signal received, shutting down gracefully");
     await mcpServer.close();
     await pool.end();
     process.exit(0);
@@ -101,6 +101,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Fatal error:", err);
+  logger.fatal({ err }, "Fatal startup error");
   process.exit(1);
 });

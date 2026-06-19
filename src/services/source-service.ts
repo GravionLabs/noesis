@@ -1,4 +1,4 @@
-import { db } from "../db/pool.js";
+import { db, query } from "../db/pool.js";
 import { sources } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 
@@ -69,4 +69,30 @@ export async function updateLastImported(sourceId: string) {
     .update(sources)
     .set({ lastImportedAt: new Date(), updatedAt: new Date() })
     .where(eq(sources.id, sourceId));
+}
+
+export async function getSourceStats(sourceId: string) {
+  const result = await query<{
+    docCount: number;
+    chunkCount: number;
+    avgTokenCount: number | null;
+    latestJobStatus: string | null;
+    latestJobDurationMs: number | null;
+  }>(
+    `SELECT
+      (SELECT COUNT(*)::int FROM docs WHERE source_id = $1) AS "docCount",
+      (SELECT COUNT(*)::int FROM chunks WHERE source_id = $1) AS "chunkCount",
+      (SELECT ROUND(AVG(token_count))::int FROM chunks WHERE source_id = $1) AS "avgTokenCount",
+      (SELECT status FROM jobs WHERE source_id = $1 ORDER BY created_at DESC LIMIT 1) AS "latestJobStatus",
+      (SELECT duration_ms FROM jobs WHERE source_id = $1 ORDER BY created_at DESC LIMIT 1) AS "latestJobDurationMs"`,
+    [sourceId],
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function getTotalSourceCount() {
+  const result = await query<{ count: number }>(
+    `SELECT COUNT(*)::int AS count FROM sources`,
+  );
+  return result.rows[0].count;
 }
