@@ -1,4 +1,4 @@
-import { db } from "../db/pool.js";
+import { db, query } from "../db/pool.js";
 import { jobs } from "../db/schema.js";
 import { eq, desc, and } from "drizzle-orm";
 
@@ -77,4 +77,25 @@ export async function failJob(
       retryCount,
     })
     .where(eq(jobs.id, id));
+}
+
+export async function getPendingJobCount() {
+  const result = await query<{ count: number }>(
+    `SELECT COUNT(*)::int AS count FROM jobs WHERE status = 'pending'`,
+  );
+  return result.rows[0].count;
+}
+
+export async function getTotalJobCount() {
+  const result = await query<{ count: number }>(
+    `SELECT COUNT(*)::int AS count FROM jobs`,
+  );
+  return result.rows[0].count;
+}
+
+export async function getAvgImportDuration() {
+  const result = await query<{ avg: number | null }>(
+    `SELECT ROUND(AVG(duration_ms))::int AS avg FROM jobs WHERE duration_ms IS NOT NULL`,
+  );
+  return result.rows[0].avg ?? 0;
 }
