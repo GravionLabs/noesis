@@ -20,8 +20,99 @@ const createSourceSchema = z.object({
   ),
 });
 
+const sourceObject = {
+  type: "object",
+  properties: {
+    id: { type: "string", format: "uuid" },
+    name: { type: "string" },
+    url: { type: "string" },
+    importerType: { type: "string" },
+    enabled: { type: "boolean" },
+    config: { type: "string", nullable: true },
+    schedule: { type: "string", nullable: true },
+    lastImportedAt: { type: "string", format: "date-time", nullable: true },
+  },
+};
+
+const listSourcesSchema = {
+  tags: ["Sources"],
+  response: {
+    200: {
+      type: "array",
+      items: sourceObject,
+    },
+  },
+};
+
+const createSourceRouteSchema = {
+  tags: ["Sources"],
+  body: {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      url: { type: "string", format: "uri" },
+      importerType: { type: "string" },
+      config: { type: "string" },
+      schedule: { type: "string" },
+    },
+    required: ["name", "url"],
+  },
+  response: {
+    201: sourceObject,
+    400: {
+      type: "object",
+      properties: {
+        error: { type: "string" },
+        details: { type: "array" },
+      },
+    },
+    409: {
+      type: "object",
+      properties: { error: { type: "string" } },
+    },
+  },
+};
+
+const deleteSourceSchema = {
+  tags: ["Sources"],
+  params: {
+    type: "object",
+    properties: { id: { type: "string", format: "uuid" } },
+    required: ["id"],
+  },
+  response: {
+    204: { type: "null" },
+    404: {
+      type: "object",
+      properties: { error: { type: "string" } },
+    },
+  },
+};
+
+const importSourceSchema = {
+  tags: ["Sources"],
+  params: {
+    type: "object",
+    properties: { id: { type: "string", format: "uuid" } },
+    required: ["id"],
+  },
+  response: {
+    202: {
+      type: "object",
+      properties: {
+        jobId: { type: "string", format: "uuid" },
+        status: { type: "string" },
+      },
+    },
+    404: {
+      type: "object",
+      properties: { error: { type: "string" } },
+    },
+  },
+};
+
 export function registerSourceRoutes(app: FastifyInstance) {
-  app.get("/api/sources", async (_req, reply) => {
+  app.get("/api/sources", { schema: listSourcesSchema }, async (_req, reply) => {
     const sources = await listSources();
     return sources.map((s) => ({
       id: s.id,
@@ -35,7 +126,7 @@ export function registerSourceRoutes(app: FastifyInstance) {
     }));
   });
 
-  app.post("/api/sources", async (req, reply) => {
+  app.post("/api/sources", { schema: createSourceRouteSchema }, async (req, reply) => {
     const parsed = createSourceSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({ error: "Validation failed", details: parsed.error.issues });
@@ -56,6 +147,7 @@ export function registerSourceRoutes(app: FastifyInstance) {
 
   app.delete<{ Params: { id: string } }>(
     "/api/sources/:id",
+    { schema: deleteSourceSchema },
     async (req, reply) => {
       const deleted = await deleteSource(req.params.id);
       if (!deleted) return reply.code(404).send({ error: "Source not found" });
@@ -65,6 +157,7 @@ export function registerSourceRoutes(app: FastifyInstance) {
 
   app.post<{ Params: { id: string } }>(
     "/api/sources/:id/import",
+    { schema: importSourceSchema },
     async (req, reply) => {
       try {
         const job = await triggerImport(req.params.id);
