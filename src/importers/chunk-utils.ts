@@ -3,6 +3,7 @@ export interface RawChunk {
   heading: string | undefined;
   headingPath: string[];
   chunkIndex: number;
+  tokenCount: number;
 }
 
 const MAX_CHARS = 2000;
@@ -22,6 +23,7 @@ export function chunkMarkdown(text: string): RawChunk[] {
         heading: currentHeading,
         headingPath: [...headingPath],
         chunkIndex: chunkIndex++,
+        tokenCount: trimmed.split(/\s+/).filter(Boolean).length,
       });
     }
     buffer = "";

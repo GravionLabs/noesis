@@ -82,11 +82,12 @@ export async function saveChunks(
       );
       const docId = docResult.rows[0].id;
 
+      const tokenCount = chunk.content.split(/\s+/).filter(Boolean).length;
       await client.query(
-        `INSERT INTO chunks (doc_id, source_id, content, heading, heading_path, chunk_index)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO chunks (doc_id, source_id, content, heading, heading_path, chunk_index, token_count)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT DO NOTHING`,
-        [docId, sourceId, chunk.content, chunk.heading, chunk.headingPath, chunk.chunkIndex],
+        [docId, sourceId, chunk.content, chunk.heading, chunk.headingPath, chunk.chunkIndex, tokenCount],
       );
 
       docCount++;

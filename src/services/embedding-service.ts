@@ -18,6 +18,7 @@ export function getProvider(): EmbeddingProvider {
       break;
     case "openai":
       provider = new OpenAIEmbeddingProvider({
+        apiKey: config.OPENAI_API_KEY || undefined,
         model: config.EMBEDDING_MODEL,
       });
       break;
