@@ -18,34 +18,6 @@ services:
       timeout: 5s
       retries: 5
 
-  rabbitmq:
-    image: rabbitmq:4.3.0-management-alpine
-    container_name: noesis-rabbitmq
-    ports:
-      - "5682:5672"
-      - "15682:15672"
-    healthcheck:
-      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    profiles:
-      - all
-
-  crawler:
-    build:
-      context: ../crawler
-      dockerfile: Dockerfile
-    container_name: noesis-crawler
-    environment:
-      DATABASE_URL: "postgres://noesis:noesis_dev@postgres:5432/noesis"
-      PORT: "3001"
-    ports:
-      - "3001:3001"
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   server:
     build:
       context: ..
