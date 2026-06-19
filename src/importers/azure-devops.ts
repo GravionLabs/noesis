@@ -56,7 +56,7 @@ export class AzureDevopsImporter implements Importer {
     url: string,
     title: string,
     contentMd: string,
-    chunks: Array<{ content: string; heading: string | undefined; headingPath: string[]; chunkIndex: number }>,
+    chunks: Array<{ content: string; heading: string | undefined; headingPath: string[]; chunkIndex: number; tokenCount: number }>,
   ): Promise<void> {
     const docResult = await query<{ id: string }>(
       `INSERT INTO docs (source_id, url, title, content_md, content_hash)
@@ -71,10 +71,10 @@ export class AzureDevopsImporter implements Importer {
 
     for (const chunk of chunks) {
       await query(
-        `INSERT INTO chunks (doc_id, source_id, content, heading, heading_path, chunk_index)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO chunks (doc_id, source_id, content, heading, heading_path, chunk_index, token_count)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT DO NOTHING`,
-        [docId, sourceId, chunk.content, chunk.heading, chunk.headingPath, chunk.chunkIndex],
+        [docId, sourceId, chunk.content, chunk.heading, chunk.headingPath, chunk.chunkIndex, chunk.tokenCount],
       );
     }
   }

@@ -1,5 +1,6 @@
 import { exec } from "child_process";
 import { promisify } from "util";
+import { config } from "../../config.js";
 import { RepositoryProvider, type RepositoryFileInfo, type RepositoryContent } from "./repository-provider.js";
 
 const execAsync = promisify(exec);
@@ -34,7 +35,7 @@ export class GitHubProvider implements RepositoryProvider {
       const response = await fetch(url, {
         headers: {
           Accept: "application/vnd.github.v3+json",
-          ...(process.env.GITHUB_TOKEN && { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }),
+          ...(config.GITHUB_TOKEN && { Authorization: `Bearer ${config.GITHUB_TOKEN}` }),
         },
       });
 
@@ -69,7 +70,7 @@ export class GitHubProvider implements RepositoryProvider {
       const response = await fetch(url, {
         headers: {
           Accept: "application/vnd.github.raw",
-          ...(process.env.GITHUB_TOKEN && { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }),
+          ...(config.GITHUB_TOKEN && { Authorization: `Bearer ${config.GITHUB_TOKEN}` }),
         },
       });
 

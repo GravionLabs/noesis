@@ -29,10 +29,10 @@ export class LlmsTxtImporter implements Importer {
 
     for (const chunk of chunks) {
       await query(
-        `INSERT INTO chunks (doc_id, source_id, content, heading, heading_path, chunk_index)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO chunks (doc_id, source_id, content, heading, heading_path, chunk_index, token_count)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT DO NOTHING`,
-        [docId, source.id, chunk.content, chunk.heading, chunk.headingPath, chunk.chunkIndex],
+        [docId, source.id, chunk.content, chunk.heading, chunk.headingPath, chunk.chunkIndex, chunk.tokenCount],
       );
     }
 

@@ -59,10 +59,11 @@ export class OpenApiImporter implements Importer {
       ]
         .filter(Boolean)
         .join("\n\n");
+      const tokenCount = content.split(/\s+/).filter(Boolean).length;
 
       await query(
-        `INSERT INTO chunks (doc_id, source_id, content, heading, heading_path, chunk_index)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO chunks (doc_id, source_id, content, heading, heading_path, chunk_index, token_count)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT DO NOTHING`,
         [
           docId,
@@ -71,6 +72,7 @@ export class OpenApiImporter implements Importer {
           `${method.toUpperCase()} ${path}`,
           [title, `${method.toUpperCase()} ${path}`],
           i,
+          tokenCount,
         ],
       );
     }
