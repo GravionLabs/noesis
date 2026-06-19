@@ -1,5 +1,7 @@
 # Node.js / TypeScript
 node_modules/
+.pnpm-store/
+.pnpm-state.json
 dist/
 build/
 *.tsbuildinfo
@@ -69,3 +71,4 @@ Thumbs.db
 
 # APM dependencies
 apm_modules/
+test-results/
