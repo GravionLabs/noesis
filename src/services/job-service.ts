@@ -1,11 +1,12 @@
 import { db } from "../db/pool.js";
 import { jobs } from "../db/schema.js";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 export async function createJob(input: {
   type?: string;
   sourceId?: string;
   status?: string;
+  maxRetries?: number;
 }) {
   const rows = await db
     .insert(jobs)
@@ -13,6 +14,7 @@ export async function createJob(input: {
       type: input.type ?? "import",
       sourceId: input.sourceId ?? null,
       status: input.status ?? "pending",
+      maxRetries: input.maxRetries ?? 3,
     })
     .returning();
   return rows[0];
@@ -38,4 +40,41 @@ export async function updateJobStatus(
   if (["done", "failed"].includes(status)) update.finishedAt = now;
   if (error) update.error = error;
   await db.update(jobs).set(update).where(eq(jobs.id, id));
+}
+
+export async function getRunningJob(sourceId: string) {
+  const rows = await db
+    .select()
+    .from(jobs)
+    .where(and(eq(jobs.sourceId, sourceId), eq(jobs.status, "running")))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function completeJob(
+  id: string,
+  durationMs: number,
+) {
+  await db
+    .update(jobs)
+    .set({ status: "done", finishedAt: new Date(), durationMs })
+    .where(eq(jobs.id, id));
+}
+
+export async function failJob(
+  id: string,
+  error: string,
+  durationMs: number,
+  retryCount: number,
+) {
+  await db
+    .update(jobs)
+    .set({
+      status: "failed",
+      finishedAt: new Date(),
+      error,
+      durationMs,
+      retryCount,
+    })
+    .where(eq(jobs.id, id));
 }

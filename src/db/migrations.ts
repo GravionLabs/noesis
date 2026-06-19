@@ -77,6 +77,12 @@ CREATE INDEX IF NOT EXISTS ix_jobs_source_id ON jobs (source_id);
 CREATE INDEX IF NOT EXISTS ix_jobs_status ON jobs (status);
 `;
 
+const ADD_JOB_RETRY_COLUMNS = `
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS retry_count integer NOT NULL DEFAULT 0;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS max_retries integer NOT NULL DEFAULT 3;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS duration_ms integer;
+`;
+
 const DROP_IMPORT_JOB_STATES = `DROP TABLE IF EXISTS import_job_states CASCADE`;
 
 async function migrate() {
@@ -105,6 +111,9 @@ async function migrate() {
 
     await pool.query(CREATE_JOBS);
     console.log("  ✓ jobs");
+
+    await pool.query(ADD_JOB_RETRY_COLUMNS);
+    console.log("  ✓ jobs (retry columns added)");
 
     console.log("\nAll migrations complete.");
   } finally {

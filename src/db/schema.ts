@@ -128,6 +128,9 @@ export const jobs = pgTable(
     sourceId: uuid("source_id"),
     status: text("status").notNull().default("pending"),
     error: text("error"),
+    retryCount: integer("retry_count").notNull().default(0),
+    maxRetries: integer("max_retries").notNull().default(3),
+    durationMs: integer("duration_ms"),
     startedAt: timestamp("started_at", { withTimezone: true, mode: "date" }),
     finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
