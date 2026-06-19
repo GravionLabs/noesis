@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import swagger from "@fastify/swagger";
-import swaggerUi from "@fastify/swagger-ui";
+import apiReference from "@scalar/fastify-api-reference";
 import rateLimit from "@fastify/rate-limit";
 import { config } from "./config.js";
 import { pool } from "./db/pool.js";
@@ -48,7 +48,9 @@ async function main() {
       },
     },
   });
-  await app.register(swaggerUi, { routePrefix: "/openapi" });
+  await app.register(apiReference, {
+    routePrefix: "/openapi",
+  });
 
   // ---- REST API Routes ----
   registerHealthRoutes(app);
