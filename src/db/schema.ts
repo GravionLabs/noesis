@@ -140,19 +140,3 @@ export const jobs = pgTable(
   ],
 );
 
-export const importJobStates = pgTable(
-  "import_job_states",
-  {
-    correlationId: uuid("correlation_id").primaryKey(),
-    currentState: text("current_state"),
-    jobId: uuid("job_id").notNull(),
-    sourceId: uuid("source_id").notNull(),
-    importerType: text("importer_type").notNull(),
-    docCount: integer("doc_count").notNull().default(0),
-    chunkCount: integer("chunk_count").notNull().default(0),
-    startedAt: timestamp("started_at", { withTimezone: true, mode: "date" }),
-  },
-  (table) => [
-    uniqueIndex("ix_import_job_states_job_id").on(table.jobId),
-  ],
-);

@@ -77,19 +77,7 @@ CREATE INDEX IF NOT EXISTS ix_jobs_source_id ON jobs (source_id);
 CREATE INDEX IF NOT EXISTS ix_jobs_status ON jobs (status);
 `;
 
-const CREATE_IMPORT_JOB_STATES = `
-CREATE TABLE IF NOT EXISTS import_job_states (
-  correlation_id uuid PRIMARY KEY,
-  current_state text,
-  job_id uuid NOT NULL,
-  source_id uuid NOT NULL,
-  importer_type text NOT NULL,
-  doc_count integer NOT NULL DEFAULT 0,
-  chunk_count integer NOT NULL DEFAULT 0,
-  started_at timestamptz
-);
-CREATE UNIQUE INDEX IF NOT EXISTS ix_import_job_states_job_id ON import_job_states (job_id);
-`;
+
 
 async function migrate() {
   const pool = new pg.Pool({ connectionString: config.DATABASE_URL });
@@ -114,9 +102,6 @@ async function migrate() {
 
     await pool.query(CREATE_JOBS);
     console.log("  ✓ jobs");
-
-    await pool.query(CREATE_IMPORT_JOB_STATES);
-    console.log("  ✓ import_job_states (legacy saga table)");
 
     console.log("\nAll migrations complete.");
   } finally {

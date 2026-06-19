@@ -7,10 +7,6 @@ const envSchema = z.object({
     .string()
     .default("postgres://noesis:noesis_dev@localhost:5442/noesis"),
 
-  RABBITMQ_URL: z
-    .string()
-    .default("amqp://guest:guest@localhost:5682/"),
-
   EMBEDDING_PROVIDER: z
     .enum(["local", "ollama", "openai"])
     .default("local"),
@@ -24,6 +20,8 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().default(""),
 
   OLLAMA_URL: z.string().default("http://localhost:11434"),
+
+  GITHUB_TOKEN: z.string().default(""),
 
   AZURE_DEVOPS_TOKEN: z.string().default(""),
   AZURE_DEVOPS_ORG: z.string().default(""),
