@@ -97,7 +97,7 @@ describe("Source routes", () => {
       mockDeleteSource.mockResolvedValue(true);
 
       const app = await buildApp();
-      const res = await app.inject({ method: "DELETE", url: "/api/sources/src-1" });
+      const res = await app.inject({ method: "DELETE", url: "/api/sources/00000000-0000-0000-0000-000000000001" });
 
       expect(res.statusCode).toBe(204);
     });
@@ -106,7 +106,7 @@ describe("Source routes", () => {
       mockDeleteSource.mockResolvedValue(false);
 
       const app = await buildApp();
-      const res = await app.inject({ method: "DELETE", url: "/api/sources/missing" });
+      const res = await app.inject({ method: "DELETE", url: "/api/sources/00000000-0000-0000-0000-000000000099" });
 
       expect(res.statusCode).toBe(404);
     });
@@ -117,7 +117,7 @@ describe("Source routes", () => {
       mockTriggerImport.mockResolvedValue({ id: "job-1", status: "pending" });
 
       const app = await buildApp();
-      const res = await app.inject({ method: "POST", url: "/api/sources/src-1/import" });
+      const res = await app.inject({ method: "POST", url: "/api/sources/00000000-0000-0000-0000-000000000001/import" });
 
       expect(res.statusCode).toBe(202);
       const body = JSON.parse(res.body);
@@ -128,7 +128,7 @@ describe("Source routes", () => {
       mockTriggerImport.mockRejectedValue(new Error("Source not found"));
 
       const app = await buildApp();
-      const res = await app.inject({ method: "POST", url: "/api/sources/missing/import" });
+      const res = await app.inject({ method: "POST", url: "/api/sources/00000000-0000-0000-0000-000000000099/import" });
 
       expect(res.statusCode).toBe(404);
     });

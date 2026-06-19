@@ -53,20 +53,20 @@ describe("Job routes", () => {
 
   describe("GET /api/jobs/:id", () => {
     it("returns a job by ID", async () => {
-      mockGetJob.mockResolvedValue({ id: "job-1", sourceId: "src-1", type: "import", status: "done", error: null, startedAt: null, finishedAt: null, createdAt: new Date("2026-01-01") });
+      mockGetJob.mockResolvedValue({ id: "00000000-0000-0000-0000-000000000001", sourceId: "00000000-0000-0000-0000-000000000002", type: "import", status: "done", error: null, startedAt: null, finishedAt: null, createdAt: new Date("2026-01-01") });
 
       const app = await buildApp();
-      const res = await app.inject({ method: "GET", url: "/api/jobs/job-1" });
+      const res = await app.inject({ method: "GET", url: "/api/jobs/00000000-0000-0000-0000-000000000001" });
 
       expect(res.statusCode).toBe(200);
-      expect(JSON.parse(res.body).id).toBe("job-1");
+      expect(JSON.parse(res.body).id).toBe("00000000-0000-0000-0000-000000000001");
     });
 
     it("returns 404 when job not found", async () => {
       mockGetJob.mockResolvedValue(null);
 
       const app = await buildApp();
-      const res = await app.inject({ method: "GET", url: "/api/jobs/missing" });
+      const res = await app.inject({ method: "GET", url: "/api/jobs/00000000-0000-0000-0000-000000000099" });
 
       expect(res.statusCode).toBe(404);
     });

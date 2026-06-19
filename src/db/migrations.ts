@@ -77,13 +77,16 @@ CREATE INDEX IF NOT EXISTS ix_jobs_source_id ON jobs (source_id);
 CREATE INDEX IF NOT EXISTS ix_jobs_status ON jobs (status);
 `;
 
-
+const DROP_IMPORT_JOB_STATES = `DROP TABLE IF EXISTS import_job_states CASCADE`;
 
 async function migrate() {
   const pool = new pg.Pool({ connectionString: config.DATABASE_URL });
 
   try {
     console.log("Running migrations...");
+
+    await pool.query(DROP_IMPORT_JOB_STATES);
+    console.log("  ✓ import_job_states (dropped legacy table)");
 
     await pool.query(CREATE_EXTENSION);
     console.log("  ✓ vector extension");
