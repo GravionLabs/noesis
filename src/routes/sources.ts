@@ -4,10 +4,11 @@ import {
   listSources,
   createSource,
   getSource,
+  updateSource,
   deleteSource,
 } from "../services/source-service.js";
 import { triggerImport } from "../services/import-service.js";
-import { isValidCron } from "../pipeline/scheduler.js";
+import { isValidCron, scheduleNextRun } from "../pipeline/scheduler.js";
 
 const createSourceSchema = z.object({
   name: z.string().min(1),
@@ -67,6 +68,68 @@ const createSourceRouteSchema = {
       },
     },
     409: {
+      type: "object",
+      properties: { error: { type: "string" } },
+    },
+  },
+};
+
+const getSourceSchema = {
+  tags: ["Sources"],
+  params: {
+    type: "object",
+    properties: { id: { type: "string", format: "uuid" } },
+    required: ["id"],
+  },
+  response: {
+    200: sourceObject,
+    404: {
+      type: "object",
+      properties: { error: { type: "string" } },
+    },
+  },
+};
+
+const updateSourceSchema = z.object({
+  name: z.string().min(1).optional(),
+  url: z.string().url().optional(),
+  importerType: z.string().optional(),
+  enabled: z.boolean().optional(),
+  config: z.string().nullable().optional(),
+  schedule: z.string().nullable().optional().refine(
+    (val) => val === undefined || val === null || isValidCron(val),
+    { message: "Invalid cron expression" },
+  ),
+});
+
+const updateSourceRouteSchema = {
+  tags: ["Sources"],
+  params: {
+    type: "object",
+    properties: { id: { type: "string", format: "uuid" } },
+    required: ["id"],
+  },
+  body: {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      url: { type: "string", format: "uri" },
+      importerType: { type: "string" },
+      enabled: { type: "boolean" },
+      config: { type: "string", nullable: true },
+      schedule: { type: "string", nullable: true },
+    },
+  },
+  response: {
+    200: sourceObject,
+    400: {
+      type: "object",
+      properties: {
+        error: { type: "string" },
+        details: { type: "array" },
+      },
+    },
+    404: {
       type: "object",
       properties: { error: { type: "string" } },
     },
@@ -136,14 +199,67 @@ export function registerSourceRoutes(app: FastifyInstance) {
     if (!source) {
       return reply.code(409).send({ error: "Source with this URL already exists" });
     }
+    if (source.schedule) {
+      scheduleNextRun(source);
+    }
     return reply.code(201).send({
       id: source.id,
       name: source.name,
       url: source.url,
       importerType: source.importerType,
       enabled: source.enabled,
+      config: source.config,
+      schedule: source.schedule,
+      lastImportedAt: source.lastImportedAt,
     });
   });
+
+  app.get<{ Params: { id: string } }>(
+    "/api/sources/:id",
+    { schema: getSourceSchema },
+    async (req, reply) => {
+      const source = await getSource(req.params.id);
+      if (!source) return reply.code(404).send({ error: "Source not found" });
+      return {
+        id: source.id,
+        name: source.name,
+        url: source.url,
+        importerType: source.importerType,
+        enabled: source.enabled,
+        config: source.config,
+        schedule: source.schedule,
+        lastImportedAt: source.lastImportedAt,
+      };
+    },
+  );
+
+  app.patch<{ Params: { id: string } }>(
+    "/api/sources/:id",
+    { schema: updateSourceRouteSchema },
+    async (req, reply) => {
+      const parsed = updateSourceSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.code(400).send({ error: "Validation failed", details: parsed.error.issues });
+      }
+
+      const source = await updateSource(req.params.id, parsed.data);
+      if (!source) return reply.code(404).send({ error: "Source not found" });
+
+      if (parsed.data.schedule !== undefined) {
+        scheduleNextRun(source);
+      }
+      return {
+        id: source.id,
+        name: source.name,
+        url: source.url,
+        importerType: source.importerType,
+        enabled: source.enabled,
+        config: source.config,
+        schedule: source.schedule,
+        lastImportedAt: source.lastImportedAt,
+      };
+    },
+  );
 
   app.delete<{ Params: { id: string } }>(
     "/api/sources/:id",
