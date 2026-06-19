@@ -16,7 +16,10 @@
     "test:integration": "vitest run test/integration --reporter=verbose",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrations.ts",
-    "db:studio": "drizzle-kit studio",
+    "db:up": "docker compose -f infra/docker-compose.yml up -d postgres && docker compose -f infra/docker-compose.yml wait postgres && pnpm db:migrate",
+    "db:down": "docker compose -f infra/docker-compose.yml down",
+    "dev:docker": "docker compose -f infra/docker-compose.yml up -d",
+    "db:studio": "pnpm db:up && drizzle-kit studio",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
