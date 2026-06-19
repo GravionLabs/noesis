@@ -30,6 +30,8 @@ const envSchema = z.object({
 
   CRAWLER_URL: z.string().default("http://localhost:3001"),
 
+  API_KEY: z.string().default(""),
+
   SERVER_URL: z.string().default("http://localhost:5000"),
 });
 

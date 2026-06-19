@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
+import rateLimit from "@fastify/rate-limit";
 import { config } from "./config.js";
 import { pool } from "./db/pool.js";
 import { registerHealthRoutes } from "./routes/health.js";
@@ -11,6 +12,7 @@ import { registerInternalRoutes } from "./routes/internal.js";
 import { createMcpServer } from "./mcp/handler.js";
 import { startScheduler } from "./pipeline/scheduler.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { requireApiKey } from "./middleware/auth.js";
 
 async function main() {
   console.log("Noesis server starting...");
@@ -33,6 +35,10 @@ async function main() {
 
   // ---- Plugins ----
   await app.register(cors, { origin: true });
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: "1 minute",
+  });
   await app.register(swagger, {
     openapi: {
       info: {
@@ -56,7 +62,7 @@ async function main() {
     sessionIdGenerator: crypto.randomUUID.bind(crypto),
   });
 
-  app.all("/mcp", async (req, reply) => {
+  app.all("/mcp", { preHandler: requireApiKey }, async (req, reply) => {
     // CORS handled by @fastify/cors for all origins
     const rawReq = req.raw;
     const rawRes = reply.raw;
