@@ -29,6 +29,12 @@ const envSchema = z.object({
   API_KEY: z.string().default(""),
 
   SERVER_URL: z.string().default("http://localhost:5000"),
+
+  LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
+  LOG_SINK: z.enum(["stdout", "seq", "ecs"]).optional(),
+  SEQ_URL: z.string().default("http://localhost:5341"),
+
+  MAX_IMPORT_RETRIES: z.coerce.number().default(3),
 });
 
 function loadConfig() {
