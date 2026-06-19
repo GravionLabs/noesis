@@ -46,6 +46,24 @@ export async function deleteSource(id: string) {
   return rows[0] ?? null;
 }
 
+export interface UpdateSourceInput {
+  name?: string;
+  url?: string;
+  importerType?: string;
+  enabled?: boolean;
+  config?: string | null;
+  schedule?: string | null;
+}
+
+export async function updateSource(id: string, input: UpdateSourceInput) {
+  const rows = await db
+    .update(sources)
+    .set({ ...input, updatedAt: new Date() })
+    .where(eq(sources.id, id))
+    .returning();
+  return rows[0] ?? null;
+}
+
 export async function updateLastImported(sourceId: string) {
   await db
     .update(sources)
