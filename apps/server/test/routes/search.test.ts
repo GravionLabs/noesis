@@ -3,10 +3,6 @@ import Fastify from "fastify";
 
 const mockSearchDocs = vi.fn();
 
-vi.mock("../../src/search/search.js", () => ({
-  searchDocs: (...args: unknown[]) => mockSearchDocs(...args),
-}));
-
 import { registerSearchRoutes } from "../../src/routes/search.js";
 
 const resultFixture = {
@@ -25,7 +21,9 @@ describe("Search routes", () => {
     await app.register(import("@fastify/swagger"), {
       openapi: { info: { title: "Test", version: "1.0.0" } },
     });
-    registerSearchRoutes(app);
+    registerSearchRoutes(app, {
+      searchService: { searchDocs: mockSearchDocs } as any,
+    });
     return app;
   };
 

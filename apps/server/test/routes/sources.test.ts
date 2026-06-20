@@ -10,24 +10,6 @@ const mockTriggerImport = vi.fn();
 const mockScheduleNextRun = vi.fn();
 const mockIsValidCron = vi.fn().mockReturnValue(true);
 
-vi.mock("../../src/services/source-service.js", () => ({
-  listSources: (...args: unknown[]) => mockListSources(...args),
-  createSource: (...args: unknown[]) => mockCreateSource(...args),
-  getSource: (...args: unknown[]) => mockGetSource(...args),
-  updateSource: (...args: unknown[]) => mockUpdateSource(...args),
-  deleteSource: (...args: unknown[]) => mockDeleteSource(...args),
-  getSourceStats: vi.fn(),
-}));
-
-vi.mock("../../src/services/import-service.js", () => ({
-  triggerImport: (...args: unknown[]) => mockTriggerImport(...args),
-}));
-
-vi.mock("../../src/pipeline/scheduler.js", () => ({
-  isValidCron: (...args: unknown[]) => mockIsValidCron(...args),
-  scheduleNextRun: (...args: unknown[]) => mockScheduleNextRun(...args),
-}));
-
 import { registerSourceRoutes } from "../../src/routes/sources.js";
 
 const sourceFixture = {
@@ -47,7 +29,21 @@ describe("Source routes", () => {
     await app.register(import("@fastify/swagger"), {
       openapi: { info: { title: "Test", version: "1.0.0" } },
     });
-    registerSourceRoutes(app);
+    registerSourceRoutes(app, {
+      sourceService: {
+        listSources: mockListSources,
+        createSource: mockCreateSource,
+        getSource: mockGetSource,
+        updateSource: mockUpdateSource,
+        deleteSource: mockDeleteSource,
+        getSourceStats: vi.fn(),
+      } as any,
+      importService: { triggerImport: mockTriggerImport } as any,
+      scheduler: {
+        isValidCron: mockIsValidCron,
+        scheduleNextRun: mockScheduleNextRun,
+      } as any,
+    });
     return app;
   };
 

@@ -13,20 +13,7 @@ vi.mock("node-cron", () => ({
   },
 }));
 
-vi.mock("../../src/services/source-service.js", () => ({
-  listSources: (...args: unknown[]) => mockListSources(...args),
-}));
-
-vi.mock("../../src/pipeline/job-runner.js", () => ({
-  runImport: (...args: unknown[]) => mockRunImport(...args),
-}));
-
-import {
-  isValidCron,
-  scheduleNextRun,
-  refreshSchedules,
-  stopScheduler,
-} from "../../src/pipeline/scheduler.js";
+import { Scheduler } from "../../src/pipeline/scheduler.js";
 
 function makeTask() {
   let stopped = false;
@@ -36,142 +23,155 @@ function makeTask() {
   };
 }
 
-describe("isValidCron", () => {
+function createScheduler() {
+  return new Scheduler({
+    jobRunner: { runImport: mockRunImport } as any,
+    sourceService: { listSources: mockListSources } as any,
+    logger: {
+      child: () => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      }),
+    } as any,
+  });
+}
+
+describe("Scheduler", () => {
+  let scheduler: Scheduler;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    scheduler = createScheduler();
   });
 
-  it("returns true for valid cron expressions", () => {
-    mockCronValidate.mockReturnValue(true);
-    expect(isValidCron("0 */6 * * *")).toBe(true);
-    expect(mockCronValidate).toHaveBeenCalledWith("0 */6 * * *");
+  describe("isValidCron", () => {
+    it("returns true for valid cron expressions", () => {
+      mockCronValidate.mockReturnValue(true);
+      expect(scheduler.isValidCron("0 */6 * * *")).toBe(true);
+      expect(mockCronValidate).toHaveBeenCalledWith("0 */6 * * *");
+    });
+
+    it("returns false for invalid cron expressions", () => {
+      mockCronValidate.mockReturnValue(false);
+      expect(scheduler.isValidCron("invalid")).toBe(false);
+    });
   });
 
-  it("returns false for invalid cron expressions", () => {
-    mockCronValidate.mockReturnValue(false);
-    expect(isValidCron("invalid")).toBe(false);
-  });
-});
+  describe("scheduleNextRun", () => {
+    it("schedules a cron task for a source with a valid schedule", async () => {
+      const task = makeTask();
+      mockCronValidate.mockReturnValue(true);
+      mockCronSchedule.mockReturnValue(task);
 
-describe("scheduleNextRun", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    stopScheduler();
-  });
+      await scheduler.scheduleNextRun({ id: "src-1", schedule: "0 */6 * * *" });
 
-  it("schedules a cron task for a source with a valid schedule", async () => {
-    const task = makeTask();
-    mockCronValidate.mockReturnValue(true);
-    mockCronSchedule.mockReturnValue(task);
+      expect(mockCronValidate).toHaveBeenCalledWith("0 */6 * * *");
+      expect(mockCronSchedule).toHaveBeenCalledWith("0 */6 * * *", expect.any(Function));
 
-    await scheduleNextRun({ id: "src-1", schedule: "0 */6 * * *" });
+      const cronFn = mockCronSchedule.mock.calls[0][1];
+      await cronFn();
 
-    expect(mockCronValidate).toHaveBeenCalledWith("0 */6 * * *");
-    expect(mockCronSchedule).toHaveBeenCalledWith("0 */6 * * *", expect.any(Function));
+      expect(mockRunImport).toHaveBeenCalledWith("src-1");
+    });
 
-    // Trigger the scheduled callback
-    const cronFn = mockCronSchedule.mock.calls[0][1];
-    await cronFn();
+    it("cancels previous task before re-scheduling for the same source", async () => {
+      const task1 = makeTask();
+      const task2 = makeTask();
+      mockCronValidate.mockReturnValue(true);
+      mockCronSchedule.mockReturnValueOnce(task1).mockReturnValueOnce(task2);
 
-    expect(mockRunImport).toHaveBeenCalledWith("src-1");
-  });
+      await scheduler.scheduleNextRun({ id: "src-1", schedule: "0 */6 * * *" });
+      expect(mockCronSchedule).toHaveBeenCalledTimes(1);
 
-  it("cancels previous task before re-scheduling for the same source", async () => {
-    const task1 = makeTask();
-    const task2 = makeTask();
-    mockCronValidate.mockReturnValue(true);
-    mockCronSchedule.mockReturnValueOnce(task1).mockReturnValueOnce(task2);
+      await scheduler.scheduleNextRun({ id: "src-1", schedule: "0 */12 * * *" });
+      expect(mockCronSchedule).toHaveBeenCalledTimes(2);
 
-    await scheduleNextRun({ id: "src-1", schedule: "0 */6 * * *" });
-    expect(mockCronSchedule).toHaveBeenCalledTimes(1);
+      expect(task1.stop).toHaveBeenCalled();
+      expect(task2.stop).not.toHaveBeenCalled();
+    });
 
-    await scheduleNextRun({ id: "src-1", schedule: "0 */12 * * *" });
-    expect(mockCronSchedule).toHaveBeenCalledTimes(2);
+    it("is a no-op when schedule is null", async () => {
+      await scheduler.scheduleNextRun({ id: "src-1", schedule: null });
+      expect(mockCronSchedule).not.toHaveBeenCalled();
+    });
 
-    expect(task1.stop).toHaveBeenCalled();
-    expect(task2.stop).not.toHaveBeenCalled();
-  });
+    it("is a no-op when schedule is empty string", async () => {
+      await scheduler.scheduleNextRun({ id: "src-1", schedule: "" });
+      expect(mockCronSchedule).not.toHaveBeenCalled();
+    });
 
-  it("is a no-op when schedule is null", async () => {
-    await scheduleNextRun({ id: "src-1", schedule: null });
-    expect(mockCronSchedule).not.toHaveBeenCalled();
-  });
+    it("does not schedule when cron expression is invalid", async () => {
+      mockCronValidate.mockReturnValue(false);
 
-  it("is a no-op when schedule is empty string", async () => {
-    await scheduleNextRun({ id: "src-1", schedule: "" });
-    expect(mockCronSchedule).not.toHaveBeenCalled();
-  });
+      await scheduler.scheduleNextRun({ id: "src-1", schedule: "bad-cron" });
 
-  it("does not schedule when cron expression is invalid", async () => {
-    mockCronValidate.mockReturnValue(false);
+      expect(mockCronValidate).toHaveBeenCalledWith("bad-cron");
+      expect(mockCronSchedule).not.toHaveBeenCalled();
+    });
 
-    await scheduleNextRun({ id: "src-1", schedule: "bad-cron" });
+    it("cancels existing task when schedule is removed", async () => {
+      const task = makeTask();
+      mockCronValidate.mockReturnValue(true);
+      mockCronSchedule.mockReturnValue(task);
 
-    expect(mockCronValidate).toHaveBeenCalledWith("bad-cron");
-    expect(mockCronSchedule).not.toHaveBeenCalled();
-  });
+      await scheduler.scheduleNextRun({ id: "src-1", schedule: "0 */6 * * *" });
+      expect(mockCronSchedule).toHaveBeenCalledTimes(1);
 
-  it("cancels existing task when schedule is removed", async () => {
-    const task = makeTask();
-    mockCronValidate.mockReturnValue(true);
-    mockCronSchedule.mockReturnValue(task);
+      await scheduler.scheduleNextRun({ id: "src-1", schedule: null });
 
-    await scheduleNextRun({ id: "src-1", schedule: "0 */6 * * *" });
-    expect(mockCronSchedule).toHaveBeenCalledTimes(1);
-
-    await scheduleNextRun({ id: "src-1", schedule: null });
-
-    expect(task.stop).toHaveBeenCalled();
-  });
-});
-
-describe("refreshSchedules", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    stopScheduler();
+      expect(task.stop).toHaveBeenCalled();
+    });
   });
 
-  it("schedules all sources with a valid cron expression", async () => {
-    const task = makeTask();
-    mockCronValidate.mockReturnValue(true);
-    mockCronSchedule.mockReturnValue(task);
+  describe("refreshSchedules", () => {
+    beforeEach(() => {
+      scheduler = createScheduler();
+    });
 
-    mockListSources.mockResolvedValue([
-      { id: "src-1", schedule: "0 */6 * * *" },
-      { id: "src-2", schedule: "0 0 * * *" },
-      { id: "src-3", schedule: null },
-    ]);
+    it("schedules all sources with a valid cron expression", async () => {
+      const task = makeTask();
+      mockCronValidate.mockReturnValue(true);
+      mockCronSchedule.mockReturnValue(task);
 
-    await refreshSchedules();
+      mockListSources.mockResolvedValue([
+        { id: "src-1", schedule: "0 */6 * * *" },
+        { id: "src-2", schedule: "0 0 * * *" },
+        { id: "src-3", schedule: null },
+      ]);
 
-    expect(mockCronSchedule).toHaveBeenCalledTimes(2);
-    expect(mockCronSchedule).toHaveBeenCalledWith("0 */6 * * *", expect.any(Function));
-    expect(mockCronSchedule).toHaveBeenCalledWith("0 0 * * *", expect.any(Function));
-  });
+      await scheduler.refreshSchedules();
 
-  it("unschedules sources whose schedule was removed", async () => {
-    const task1 = makeTask();
-    const task2 = makeTask();
-    mockCronValidate.mockReturnValue(true);
-    mockCronSchedule.mockReturnValueOnce(task1).mockReturnValueOnce(task2);
+      expect(mockCronSchedule).toHaveBeenCalledTimes(2);
+      expect(mockCronSchedule).toHaveBeenCalledWith("0 */6 * * *", expect.any(Function));
+      expect(mockCronSchedule).toHaveBeenCalledWith("0 0 * * *", expect.any(Function));
+    });
 
-    mockListSources.mockResolvedValue([
-      { id: "src-1", schedule: "0 */6 * * *" },
-      { id: "src-2", schedule: "0 0 * * *" },
-    ]);
+    it("unschedules sources whose schedule was removed", async () => {
+      const task1 = makeTask();
+      const task2 = makeTask();
+      mockCronValidate.mockReturnValue(true);
+      mockCronSchedule.mockReturnValueOnce(task1).mockReturnValueOnce(task2);
 
-    await refreshSchedules();
+      mockListSources.mockResolvedValue([
+        { id: "src-1", schedule: "0 */6 * * *" },
+        { id: "src-2", schedule: "0 0 * * *" },
+      ]);
 
-    expect(mockCronSchedule).toHaveBeenCalledTimes(2);
+      await scheduler.refreshSchedules();
 
-    mockListSources.mockResolvedValue([
-      { id: "src-1", schedule: "0 */6 * * *" },
-      { id: "src-2", schedule: null },
-    ]);
+      expect(mockCronSchedule).toHaveBeenCalledTimes(2);
 
-    await refreshSchedules();
+      mockListSources.mockResolvedValue([
+        { id: "src-1", schedule: "0 */6 * * *" },
+        { id: "src-2", schedule: null },
+      ]);
 
-    expect(mockCronSchedule).toHaveBeenCalledTimes(3);
-    expect(task2.stop).toHaveBeenCalled();
+      await scheduler.refreshSchedules();
+
+      expect(mockCronSchedule).toHaveBeenCalledTimes(3);
+      expect(task2.stop).toHaveBeenCalled();
+    });
   });
 });

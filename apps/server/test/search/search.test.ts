@@ -3,27 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockQuery = vi.fn();
 const mockGetProvider = vi.fn();
 
-vi.mock("../../src/db/pool.js", () => ({
-  query: (...args: unknown[]) => mockQuery(...args),
-  db: {},
-  pool: {},
-}));
-
-vi.mock("../../src/services/embedding-service.js", () => ({
-  EmbeddingService: class {
-    constructor() {}
-    getProvider() { return mockGetProvider(); }
-    embedTexts() { return []; }
-    embedText() { return []; }
-    embedUnembeddedChunks() { return 0; }
-  },
-  getProvider: (...args: unknown[]) => mockGetProvider(...args),
-  embedTexts: () => [],
-  embedText: () => [],
-  embedUnembeddedChunks: () => 0,
-}));
-
-import { searchByText, searchByVector, searchDocs } from "../../src/search/search.js";
+import { SearchService } from "../../src/services/search-service.js";
 
 const fakeResults = [
   {
@@ -46,153 +26,162 @@ const fakeResults = [
   },
 ];
 
-describe("searchByText", () => {
-  beforeEach(() => {
-    mockQuery.mockReset();
+function createService() {
+  return new SearchService({
+    database: { query: mockQuery } as any,
+    embeddingService: {
+      getProvider: mockGetProvider,
+      embedTexts: () => [],
+      embedText: () => [],
+      embedUnembeddedChunks: () => 0,
+    } as any,
   });
+}
 
-  it("returns mapped results from full-text search", async () => {
-    mockQuery.mockResolvedValue({ rows: fakeResults });
+describe("SearchService", () => {
+  let service: SearchService;
 
-    const results = await searchByText("dependency injection", 5, "Angular");
-
-    expect(results).toHaveLength(2);
-    expect(results[0].sourceName).toBe("Angular");
-    expect(results[0].docUrl).toBe("https://angular.dev/guide/di");
-    expect(results[0].heading).toBe("DI Overview");
-    expect(results[0].content).toContain("Dependency injection");
-    expect(results[0].score).toBe(0.95);
-    expect(results[0].chunkId).toBe("chunk-1");
-  });
-
-  it("filters by source name when provided", async () => {
-    mockQuery.mockResolvedValue({ rows: fakeResults });
-
-    await searchByText("test", 10, "Angular");
-    const sql = mockQuery.mock.calls[0][0] as string;
-    expect(sql).toContain("AND s.name = $2");
-  });
-
-  it("omits source filter when not provided", async () => {
-    mockQuery.mockResolvedValue({ rows: [] });
-
-    await searchByText("test", 10);
-    const sql = mockQuery.mock.calls[0][0] as string;
-    expect(sql).not.toContain("AND s.name");
-  });
-
-  it("returns empty array when nothing matches", async () => {
-    mockQuery.mockResolvedValue({ rows: [] });
-
-    const results = await searchByText("nonexistent content", 5);
-    expect(results).toEqual([]);
-  });
-});
-
-describe("searchByVector", () => {
-  beforeEach(() => {
-    mockQuery.mockReset();
-  });
-
-  it("returns results ordered by cosine similarity", async () => {
-    mockQuery.mockResolvedValue({ rows: fakeResults });
-
-    const vector = Array(768).fill(0.1);
-    const results = await searchByVector(vector, 5);
-
-    expect(results).toHaveLength(2);
-    expect(results[0].chunkId).toBe("chunk-1");
-  });
-
-  it("filters by source name when provided", async () => {
-    mockQuery.mockResolvedValue({ rows: fakeResults });
-
-    const vector = Array(768).fill(0.1);
-    await searchByVector(vector, 5, "Angular");
-
-    const sql = mockQuery.mock.calls[0][0] as string;
-    expect(sql).toContain("AND s.name = $3");
-  });
-});
-
-describe("searchDocs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    service = createService();
   });
 
-  it("uses vector search when embedder is available", async () => {
-    mockGetProvider.mockReturnValue({
-      embed: async (texts: string[]) => [Array(768).fill(0.1)],
-      model: "test-model",
-      dimensions: 768,
+  describe("searchByText", () => {
+    it("returns mapped results from full-text search", async () => {
+      mockQuery.mockResolvedValue({ rows: fakeResults });
+
+      const results = await service.searchByText("dependency injection", 5, "Angular");
+
+      expect(results).toHaveLength(2);
+      expect(results[0].sourceName).toBe("Angular");
+      expect(results[0].docUrl).toBe("https://angular.dev/guide/di");
+      expect(results[0].heading).toBe("DI Overview");
+      expect(results[0].content).toContain("Dependency injection");
+      expect(results[0].score).toBe(0.95);
+      expect(results[0].chunkId).toBe("chunk-1");
     });
-    mockQuery.mockResolvedValue({ rows: fakeResults });
 
-    const results = await searchDocs("dependency injection", 5);
+    it("filters by source name when provided", async () => {
+      mockQuery.mockResolvedValue({ rows: fakeResults });
 
-    expect(results).toHaveLength(2);
-    expect(mockQuery.mock.calls[0][0] as string).toContain("vector <=>");
+      await service.searchByText("test", 10, "Angular");
+      const sql = mockQuery.mock.calls[0][0] as string;
+      expect(sql).toContain("AND s.name = $2");
+    });
+
+    it("omits source filter when not provided", async () => {
+      mockQuery.mockResolvedValue({ rows: [] });
+
+      await service.searchByText("test", 10);
+      const sql = mockQuery.mock.calls[0][0] as string;
+      expect(sql).not.toContain("AND s.name");
+    });
+
+    it("returns empty array when nothing matches", async () => {
+      mockQuery.mockResolvedValue({ rows: [] });
+
+      const results = await service.searchByText("nonexistent content", 5);
+      expect(results).toEqual([]);
+    });
   });
 
-  it("falls back to text search when embedder fails", async () => {
-    mockGetProvider.mockReturnValue({
-      embed: async () => {
-        throw new Error("Provider unavailable");
-      },
-      model: "test-model",
-      dimensions: 768,
+  describe("searchByVector", () => {
+    it("returns results ordered by cosine similarity", async () => {
+      mockQuery.mockResolvedValue({ rows: fakeResults });
+
+      const vector = Array(768).fill(0.1);
+      const results = await service.searchByVector(vector, 5);
+
+      expect(results).toHaveLength(2);
+      expect(results[0].chunkId).toBe("chunk-1");
     });
-    mockQuery.mockResolvedValue({ rows: fakeResults });
 
-    const results = await searchDocs("dependency injection", 5);
+    it("filters by source name when provided", async () => {
+      mockQuery.mockResolvedValue({ rows: fakeResults });
 
-    expect(results).toHaveLength(2);
-    const lastCall = mockQuery.mock.calls[mockQuery.mock.calls.length - 1][0] as string;
-    expect(lastCall).toContain("to_tsvector");
+      const vector = Array(768).fill(0.1);
+      await service.searchByVector(vector, 5, "Angular");
+
+      const sql = mockQuery.mock.calls[0][0] as string;
+      expect(sql).toContain("AND s.name = $3");
+    });
   });
 
-  it("falls back to text search when embedder returns empty vector", async () => {
-    mockGetProvider.mockReturnValue({
-      embed: async () => [[]],
-      model: "test-model",
-      dimensions: 768,
+  describe("searchDocs", () => {
+    it("uses vector search when embedder is available", async () => {
+      mockGetProvider.mockReturnValue({
+        embed: async (texts: string[]) => [Array(768).fill(0.1)],
+        model: "test-model",
+        dimensions: 768,
+      });
+      mockQuery.mockResolvedValue({ rows: fakeResults });
+
+      const results = await service.searchDocs("dependency injection", 5);
+
+      expect(results).toHaveLength(2);
+      expect(mockQuery.mock.calls[0][0] as string).toContain("vector <=>");
     });
 
-    mockQuery.mockResolvedValue({ rows: fakeResults });
+    it("falls back to text search when embedder fails", async () => {
+      mockGetProvider.mockReturnValue({
+        embed: async () => {
+          throw new Error("Provider unavailable");
+        },
+        model: "test-model",
+        dimensions: 768,
+      });
+      mockQuery.mockResolvedValue({ rows: fakeResults });
 
-    const results = await searchDocs("dependency injection", 5);
+      const results = await service.searchDocs("dependency injection", 5);
 
-    expect(results).toHaveLength(2);
-    expect(mockQuery.mock.calls[0][0] as string).not.toContain("vector <=>");
-  });
-
-  it("passes sourceName to both search paths", async () => {
-    mockGetProvider.mockReturnValue({
-      embed: async () => {
-        throw new Error("down");
-      },
-      model: "test-model",
-      dimensions: 768,
+      expect(results).toHaveLength(2);
+      const lastCall = mockQuery.mock.calls[mockQuery.mock.calls.length - 1][0] as string;
+      expect(lastCall).toContain("to_tsvector");
     });
-    mockQuery.mockResolvedValue({ rows: [] });
 
-    await searchDocs("test", 5, "Angular");
+    it("falls back to text search when embedder returns empty vector", async () => {
+      mockGetProvider.mockReturnValue({
+        embed: async () => [[]],
+        model: "test-model",
+        dimensions: 768,
+      });
 
-    const sql = mockQuery.mock.calls[0][0] as string;
-    expect(sql).toContain("AND s.name = $2");
-  });
+      mockQuery.mockResolvedValue({ rows: fakeResults });
 
-  it("returns empty array when no results found", async () => {
-    mockGetProvider.mockReturnValue({
-      embed: async () => {
-        throw new Error("down");
-      },
-      model: "test-model",
-      dimensions: 768,
+      const results = await service.searchDocs("dependency injection", 5);
+
+      expect(results).toHaveLength(2);
+      expect(mockQuery.mock.calls[0][0] as string).not.toContain("vector <=>");
     });
-    mockQuery.mockResolvedValue({ rows: [] });
 
-    const results = await searchDocs("does not exist in corpus", 5);
-    expect(results).toEqual([]);
+    it("passes sourceName to both search paths", async () => {
+      mockGetProvider.mockReturnValue({
+        embed: async () => {
+          throw new Error("down");
+        },
+        model: "test-model",
+        dimensions: 768,
+      });
+      mockQuery.mockResolvedValue({ rows: [] });
+
+      await service.searchDocs("test", 5, "Angular");
+
+      const sql = mockQuery.mock.calls[0][0] as string;
+      expect(sql).toContain("AND s.name = $2");
+    });
+
+    it("returns empty array when no results found", async () => {
+      mockGetProvider.mockReturnValue({
+        embed: async () => {
+          throw new Error("down");
+        },
+        model: "test-model",
+        dimensions: 768,
+      });
+      mockQuery.mockResolvedValue({ rows: [] });
+
+      const results = await service.searchDocs("does not exist in corpus", 5);
+      expect(results).toEqual([]);
+    });
   });
 });

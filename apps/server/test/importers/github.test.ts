@@ -1,16 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GithubImporter } from "../../src/importers/github.js";
 
-const mockClient = vi.hoisted(() => ({
-  query: vi.fn().mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 }),
-  release: vi.fn(),
-}));
+const mockSaveChunks = vi.fn();
 
-vi.mock("../../src/db/pool.js", () => ({
-  query: (...args: unknown[]) => mockClient.query(...args),
-  db: {},
-  pool: { connect: vi.fn().mockResolvedValue(mockClient) },
-}));
+const mockChunkService = { saveChunks: mockSaveChunks } as any;
 
 function block(text: string, n = 3): string {
   return (text + "\n").repeat(n);
@@ -34,10 +27,9 @@ describe("GithubImporter", () => {
   let importer: GithubImporter;
 
   beforeEach(() => {
-    importer = new GithubImporter();
-    mockClient.query.mockClear();
-    mockClient.query.mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 });
-    mockClient.release.mockClear();
+    importer = new GithubImporter({ chunkService: mockChunkService });
+    mockSaveChunks.mockReset();
+    mockSaveChunks.mockResolvedValue({ docCount: 1, chunkCount: 3 });
   });
 
   it("downloads, chunks, and stores readme for a valid GitHub repo", async () => {
@@ -56,7 +48,7 @@ describe("GithubImporter", () => {
 
     expect(result.docCount).toBe(1);
     expect(result.chunkCount).toBe(3);
-    expect(mockClient.query).toHaveBeenCalled();
+    expect(mockSaveChunks).toHaveBeenCalled();
   });
 
   it("rejects invalid GitHub URLs", async () => {
@@ -81,6 +73,6 @@ describe("GithubImporter", () => {
       lastImportedAt: null, createdAt: new Date(), updatedAt: new Date(),
     };
 
-    await expect(importer.import(source)).rejects.toThrow("403");
+    await expect(importer.import(source)).rejects.toThrow("Failed to fetch README from private/repo");
   });
 });

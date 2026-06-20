@@ -5,32 +5,21 @@ const mockIsSchedulerRunning = vi.fn();
 const mockGetPendingJobCount = vi.fn();
 const mockGetTotalSourceCount = vi.fn();
 
-vi.mock("../../src/pipeline/scheduler.js", () => ({
-  isSchedulerRunning: (...args: unknown[]) => mockIsSchedulerRunning(...args),
-}));
-
-vi.mock("../../src/services/job-service.js", () => ({
-  getPendingJobCount: (...args: unknown[]) => mockGetPendingJobCount(...args),
-}));
-
-vi.mock("../../src/services/source-service.js", () => ({
-  getTotalSourceCount: (...args: unknown[]) => mockGetTotalSourceCount(...args),
-}));
-
-vi.mock("../../src/config.js", () => ({
-  config: {
-    EMBEDDING_PROVIDER: "local",
-    EMBEDDING_MODEL: "test-model",
-    EMBEDDING_DIMENSIONS: 768,
-  },
-}));
-
 import { registerHealthRoutes } from "../../src/routes/health.js";
 
 describe("Health routes", () => {
   const buildApp = async () => {
     const app = Fastify();
-    registerHealthRoutes(app);
+    registerHealthRoutes(app, {
+      config: {
+        EMBEDDING_PROVIDER: "local",
+        EMBEDDING_MODEL: "test-model",
+        EMBEDDING_DIMENSIONS: 768,
+      } as any,
+      scheduler: { isSchedulerRunning: mockIsSchedulerRunning } as any,
+      jobService: { getPendingJobCount: mockGetPendingJobCount } as any,
+      sourceService: { getTotalSourceCount: mockGetTotalSourceCount } as any,
+    });
     return app;
   };
 

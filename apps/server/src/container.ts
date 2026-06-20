@@ -61,7 +61,7 @@ export function buildContainer() {
     githubImporter: asClass(GithubImporter).singleton(),
     azureDevopsImporter: asClass(AzureDevopsImporter)
       .inject(() => ({
-        provider: container.cradle.azureDevOpsProvider,
+        provider: (container.cradle as any).azureDevOpsProvider,
       }))
       .singleton(),
   });
