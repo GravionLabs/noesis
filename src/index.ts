@@ -11,6 +11,7 @@ import { registerSourceRoutes } from "./routes/sources.js";
 import { registerJobRoutes } from "./routes/jobs.js";
 import { registerInternalRoutes } from "./routes/internal.js";
 import { registerStatsRoutes } from "./routes/stats.js";
+import { registerSearchRoutes } from "./routes/search.js";
 import { createMcpServer } from "./mcp/handler.js";
 import { startScheduler } from "./pipeline/scheduler.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -57,6 +58,7 @@ async function main() {
   registerJobRoutes(app);
   registerInternalRoutes(app);
   registerStatsRoutes(app);
+  registerSearchRoutes(app);
 
   // ---- MCP Server (Streamable HTTP) ----
   const mcpServer = createMcpServer();
