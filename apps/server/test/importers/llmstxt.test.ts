@@ -1,16 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { LlmsTxtImporter } from "../../src/importers/llmstxt.js";
 
-const mockClient = vi.hoisted(() => ({
-  query: vi.fn().mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 }),
-  release: vi.fn(),
-}));
+const mockSaveChunks = vi.fn();
 
-vi.mock("../../src/db/pool.js", () => ({
-  query: (...args: unknown[]) => mockClient.query(...args),
-  db: {},
-  pool: { connect: vi.fn().mockResolvedValue(mockClient) },
-}));
+const mockChunkService = { saveChunks: mockSaveChunks } as any;
 
 function block(text: string, n = 3): string {
   return (text + "\n").repeat(n);
@@ -34,10 +27,13 @@ describe("LlmsTxtImporter", () => {
   let importer: LlmsTxtImporter;
 
   beforeEach(() => {
-    importer = new LlmsTxtImporter();
-    mockClient.query.mockClear();
-    mockClient.query.mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 });
-    mockClient.release.mockClear();
+    mockSaveChunks.mockReset();
+    mockSaveChunks.mockImplementation((chunks: any[]) =>
+      chunks.length === 0
+        ? { docCount: 0, chunkCount: 0 }
+        : { docCount: 1, chunkCount: chunks.length },
+    );
+    importer = new LlmsTxtImporter({ chunkService: mockChunkService });
   });
 
   it("downloads, chunks, and stores docs", async () => {
@@ -63,8 +59,7 @@ describe("LlmsTxtImporter", () => {
 
     expect(result.docCount).toBe(1);
     expect(result.chunkCount).toBe(3);
-    expect(mockClient.query).toHaveBeenCalled();
-    expect(mockClient.release).toHaveBeenCalled();
+    expect(mockSaveChunks).toHaveBeenCalled();
   });
 
   it("handles fetch failure", async () => {

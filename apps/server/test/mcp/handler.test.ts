@@ -8,27 +8,17 @@ const mockListSources = vi.fn();
 const mockTriggerImport = vi.fn();
 const mockGetJob = vi.fn();
 
-vi.mock("../../src/search/search.js", () => ({
-  searchDocs: (...args: unknown[]) => mockSearchDocs(...args),
-}));
+import { McpHandler } from "../../src/mcp/handler.js";
 
-vi.mock("../../src/services/chunk-service.js", () => ({
-  getChunkWithSource: (...args: unknown[]) => mockGetChunkWithSource(...args),
-}));
-
-vi.mock("../../src/services/source-service.js", () => ({
-  listSources: (...args: unknown[]) => mockListSources(...args),
-}));
-
-vi.mock("../../src/services/import-service.js", () => ({
-  triggerImport: (...args: unknown[]) => mockTriggerImport(...args),
-}));
-
-vi.mock("../../src/services/job-service.js", () => ({
-  getJob: (...args: unknown[]) => mockGetJob(...args),
-}));
-
-import { createMcpServer } from "../../src/mcp/handler.js";
+function createHandler() {
+  return new McpHandler({
+    searchService: { searchDocs: mockSearchDocs } as any,
+    chunkService: { getChunkWithSource: mockGetChunkWithSource } as any,
+    sourceService: { listSources: mockListSources } as any,
+    importService: { triggerImport: mockTriggerImport } as any,
+    jobService: { getJob: mockGetJob } as any,
+  });
+}
 
 describe("MCP tools", () => {
   let client: Client;
@@ -37,7 +27,8 @@ describe("MCP tools", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    const server = createMcpServer();
+    const handler = createHandler();
+    const server = handler.createServer();
     const pair = InMemoryTransport.createLinkedPair();
     clientTransport = pair[0];
     serverTransport = pair[1];

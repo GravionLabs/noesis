@@ -1,30 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AzureDevopsImporter } from "../../src/importers/azure-devops.js";
 
-const mockClient = vi.hoisted(() => ({
-  query: vi.fn().mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 }),
-  release: vi.fn(),
-}));
+const mockSaveChunks = vi.fn();
 
-vi.mock("../../src/db/pool.js", () => ({
-  query: (...args: unknown[]) => mockClient.query(...args),
-  db: {},
-  pool: { connect: vi.fn().mockResolvedValue(mockClient) },
-}));
+const mockChunkService = { saveChunks: mockSaveChunks } as any;
 
 const mockCanHandle = vi.hoisted(() => vi.fn());
 const mockGetReadme = vi.hoisted(() => vi.fn());
 const mockGetDocFiles = vi.hoisted(() => vi.fn());
 const mockGetFile = vi.hoisted(() => vi.fn());
 
-vi.mock("../../src/crawler/providers/azure-devops-provider.js", () => ({
-  AzureDevOpsProvider: vi.fn().mockImplementation(() => ({
-    canHandle: mockCanHandle,
-    getReadme: mockGetReadme,
-    getDocFiles: mockGetDocFiles,
-    getFile: mockGetFile,
-  })),
-}));
+const mockAzureDevOpsProvider = {
+  canHandle: mockCanHandle,
+  getReadme: mockGetReadme,
+  getDocFiles: mockGetDocFiles,
+  getFile: mockGetFile,
+};
 
 const repoUrl = "https://dev.azure.com/myorg/myproject/_git/myrepo";
 
@@ -36,10 +27,12 @@ describe("AzureDevopsImporter", () => {
   let importer: AzureDevopsImporter;
 
   beforeEach(() => {
-    importer = new AzureDevopsImporter();
-    mockClient.query.mockClear();
-    mockClient.query.mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 });
-    mockClient.release.mockClear();
+    mockSaveChunks.mockReset();
+    mockSaveChunks.mockImplementation((chunks: any[]) => {
+      const seenDocs = new Set(chunks.map((c: any) => c.docUrl));
+      return { docCount: seenDocs.size, chunkCount: chunks.length };
+    });
+    importer = new AzureDevopsImporter({ chunkService: mockChunkService, provider: mockAzureDevOpsProvider });
     mockCanHandle.mockReset();
     mockGetReadme.mockReset();
     mockGetDocFiles.mockReset();
@@ -63,7 +56,7 @@ describe("AzureDevopsImporter", () => {
     };
 
     await expect(importer.import(source)).rejects.toThrow("requires a dev.azure.com URL");
-    expect(mockClient.query).not.toHaveBeenCalled();
+    expect(mockSaveChunks).not.toHaveBeenCalled();
   });
 
   it("imports README only when no doc files exist", async () => {

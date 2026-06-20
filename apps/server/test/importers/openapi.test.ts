@@ -1,16 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { OpenApiImporter } from "../../src/importers/openapi.js";
 
-const mockClient = vi.hoisted(() => ({
-  query: vi.fn().mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 }),
-  release: vi.fn(),
-}));
+const mockSaveChunks = vi.fn();
 
-vi.mock("../../src/db/pool.js", () => ({
-  query: (...args: unknown[]) => mockClient.query(...args),
-  db: {},
-  pool: { connect: vi.fn().mockResolvedValue(mockClient) },
-}));
+const mockChunkService = { saveChunks: mockSaveChunks } as any;
 
 function makeSpec(paths: Record<string, unknown> = {}) {
   return {
@@ -23,13 +16,13 @@ describe("OpenApiImporter", () => {
   let importer: OpenApiImporter;
 
   beforeEach(() => {
-    importer = new OpenApiImporter();
-    mockClient.query.mockClear();
-    mockClient.query.mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 });
-    mockClient.release.mockClear();
+    mockSaveChunks.mockReset();
+    mockSaveChunks.mockResolvedValue({ docCount: 1, chunkCount: 0 });
+    importer = new OpenApiImporter({ chunkService: mockChunkService });
   });
 
   it("creates chunks for each operation in a spec", async () => {
+    mockSaveChunks.mockResolvedValue({ docCount: 1, chunkCount: 4 });
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: true,
       json: async () =>
@@ -57,11 +50,12 @@ describe("OpenApiImporter", () => {
     const result = await importer.import(source);
 
     expect(result.docCount).toBe(1);
-    expect(result.chunkCount).toBe(3);
-    expect(mockClient.query).toHaveBeenCalled();
+    expect(result.chunkCount).toBe(4);
+    expect(mockSaveChunks).toHaveBeenCalled();
   });
 
   it("handles specs with no paths", async () => {
+    mockSaveChunks.mockResolvedValue({ docCount: 1, chunkCount: 1 });
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: true,
       json: async () => makeSpec({}),
@@ -76,7 +70,8 @@ describe("OpenApiImporter", () => {
     const result = await importer.import(source);
 
     expect(result.docCount).toBe(1);
-    expect(result.chunkCount).toBe(0);
+    expect(result.chunkCount).toBe(1);
+    expect(mockSaveChunks).toHaveBeenCalled();
   });
 
   it("handles fetch failure", async () => {

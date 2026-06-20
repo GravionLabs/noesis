@@ -1,14 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-
-const mockDbUpdate = vi.fn();
-
-vi.mock("../../src/db/pool.js", () => ({
-  db: { update: (...args: unknown[]) => mockDbUpdate(...args) },
-  query: vi.fn(),
-  pool: { connect: vi.fn(), end: vi.fn() },
-}));
-
 import { LlmsMetaTxtImporter } from "../../src/importers/llmstxt-meta.js";
+
+const mockGetSourceByUrl = vi.fn();
+const mockCreateSource = vi.fn();
+
+const mockSourceService = {
+  getSourceByUrl: mockGetSourceByUrl,
+  createSource: mockCreateSource,
+} as any;
 
 const sampleTxt = [
   "# Test Docs",
@@ -25,8 +24,8 @@ describe("LlmsMetaTxtImporter", () => {
   let importer: LlmsMetaTxtImporter;
 
   beforeEach(() => {
-    importer = new LlmsMetaTxtImporter();
     vi.clearAllMocks();
+    importer = new LlmsMetaTxtImporter({ sourceService: mockSourceService });
   });
 
   it("parses llms.txt and updates source config with metadata", async () => {
@@ -34,9 +33,6 @@ describe("LlmsMetaTxtImporter", () => {
       ok: true,
       text: async () => sampleTxt,
     } as Response);
-
-    const setMock = vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 'src-1' }]) }) });
-    mockDbUpdate.mockReturnValue({ set: setMock });
 
     const source = {
       id: "src-1", name: "Test", url: "https://example.com/llms.txt",
@@ -47,8 +43,8 @@ describe("LlmsMetaTxtImporter", () => {
     const result = await importer.import(source);
 
     expect(result.docCount).toBe(0);
-    expect(result.chunkCount).toBe(0);
-    expect(mockDbUpdate).toHaveBeenCalled();
+    expect(result.chunkCount).toBe(3);
+    expect(mockCreateSource).toHaveBeenCalledTimes(3);
   });
 
   it("handles fetch failure", async () => {

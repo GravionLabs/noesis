@@ -10,47 +10,8 @@ const mockGetRunningJob = vi.fn();
 const mockGetImporter = vi.fn();
 const mockUpdateJobStatus = vi.fn();
 const mockEmbed = vi.fn();
-const mockQuery = vi.fn();
 
-vi.mock("../../src/services/source-service.js", () => ({
-  getSource: (...args: unknown[]) => mockGetSource(...args),
-  updateLastImported: (...args: unknown[]) => mockUpdateLastImported(...args),
-}));
-
-vi.mock("../../src/services/job-service.js", () => ({
-  createJob: (...args: unknown[]) => mockCreateJob(...args),
-  getJob: (...args: unknown[]) => mockGetJob(...args),
-  getRunningJob: (...args: unknown[]) => mockGetRunningJob(...args),
-  updateJobStatus: (...args: unknown[]) => mockUpdateJobStatus(...args),
-  completeJob: (...args: unknown[]) => mockCompleteJob(...args),
-  failJob: (...args: unknown[]) => mockFailJob(...args),
-}));
-
-vi.mock("../../src/services/embedding-service.js", () => ({
-  embedUnembeddedChunks: (...args: unknown[]) => mockEmbed(...args),
-}));
-
-vi.mock("../../src/importers/registry.js", () => ({
-  getImporter: (...args: unknown[]) => mockGetImporter(...args),
-}));
-
-vi.mock("../../src/db/pool.js", () => ({
-  query: (...args: unknown[]) => mockQuery(...args),
-  db: {},
-  pool: {},
-}));
-
-vi.mock("../../src/config.js", () => ({
-  config: {
-    MAX_IMPORT_RETRIES: 3,
-    LOG_LEVEL: "silent",
-    EMBEDDING_PROVIDER: "local",
-    EMBEDDING_MODEL: "test",
-    EMBEDDING_DIMENSIONS: 768,
-  },
-}));
-
-import { runImport } from "../../src/pipeline/job-runner.js";
+import { JobRunner } from "../../src/pipeline/job-runner.js";
 
 const sourceFixture = {
   id: "src-1",
@@ -84,6 +45,8 @@ const sampleText = [
 ].join("\n");
 
 describe("runImport", () => {
+  let runner: JobRunner;
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers({ toFake: ["setTimeout"] });
@@ -91,6 +54,42 @@ describe("runImport", () => {
     mockGetImporter.mockReturnValue(null);
     mockUpdateJobStatus.mockResolvedValue(undefined);
     mockGetJob.mockImplementation((id: string) => Promise.resolve({ id, status: "done" }));
+
+    runner = new JobRunner({
+      sourceService: {
+        getSource: mockGetSource,
+        updateLastImported: mockUpdateLastImported,
+      } as any,
+      jobService: {
+        createJob: mockCreateJob,
+        getJob: mockGetJob,
+        getRunningJob: mockGetRunningJob,
+        updateJobStatus: mockUpdateJobStatus,
+        completeJob: mockCompleteJob,
+        failJob: mockFailJob,
+      } as any,
+      importerRegistry: {
+        getImporter: mockGetImporter,
+      } as any,
+      embeddingService: {
+        embedUnembeddedChunks: mockEmbed,
+      } as any,
+      config: {
+        MAX_IMPORT_RETRIES: 3,
+        LOG_LEVEL: "silent",
+        EMBEDDING_PROVIDER: "local",
+        EMBEDDING_MODEL: "test",
+        EMBEDDING_DIMENSIONS: 768,
+      } as any,
+      logger: {
+        child: () => ({
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        }),
+      } as any,
+    });
   });
 
   afterEach(() => {
@@ -103,10 +102,6 @@ describe("runImport", () => {
     mockCompleteJob.mockResolvedValue(undefined);
     mockEmbed.mockResolvedValue(3);
 
-    mockQuery
-      .mockResolvedValueOnce({ rows: [{ id: "doc-1" }], rowCount: 1 })
-      .mockResolvedValue({ rowCount: 1 });
-
     const mockImporter = { import: vi.fn().mockResolvedValue({ chunkCount: 5 }) };
     mockGetImporter.mockReturnValue(mockImporter);
 
@@ -115,7 +110,7 @@ describe("runImport", () => {
       text: async () => sampleText,
     } as Response);
 
-    const job = await runImport("src-1");
+    const job = await runner.runImport("src-1");
 
     expect(job.id).toBe("job-1");
     expect(mockGetSource).toHaveBeenCalledWith("src-1");
@@ -136,7 +131,7 @@ describe("runImport", () => {
     mockFailJob.mockResolvedValue(undefined);
     mockGetImporter.mockReturnValue(null);
 
-    const promise = runImport("src-2");
+    const promise = runner.runImport("src-2");
     await vi.advanceTimersByTimeAsync(120000);
     await promise;
 
@@ -151,7 +146,7 @@ describe("runImport", () => {
 
   it("throws if source not found", async () => {
     mockGetSource.mockResolvedValue(null);
-    await expect(runImport("missing")).rejects.toThrow("not found");
+    await expect(runner.runImport("missing")).rejects.toThrow("not found");
   });
 
   it("retries after failure with backoff", async () => {
@@ -169,10 +164,7 @@ describe("runImport", () => {
       .mockResolvedValueOnce({ chunkCount: 5 });
     mockGetImporter.mockReturnValue(mockImporter);
 
-    mockQuery
-      .mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 });
-
-    const promise = runImport("src-1");
+    const promise = runner.runImport("src-1");
 
     await vi.advanceTimersByTimeAsync(15000);
 
@@ -201,10 +193,7 @@ describe("runImport", () => {
     const mockImporter = { import: vi.fn().mockRejectedValue(new Error("Always fails")) };
     mockGetImporter.mockReturnValue(mockImporter);
 
-    mockQuery
-      .mockResolvedValue({ rows: [], rowCount: 0 });
-
-    const promise = runImport("src-1");
+    const promise = runner.runImport("src-1");
 
     await vi.advanceTimersByTimeAsync(100000);
 
@@ -216,7 +205,7 @@ describe("runImport", () => {
   it("prevents overlapping imports for the same source", async () => {
     mockGetRunningJob.mockResolvedValue({ id: "existing-job", sourceId: "src-1", status: "running" });
 
-    const job = await runImport("src-1");
+    const job = await runner.runImport("src-1");
 
     expect(job.id).toBe("existing-job");
     expect(mockGetSource).not.toHaveBeenCalled();

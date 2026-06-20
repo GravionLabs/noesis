@@ -5,15 +5,6 @@ const mockListJobs = vi.fn();
 const mockGetJob = vi.fn();
 const mockTriggerImport = vi.fn();
 
-vi.mock("../../src/services/job-service.js", () => ({
-  listJobs: (...args: unknown[]) => mockListJobs(...args),
-  getJob: (...args: unknown[]) => mockGetJob(...args),
-}));
-
-vi.mock("../../src/services/import-service.js", () => ({
-  triggerImport: (...args: unknown[]) => mockTriggerImport(...args),
-}));
-
 import { registerJobRoutes } from "../../src/routes/jobs.js";
 
 const jobFixture = {
@@ -33,7 +24,10 @@ describe("Job routes", () => {
     await app.register(import("@fastify/swagger"), {
       openapi: { info: { title: "Test", version: "1.0.0" } },
     });
-    registerJobRoutes(app);
+    registerJobRoutes(app, {
+      jobService: { listJobs: mockListJobs, getJob: mockGetJob } as any,
+      importService: { triggerImport: mockTriggerImport } as any,
+    });
     return app;
   };
 
