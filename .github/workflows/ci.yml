@@ -4,20 +4,18 @@ on:
   push:
     branches: [main]
     paths:
-      - "src/**"
-      - "test/**"
+      - "apps/**"
       - "package.json"
       - "pnpm-lock.yaml"
-      - "Dockerfile"
+      - "pnpm-workspace.yaml"
       - "biome.json"
       - ".github/workflows/ci.yml"
   pull_request:
     paths:
-      - "src/**"
-      - "test/**"
+      - "apps/**"
       - "package.json"
       - "pnpm-lock.yaml"
-      - "Dockerfile"
+      - "pnpm-workspace.yaml"
       - "biome.json"
       - ".github/workflows/ci.yml"
   workflow_dispatch:
@@ -57,7 +55,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: test-results/junit.xml
+          path: apps/server/test-results/junit.xml
           if-no-files-found: warn
 
       - name: Upload coverage artifact
@@ -66,7 +64,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage
-          path: coverage/
+          path: apps/server/coverage/
           if-no-files-found: warn
 
       - name: Publish test results
@@ -75,7 +73,7 @@ jobs:
         uses: dorny/test-reporter@v1
         with:
           name: Test Results
-          path: test-results/junit.xml
+          path: apps/server/test-results/junit.xml
           reporter: jest-junit
           fail-on-error: false
           fail-on-empty: false
@@ -85,7 +83,7 @@ jobs:
         continue-on-error: true
         uses: irongut/CodeCoverageSummary@v1.3.0
         with:
-          filename: coverage/cobertura-coverage.xml
+          filename: apps/server/coverage/cobertura-coverage.xml
           badge: true
           fail_below_min: false
           format: markdown
@@ -114,3 +112,28 @@ jobs:
           gh release create "$TAG" \
             --title "$TAG" \
             --generate-notes
+
+  ui:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Angular app
+        run: pnpm --filter @noesis/ui build
+
+      - name: Run Angular tests
+        run: pnpm --filter @noesis/ui test
