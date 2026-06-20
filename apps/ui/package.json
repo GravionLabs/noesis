@@ -7,7 +7,8 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "dev": "ng serve --proxy-config proxy.conf.json",
-    "test": "ng test"
+    "test": "ng test",
+    "lint": "biome check --write src/"
   },
   "private": true,
   "packageManager": "pnpm@11.5.0",
@@ -33,7 +34,6 @@
     "@angular/cli": "^21.2.9",
     "@angular/compiler-cli": "^21.2.0",
     "jsdom": "^28.0.0",
-    "prettier": "^3.8.1",
     "typescript": "~5.9.2",
     "vitest": "^4.0.8"
   }

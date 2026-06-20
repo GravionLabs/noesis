@@ -12,8 +12,8 @@ describe('SettingsService', () => {
     expect(service.apiKey()).toBe('');
   });
 
-  it('has default baseUrl of localhost:5000', () => {
-    expect(service.baseUrl()).toBe('http://localhost:5000');
+  it('has default empty baseUrl', () => {
+    expect(service.baseUrl()).toBe('');
   });
 
   it('hasApiKey is false when key is empty', () => {
