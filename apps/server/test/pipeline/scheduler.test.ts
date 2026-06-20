@@ -1,17 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import cron from "node-cron";
 
 const mockRunImport = vi.fn().mockResolvedValue({ id: "job-1" });
 const mockListSources = vi.fn();
-
-const mockCronValidate = vi.fn();
-const mockCronSchedule = vi.fn();
-
-vi.mock("node-cron", () => ({
-  default: {
-    validate: (...args: unknown[]) => mockCronValidate(...args),
-    schedule: (...args: unknown[]) => mockCronSchedule(...args),
-  },
-}));
 
 import { Scheduler } from "../../src/pipeline/scheduler.js";
 
@@ -48,13 +39,13 @@ describe("Scheduler", () => {
 
   describe("isValidCron", () => {
     it("returns true for valid cron expressions", () => {
-      mockCronValidate.mockReturnValue(true);
+      const spy = vi.spyOn(cron, "validate").mockReturnValue(true);
       expect(scheduler.isValidCron("0 */6 * * *")).toBe(true);
-      expect(mockCronValidate).toHaveBeenCalledWith("0 */6 * * *");
+      expect(spy).toHaveBeenCalledWith("0 */6 * * *");
     });
 
     it("returns false for invalid cron expressions", () => {
-      mockCronValidate.mockReturnValue(false);
+      vi.spyOn(cron, "validate").mockReturnValue(false);
       expect(scheduler.isValidCron("invalid")).toBe(false);
     });
   });
@@ -62,15 +53,15 @@ describe("Scheduler", () => {
   describe("scheduleNextRun", () => {
     it("schedules a cron task for a source with a valid schedule", async () => {
       const task = makeTask();
-      mockCronValidate.mockReturnValue(true);
-      mockCronSchedule.mockReturnValue(task);
+      vi.spyOn(cron, "validate").mockReturnValue(true);
+      const scheduleSpy = vi.spyOn(cron, "schedule").mockReturnValue(task);
 
       await scheduler.scheduleNextRun({ id: "src-1", schedule: "0 */6 * * *" });
 
-      expect(mockCronValidate).toHaveBeenCalledWith("0 */6 * * *");
-      expect(mockCronSchedule).toHaveBeenCalledWith("0 */6 * * *", expect.any(Function));
+      expect(cron.validate).toHaveBeenCalledWith("0 */6 * * *");
+      expect(scheduleSpy).toHaveBeenCalledWith("0 */6 * * *", expect.any(Function));
 
-      const cronFn = mockCronSchedule.mock.calls[0][1];
+      const cronFn = scheduleSpy.mock.calls[0][1];
       await cronFn();
 
       expect(mockRunImport).toHaveBeenCalledWith("src-1");
@@ -79,45 +70,49 @@ describe("Scheduler", () => {
     it("cancels previous task before re-scheduling for the same source", async () => {
       const task1 = makeTask();
       const task2 = makeTask();
-      mockCronValidate.mockReturnValue(true);
-      mockCronSchedule.mockReturnValueOnce(task1).mockReturnValueOnce(task2);
+      vi.spyOn(cron, "validate").mockReturnValue(true);
+      const scheduleSpy = vi.spyOn(cron, "schedule")
+        .mockReturnValueOnce(task1)
+        .mockReturnValueOnce(task2);
 
       await scheduler.scheduleNextRun({ id: "src-1", schedule: "0 */6 * * *" });
-      expect(mockCronSchedule).toHaveBeenCalledTimes(1);
+      expect(scheduleSpy).toHaveBeenCalledTimes(1);
 
       await scheduler.scheduleNextRun({ id: "src-1", schedule: "0 */12 * * *" });
-      expect(mockCronSchedule).toHaveBeenCalledTimes(2);
+      expect(scheduleSpy).toHaveBeenCalledTimes(2);
 
       expect(task1.stop).toHaveBeenCalled();
       expect(task2.stop).not.toHaveBeenCalled();
     });
 
     it("is a no-op when schedule is null", async () => {
+      const scheduleSpy = vi.spyOn(cron, "schedule");
       await scheduler.scheduleNextRun({ id: "src-1", schedule: null });
-      expect(mockCronSchedule).not.toHaveBeenCalled();
+      expect(scheduleSpy).not.toHaveBeenCalled();
     });
 
     it("is a no-op when schedule is empty string", async () => {
+      const scheduleSpy = vi.spyOn(cron, "schedule");
       await scheduler.scheduleNextRun({ id: "src-1", schedule: "" });
-      expect(mockCronSchedule).not.toHaveBeenCalled();
+      expect(scheduleSpy).not.toHaveBeenCalled();
     });
 
     it("does not schedule when cron expression is invalid", async () => {
-      mockCronValidate.mockReturnValue(false);
+      vi.spyOn(cron, "validate").mockReturnValue(false);
+      const scheduleSpy = vi.spyOn(cron, "schedule");
 
       await scheduler.scheduleNextRun({ id: "src-1", schedule: "bad-cron" });
 
-      expect(mockCronValidate).toHaveBeenCalledWith("bad-cron");
-      expect(mockCronSchedule).not.toHaveBeenCalled();
+      expect(scheduleSpy).not.toHaveBeenCalled();
     });
 
     it("cancels existing task when schedule is removed", async () => {
       const task = makeTask();
-      mockCronValidate.mockReturnValue(true);
-      mockCronSchedule.mockReturnValue(task);
+      vi.spyOn(cron, "validate").mockReturnValue(true);
+      const scheduleSpy = vi.spyOn(cron, "schedule").mockReturnValue(task);
 
       await scheduler.scheduleNextRun({ id: "src-1", schedule: "0 */6 * * *" });
-      expect(mockCronSchedule).toHaveBeenCalledTimes(1);
+      expect(scheduleSpy).toHaveBeenCalledTimes(1);
 
       await scheduler.scheduleNextRun({ id: "src-1", schedule: null });
 
@@ -132,8 +127,8 @@ describe("Scheduler", () => {
 
     it("schedules all sources with a valid cron expression", async () => {
       const task = makeTask();
-      mockCronValidate.mockReturnValue(true);
-      mockCronSchedule.mockReturnValue(task);
+      vi.spyOn(cron, "validate").mockReturnValue(true);
+      const scheduleSpy = vi.spyOn(cron, "schedule").mockReturnValue(task);
 
       mockListSources.mockResolvedValue([
         { id: "src-1", schedule: "0 */6 * * *" },
@@ -143,16 +138,18 @@ describe("Scheduler", () => {
 
       await scheduler.refreshSchedules();
 
-      expect(mockCronSchedule).toHaveBeenCalledTimes(2);
-      expect(mockCronSchedule).toHaveBeenCalledWith("0 */6 * * *", expect.any(Function));
-      expect(mockCronSchedule).toHaveBeenCalledWith("0 0 * * *", expect.any(Function));
+      expect(scheduleSpy).toHaveBeenCalledTimes(2);
+      expect(scheduleSpy).toHaveBeenCalledWith("0 */6 * * *", expect.any(Function));
+      expect(scheduleSpy).toHaveBeenCalledWith("0 0 * * *", expect.any(Function));
     });
 
     it("unschedules sources whose schedule was removed", async () => {
       const task1 = makeTask();
       const task2 = makeTask();
-      mockCronValidate.mockReturnValue(true);
-      mockCronSchedule.mockReturnValueOnce(task1).mockReturnValueOnce(task2);
+      vi.spyOn(cron, "validate").mockReturnValue(true);
+      const scheduleSpy = vi.spyOn(cron, "schedule")
+        .mockReturnValueOnce(task1)
+        .mockReturnValueOnce(task2);
 
       mockListSources.mockResolvedValue([
         { id: "src-1", schedule: "0 */6 * * *" },
@@ -161,7 +158,7 @@ describe("Scheduler", () => {
 
       await scheduler.refreshSchedules();
 
-      expect(mockCronSchedule).toHaveBeenCalledTimes(2);
+      expect(scheduleSpy).toHaveBeenCalledTimes(2);
 
       mockListSources.mockResolvedValue([
         { id: "src-1", schedule: "0 */6 * * *" },
@@ -170,7 +167,7 @@ describe("Scheduler", () => {
 
       await scheduler.refreshSchedules();
 
-      expect(mockCronSchedule).toHaveBeenCalledTimes(3);
+      expect(scheduleSpy).toHaveBeenCalledTimes(3);
       expect(task2.stop).toHaveBeenCalled();
     });
   });

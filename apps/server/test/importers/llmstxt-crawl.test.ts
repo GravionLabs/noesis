@@ -1,18 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import * as crawler from "../../src/crawler/crawler.js";
+import * as parser from "../../src/crawler/llmstxt-parser.js";
 
-const mockCrawlUrl = vi.hoisted(() => vi.fn());
 const mockSaveChunks = vi.fn();
-const mockParseLlmsTxt = vi.hoisted(() => vi.fn());
-const mockExtractUrls = vi.hoisted(() => vi.fn());
-
-vi.mock("../../src/crawler/crawler.js", () => ({
-  crawlUrl: (...args: unknown[]) => mockCrawlUrl(...args),
-}));
-
-vi.mock("../../src/crawler/llmstxt-parser.js", () => ({
-  parseLlmsTxt: (...args: unknown[]) => mockParseLlmsTxt(...args),
-  extractUrls: (...args: unknown[]) => mockExtractUrls(...args),
-}));
 
 const mockChunkService = { saveChunks: mockSaveChunks } as any;
 
@@ -32,14 +22,14 @@ describe("LlmsTxtCrawlImporter", () => {
       text: async () => "# Test\n- [Page 1](https://example.com/page1)",
     } as Response);
 
-    mockParseLlmsTxt.mockReturnValue({
+    vi.spyOn(parser, "parseLlmsTxt").mockReturnValue({
       title: "Test",
       description: "",
       importantLinks: [{ url: "https://example.com/page1", label: "Page 1", description: "" }],
       optionalLinks: [],
-    });
-    mockExtractUrls.mockReturnValue(["https://example.com/page1"]);
-    mockCrawlUrl.mockResolvedValue({
+    } as any);
+    vi.spyOn(parser, "extractUrls").mockReturnValue(["https://example.com/page1"]);
+    vi.spyOn(crawler, "crawlUrl").mockResolvedValue({
       chunks: [
         {
           docUrl: "https://example.com/page1",
@@ -50,7 +40,7 @@ describe("LlmsTxtCrawlImporter", () => {
           chunkIndex: 0,
         },
       ],
-    });
+    } as any);
     mockSaveChunks.mockResolvedValue({ docCount: 1, chunkCount: 1 });
 
     const source = {
@@ -72,13 +62,13 @@ describe("LlmsTxtCrawlImporter", () => {
       text: async () => "# Empty",
     } as Response);
 
-    mockParseLlmsTxt.mockReturnValue({
+    vi.spyOn(parser, "parseLlmsTxt").mockReturnValue({
       title: "Empty",
       description: "",
       importantLinks: [],
       optionalLinks: [],
-    });
-    mockExtractUrls.mockReturnValue([]);
+    } as any);
+    vi.spyOn(parser, "extractUrls").mockReturnValue([]);
 
     const source = {
       id: "src-2", name: "Empty", url: "https://example.com/empty.txt",
