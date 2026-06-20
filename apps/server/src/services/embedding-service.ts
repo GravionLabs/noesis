@@ -1,4 +1,4 @@
-import { config } from "../config.js";
+import type { Config } from "../config/index.js";
 import {
   LocalEmbeddingProvider,
   OllamaEmbeddingProvider,
@@ -6,46 +6,55 @@ import {
   processPendingChunks,
   type EmbeddingProvider,
 } from "../embedding/index.js";
+import { config as envConfig } from "../config.js";
 
-let provider: EmbeddingProvider | null = null;
+export class EmbeddingService {
+  private provider: EmbeddingProvider;
 
-export function getProvider(): EmbeddingProvider {
-  if (provider) return provider;
-
-  switch (config.EMBEDDING_PROVIDER) {
-    case "local":
-      provider = new LocalEmbeddingProvider(config.EMBEDDING_MODEL);
-      break;
-    case "openai":
-      provider = new OpenAIEmbeddingProvider({
-        apiKey: config.OPENAI_API_KEY || undefined,
-        model: config.EMBEDDING_MODEL,
-      });
-      break;
-    case "ollama":
-      provider = new OllamaEmbeddingProvider({
-        baseUrl: config.OLLAMA_URL,
-        model: config.EMBEDDING_MODEL,
-      });
-      break;
-    default:
-      provider = new LocalEmbeddingProvider(config.EMBEDDING_MODEL);
-      break;
+  constructor({ config }: { config: Config }) {
+    switch (config.EMBEDDING_PROVIDER) {
+      case "local":
+        this.provider = new LocalEmbeddingProvider(config.EMBEDDING_MODEL);
+        break;
+      case "openai":
+        this.provider = new OpenAIEmbeddingProvider({
+          apiKey: config.OPENAI_API_KEY || undefined,
+          model: config.EMBEDDING_MODEL,
+        });
+        break;
+      case "ollama":
+        this.provider = new OllamaEmbeddingProvider({
+          baseUrl: config.OLLAMA_URL,
+          model: config.EMBEDDING_MODEL,
+        });
+        break;
+      default:
+        this.provider = new LocalEmbeddingProvider(config.EMBEDDING_MODEL);
+        break;
+    }
   }
 
-  return provider;
+  getProvider(): EmbeddingProvider {
+    return this.provider;
+  }
+
+  async embedTexts(texts: string[]): Promise<number[][]> {
+    return this.provider.embed(texts);
+  }
+
+  async embedText(text: string): Promise<number[]> {
+    const results = await this.embedTexts([text]);
+    return results[0] ?? [];
+  }
+
+  async embedUnembeddedChunks(sourceId?: string): Promise<number> {
+    return processPendingChunks(this.provider, sourceId);
+  }
 }
 
-export async function embedTexts(texts: string[]): Promise<number[][]> {
-  return getProvider().embed(texts);
-}
+const _shim = new EmbeddingService({ config: envConfig });
 
-export async function embedText(text: string): Promise<number[]> {
-  const results = await embedTexts([text]);
-  return results[0] ?? [];
-}
-
-export async function embedUnembeddedChunks(sourceId?: string): Promise<number> {
-  const prov = getProvider();
-  return processPendingChunks(prov, sourceId);
-}
+export const getProvider = _shim.getProvider.bind(_shim);
+export const embedTexts = _shim.embedTexts.bind(_shim);
+export const embedText = _shim.embedText.bind(_shim);
+export const embedUnembeddedChunks = _shim.embedUnembeddedChunks.bind(_shim);

@@ -1,4 +1,5 @@
-import { query, getClient } from "../db/pool.js";
+import type { Database } from "../db/database.js";
+import { db, query, pool } from "../db/pool.js";
 
 export interface CrawlChunkData {
   docUrl: string;
@@ -7,6 +8,7 @@ export interface CrawlChunkData {
   heading: string | undefined;
   headingPath: string[];
   chunkIndex: number;
+  docContentMd?: string;
 }
 
 export interface ChunkWithSource {
@@ -21,84 +23,117 @@ export interface ChunkWithSource {
   sourceName: string;
 }
 
-export async function getChunkWithSource(
-  chunkId: string,
-): Promise<ChunkWithSource | null> {
-  const result = await query<ChunkWithSource>(
-    `SELECT
-      c.id          AS chunk_id,
-      c.content,
-      c.heading,
-      c.heading_path,
-      c.chunk_index AS "chunkIndex",
-      d.url         AS doc_url,
-      d.title       AS doc_title,
-      c.source_id,
-      s.name        AS source_name
-    FROM chunks c
-    JOIN docs d ON d.id = c.doc_id
-    JOIN sources s ON s.id = c.source_id
-    WHERE c.id = $1`,
-    [chunkId],
-  );
+export class ChunkService {
+  private database: Database;
 
-  return result.rows[0] ?? null;
-}
+  constructor({ database }: { database: Database }) {
+    this.database = database;
+  }
 
-export async function getChunksByDocId(docId: string) {
-  const result = await query(
-    `SELECT * FROM chunks WHERE doc_id = $1 ORDER BY chunk_index`,
-    [docId],
-  );
-  return result.rows;
-}
+  async getChunkWithSource(
+    chunkId: string,
+  ): Promise<ChunkWithSource | null> {
+    const result = await this.database.query<ChunkWithSource>(
+      `SELECT
+        c.id          AS chunk_id,
+        c.content,
+        c.heading,
+        c.heading_path,
+        c.chunk_index AS "chunkIndex",
+        d.url         AS doc_url,
+        d.title       AS doc_title,
+        c.source_id,
+        s.name        AS source_name
+      FROM chunks c
+      JOIN docs d ON d.id = c.doc_id
+      JOIN sources s ON s.id = c.source_id
+      WHERE c.id = $1`,
+      [chunkId],
+    );
 
-export async function getChunksBySourceId(sourceId: string) {
-  const result = await query(
-    `SELECT * FROM chunks WHERE source_id = $1 ORDER BY created_at DESC`,
-    [sourceId],
-  );
-  return result.rows;
-}
+    return result.rows[0] ?? null;
+  }
 
-export async function saveChunks(
-  chunks: CrawlChunkData[],
-  sourceId: string,
-): Promise<{ docCount: number; chunkCount: number }> {
-  if (chunks.length === 0) return { docCount: 0, chunkCount: 0 };
+  async getChunksByDocId(docId: string) {
+    const result = await this.database.query(
+      `SELECT * FROM chunks WHERE doc_id = $1 ORDER BY chunk_index`,
+      [docId],
+    );
+    return result.rows;
+  }
 
-  const client = await getClient();
-  try {
-    await client.query("BEGIN");
-    let docCount = 0;
+  async getChunksBySourceId(sourceId: string) {
+    const result = await this.database.query(
+      `SELECT * FROM chunks WHERE source_id = $1 ORDER BY created_at DESC`,
+      [sourceId],
+    );
+    return result.rows;
+  }
 
-    for (const chunk of chunks) {
-      const docResult = await client.query<{ id: string }>(
-        `INSERT INTO docs (source_id, url, title, updated_at)
-         VALUES ($1, $2, $3, NOW())
-         ON CONFLICT (source_id, url) DO UPDATE SET title = EXCLUDED.title, updated_at = NOW()
-         RETURNING id`,
-        [sourceId, chunk.docUrl, chunk.docTitle],
-      );
-      const docId = docResult.rows[0].id;
+  async saveChunks(
+    chunks: CrawlChunkData[],
+    sourceId: string,
+  ): Promise<{ docCount: number; chunkCount: number }> {
+    if (chunks.length === 0) return { docCount: 0, chunkCount: 0 };
 
-      const tokenCount = chunk.content.split(/\s+/).filter(Boolean).length;
-      await client.query(
-        `INSERT INTO chunks (doc_id, source_id, content, heading, heading_path, chunk_index, token_count)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT DO NOTHING`,
-        [docId, sourceId, chunk.content, chunk.heading, chunk.headingPath, chunk.chunkIndex, tokenCount],
-      );
+    const client = await this.database.getClient();
+    try {
+      await client.query("BEGIN");
+      let docCount = 0;
 
-      docCount++;
+      for (const chunk of chunks) {
+        const hasContentMd = chunk.docContentMd !== undefined && chunk.docContentMd !== null;
+
+        const docResult = hasContentMd
+          ? await client.query<{ id: string }>(
+              `INSERT INTO docs (source_id, url, title, content_md, content_hash, updated_at)
+               VALUES ($1, $2, $3, $4, md5($4), NOW())
+               ON CONFLICT (source_id, url) DO UPDATE SET title = EXCLUDED.title, content_md = EXCLUDED.content_md, content_hash = EXCLUDED.content_hash, updated_at = NOW()
+               RETURNING id`,
+              [sourceId, chunk.docUrl, chunk.docTitle, chunk.docContentMd],
+            )
+          : await client.query<{ id: string }>(
+              `INSERT INTO docs (source_id, url, title, updated_at)
+               VALUES ($1, $2, $3, NOW())
+               ON CONFLICT (source_id, url) DO UPDATE SET title = EXCLUDED.title, updated_at = NOW()
+               RETURNING id`,
+              [sourceId, chunk.docUrl, chunk.docTitle],
+            );
+        const docId = docResult.rows[0].id;
+
+        const tokenCount = chunk.content.split(/\s+/).filter(Boolean).length;
+        await client.query(
+          `INSERT INTO chunks (doc_id, source_id, content, heading, heading_path, chunk_index, token_count)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT DO NOTHING`,
+          [docId, sourceId, chunk.content, chunk.heading, chunk.headingPath, chunk.chunkIndex, tokenCount],
+        );
+
+        docCount++;
+      }
+
+      await client.query("COMMIT");
+      return { docCount, chunkCount: chunks.length };
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
     }
-
-    await client.query("COMMIT");
-    return { docCount, chunkCount: chunks.length };
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
   }
 }
+
+const _shimDb = {
+  pool,
+  db,
+  query,
+  getClient: async () => pool.connect(),
+  end: async () => { await pool.end(); },
+} as unknown as Database;
+
+const _shim = new ChunkService({ database: _shimDb });
+
+export const getChunkWithSource = _shim.getChunkWithSource.bind(_shim);
+export const getChunksByDocId = _shim.getChunksByDocId.bind(_shim);
+export const getChunksBySourceId = _shim.getChunksBySourceId.bind(_shim);
+export const saveChunks = _shim.saveChunks.bind(_shim);
