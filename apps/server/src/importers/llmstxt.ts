@@ -1,41 +1,49 @@
-import { query } from "../db/pool.js";
-import { chunkMarkdown, type RawChunk } from "./chunk-utils.js";
+import { chunkMarkdown } from "./chunk-utils.js";
+import type { CrawlChunkData } from "../services/chunk-service.js";
+import { ChunkService } from "../services/chunk-service.js";
 import type { Importer, ImportResult } from "./registry.js";
 import type { Source } from "../models/source.js";
+import { db, query, pool } from "../db/pool.js";
+import type { Database } from "../db/database.js";
+
+const _defaultDb = {
+  db, query, pool,
+  getClient: async () => pool.connect(),
+  end: async () => { await pool.end(); },
+} as unknown as Database;
+
+const _defaultChunkService = new ChunkService({ database: _defaultDb });
 
 export class LlmsTxtImporter implements Importer {
   readonly type = "llmstxt";
+  private chunkService: ChunkService;
+
+  constructor(
+    { chunkService }: { chunkService: ChunkService } = { chunkService: _defaultChunkService },
+  ) {
+    this.chunkService = chunkService;
+  }
 
   async import(source: Source): Promise<ImportResult> {
     const res = await fetch(source.url);
     if (!res.ok) throw new Error(`Failed to fetch ${source.url}: ${res.status}`);
 
     const text = await res.text();
-    const chunks = chunkMarkdown(text);
-    if (chunks.length === 0) return { docCount: 0, chunkCount: 0 };
+    const rawChunks = chunkMarkdown(text);
+    if (rawChunks.length === 0) return { docCount: 0, chunkCount: 0 };
 
     const title = text.match(/^#\s+(.+)/m)?.[1]?.trim() ?? new URL(source.url).hostname;
 
-    const docResult = await query<{ id: string }>(
-      `INSERT INTO docs (source_id, url, title, content_md, content_hash)
-       VALUES ($1, $2, $3, $4, md5($4))
-       ON CONFLICT (source_id, url)
-       DO UPDATE SET title = EXCLUDED.title, content_md = EXCLUDED.content_md,
-                     content_hash = EXCLUDED.content_hash, indexed_at = now()
-       RETURNING id`,
-      [source.id, source.url, title, text],
-    );
-    const docId = docResult.rows[0].id;
+    const chunks: CrawlChunkData[] = rawChunks.map((c) => ({
+      docUrl: source.url,
+      docTitle: title,
+      content: c.content,
+      heading: c.heading,
+      headingPath: c.headingPath,
+      chunkIndex: c.chunkIndex,
+      docContentMd: text,
+    }));
 
-    for (const chunk of chunks) {
-      await query(
-        `INSERT INTO chunks (doc_id, source_id, content, heading, heading_path, chunk_index, token_count)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT DO NOTHING`,
-        [docId, source.id, chunk.content, chunk.heading, chunk.headingPath, chunk.chunkIndex, chunk.tokenCount],
-      );
-    }
-
-    return { docCount: 1, chunkCount: chunks.length };
+    return this.chunkService.saveChunks(chunks, source.id);
   }
 }

@@ -1,21 +1,31 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const mockCrawlUrl = vi.fn();
-const mockSaveChunks = vi.fn();
-const mockParseLlmsTxt = vi.fn();
-const mockExtractUrls = vi.fn();
+const mockCrawlUrl = vi.hoisted(() => vi.fn());
+const mockSaveChunks = vi.hoisted(() => vi.fn());
+const mockParseLlmsTxt = vi.hoisted(() => vi.fn());
+const mockExtractUrls = vi.hoisted(() => vi.fn());
 
 vi.mock("../../src/crawler/crawler.js", () => ({
   crawlUrl: (...args: unknown[]) => mockCrawlUrl(...args),
 }));
 
 vi.mock("../../src/services/chunk-service.js", () => ({
+  ChunkService: class {
+    constructor() {}
+    saveChunks = (...args: unknown[]) => mockSaveChunks(...args);
+  },
   saveChunks: (...args: unknown[]) => mockSaveChunks(...args),
 }));
 
 vi.mock("../../src/crawler/llmstxt-parser.js", () => ({
   parseLlmsTxt: (...args: unknown[]) => mockParseLlmsTxt(...args),
   extractUrls: (...args: unknown[]) => mockExtractUrls(...args),
+}));
+
+vi.mock("../../src/db/pool.js", () => ({
+  query: vi.fn(),
+  db: {},
+  pool: { connect: vi.fn() },
 }));
 
 import { LlmsTxtCrawlImporter } from "../../src/importers/llmstxt-crawl.js";

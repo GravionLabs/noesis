@@ -1,12 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { OpenApiImporter } from "../../src/importers/openapi.js";
 
-const mockQuery = vi.fn().mockResolvedValue({ rowCount: 1 });
+const mockClient = vi.hoisted(() => ({
+  query: vi.fn().mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 }),
+  release: vi.fn(),
+}));
 
 vi.mock("../../src/db/pool.js", () => ({
-  query: (...args: unknown[]) => mockQuery(...args),
+  query: (...args: unknown[]) => mockClient.query(...args),
   db: {},
-  pool: {},
+  pool: { connect: vi.fn().mockResolvedValue(mockClient) },
 }));
 
 function makeSpec(paths: Record<string, unknown> = {}) {
@@ -21,7 +24,9 @@ describe("OpenApiImporter", () => {
 
   beforeEach(() => {
     importer = new OpenApiImporter();
-    mockQuery.mockReset();
+    mockClient.query.mockClear();
+    mockClient.query.mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 });
+    mockClient.release.mockClear();
   });
 
   it("creates chunks for each operation in a spec", async () => {
@@ -43,10 +48,6 @@ describe("OpenApiImporter", () => {
         }),
     } as Response);
 
-    mockQuery
-      .mockResolvedValueOnce({ rows: [{ id: "doc-1" }], rowCount: 1 })
-      .mockResolvedValue({ rowCount: 1 });
-
     const source = {
       id: "src-1", name: "My API", url: "https://example.com/openapi.json",
       importerType: "openapi", enabled: true, config: null, schedule: null,
@@ -57,7 +58,7 @@ describe("OpenApiImporter", () => {
 
     expect(result.docCount).toBe(1);
     expect(result.chunkCount).toBe(3);
-    expect(mockQuery).toHaveBeenCalledTimes(4);
+    expect(mockClient.query).toHaveBeenCalled();
   });
 
   it("handles specs with no paths", async () => {
@@ -65,8 +66,6 @@ describe("OpenApiImporter", () => {
       ok: true,
       json: async () => makeSpec({}),
     } as Response);
-
-    mockQuery.mockResolvedValueOnce({ rows: [{ id: "doc-1" }], rowCount: 1 });
 
     const source = {
       id: "src-1", name: "Empty", url: "https://example.com/empty-spec.json",

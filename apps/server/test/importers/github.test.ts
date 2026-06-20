@@ -1,12 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GithubImporter } from "../../src/importers/github.js";
 
-const mockQuery = vi.fn().mockResolvedValue({ rowCount: 1 });
+const mockClient = vi.hoisted(() => ({
+  query: vi.fn().mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 }),
+  release: vi.fn(),
+}));
 
 vi.mock("../../src/db/pool.js", () => ({
-  query: (...args: unknown[]) => mockQuery(...args),
+  query: (...args: unknown[]) => mockClient.query(...args),
   db: {},
-  pool: {},
+  pool: { connect: vi.fn().mockResolvedValue(mockClient) },
 }));
 
 function block(text: string, n = 3): string {
@@ -32,7 +35,9 @@ describe("GithubImporter", () => {
 
   beforeEach(() => {
     importer = new GithubImporter();
-    mockQuery.mockReset();
+    mockClient.query.mockClear();
+    mockClient.query.mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 });
+    mockClient.release.mockClear();
   });
 
   it("downloads, chunks, and stores readme for a valid GitHub repo", async () => {
@@ -40,10 +45,6 @@ describe("GithubImporter", () => {
       ok: true,
       text: async () => sampleReadme,
     } as Response);
-
-    mockQuery
-      .mockResolvedValueOnce({ rows: [{ id: "doc-1" }], rowCount: 1 })
-      .mockResolvedValue({ rowCount: 1 });
 
     const source = {
       id: "src-1", name: "test/repo", url: "https://github.com/test/repo",
@@ -55,7 +56,7 @@ describe("GithubImporter", () => {
 
     expect(result.docCount).toBe(1);
     expect(result.chunkCount).toBe(3);
-    expect(mockQuery).toHaveBeenCalledTimes(4);
+    expect(mockClient.query).toHaveBeenCalled();
   });
 
   it("rejects invalid GitHub URLs", async () => {

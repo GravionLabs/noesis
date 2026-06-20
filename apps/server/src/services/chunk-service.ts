@@ -80,6 +80,7 @@ export class ChunkService {
     try {
       await client.query("BEGIN");
       let docCount = 0;
+      const seenDocs = new Set<string>();
 
       for (const chunk of chunks) {
         const hasContentMd = chunk.docContentMd !== undefined && chunk.docContentMd !== null;
@@ -109,7 +110,10 @@ export class ChunkService {
           [docId, sourceId, chunk.content, chunk.heading, chunk.headingPath, chunk.chunkIndex, tokenCount],
         );
 
-        docCount++;
+        if (!seenDocs.has(chunk.docUrl)) {
+          seenDocs.add(chunk.docUrl);
+          docCount++;
+        }
       }
 
       await client.query("COMMIT");

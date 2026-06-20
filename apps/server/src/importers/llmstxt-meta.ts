@@ -1,8 +1,16 @@
-import { db } from "../db/pool.js";
-import { sources } from "../db/schema.js";
-import { eq } from "drizzle-orm";
 import type { Importer, ImportResult } from "./registry.js";
 import type { Source } from "../models/source.js";
+import { SourceService } from "../services/source-service.js";
+import { db, query, pool } from "../db/pool.js";
+import type { Database } from "../db/database.js";
+
+const _defaultDb = {
+  db, query, pool,
+  getClient: async () => pool.connect(),
+  end: async () => { await pool.end(); },
+} as unknown as Database;
+
+const _defaultSourceService = new SourceService({ database: _defaultDb });
 
 interface LlmsTxtMeta {
   title?: string;
@@ -12,6 +20,13 @@ interface LlmsTxtMeta {
 
 export class LlmsMetaTxtImporter implements Importer {
   readonly type = "llmstxt-meta";
+  private sourceService: SourceService;
+
+  constructor(
+    { sourceService }: { sourceService: SourceService } = { sourceService: _defaultSourceService },
+  ) {
+    this.sourceService = sourceService;
+  }
 
   async import(source: Source): Promise<ImportResult> {
     const res = await fetch(source.url);
@@ -23,10 +38,7 @@ export class LlmsMetaTxtImporter implements Importer {
     const existing = source.config ? JSON.parse(source.config) : {};
     const updated = { ...existing, ...meta };
 
-    await db
-      .update(sources)
-      .set({ config: JSON.stringify(updated), updatedAt: new Date() })
-      .where(eq(sources.id, source.id));
+    await this.sourceService.updateSource(source.id, { config: JSON.stringify(updated) });
 
     return { docCount: 0, chunkCount: 0 };
   }
