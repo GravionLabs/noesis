@@ -9,7 +9,7 @@
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-  "test": "vitest run",
+    "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome check --write src/",
     "test:ci": "mkdir -p test-results && vitest run --reporter=junit --outputFile=test-results/junit.xml --coverage",
