@@ -35,6 +35,13 @@ const envSchema = z.object({
   SEQ_URL: z.string().default("http://localhost:5341"),
 
   MAX_IMPORT_RETRIES: z.coerce.number().default(3),
+
+  SERVE_UI: z
+    .string()
+    .transform((v) => v !== "false" && v !== "0")
+    .default("true"),
+
+  UI_DIST_PATH: z.string().optional(),
 });
 
 function loadConfig() {

@@ -3,6 +3,9 @@ import cors from "@fastify/cors";
 import swagger from "@fastify/swagger";
 import apiReference from "@scalar/fastify-api-reference";
 import rateLimit from "@fastify/rate-limit";
+import fastifyStatic from "@fastify/static";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
 import { config } from "./config.js";
 import { logger } from "./logger.js";
 import { pool } from "./db/pool.js";
@@ -59,6 +62,34 @@ async function main() {
   registerInternalRoutes(app);
   registerStatsRoutes(app);
   registerSearchRoutes(app);
+
+  // ---- Static UI serving ----
+  if (config.SERVE_UI) {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const uiRoot = resolve(__dirname, config.UI_DIST_PATH ?? "../../ui/dist/ui/browser");
+
+    await app.register(fastifyStatic, {
+      root: uiRoot,
+      prefix: "/",
+      wildcard: false,
+    });
+
+    app.setNotFoundHandler((req, reply) => {
+      const u = req.url;
+      if (
+        u.startsWith("/api") ||
+        u.startsWith("/mcp") ||
+        u.startsWith("/health") ||
+        u.startsWith("/alive") ||
+        u.startsWith("/openapi")
+      ) {
+        return reply.code(404).send({ error: "Not found" });
+      }
+      return reply.sendFile("index.html");
+    });
+
+    logger.info({ root: uiRoot }, "Serving Angular UI");
+  }
 
   // ---- MCP Server (Streamable HTTP) ----
   const mcpServer = createMcpServer();

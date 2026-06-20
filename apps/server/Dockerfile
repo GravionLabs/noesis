@@ -1,16 +1,25 @@
-FROM node:22-slim AS build
-WORKDIR /app
-COPY pnpm-lock.yaml package.json ./
-RUN npm install -g pnpm@11.5.0 && pnpm fetch --prod
-COPY . .
-RUN pnpm install --offline && pnpm build
+FROM node:22-slim AS deps
+WORKDIR /workspace
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/server/package.json ./apps/server/
+COPY apps/ui/package.json      ./apps/ui/
+RUN npm install -g pnpm@11.5.0 && pnpm install --frozen-lockfile
+
+FROM deps AS ui-build
+COPY apps/ui/ ./apps/ui/
+RUN pnpm --filter @noesis/ui build
+
+FROM deps AS server-build
+COPY apps/server/ ./apps/server/
+RUN pnpm --filter @noesis/server build
 
 FROM node:22-slim
 RUN npx playwright install --with-deps chromium 2>/dev/null || true
 WORKDIR /app
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/package.json ./
-COPY --from=build /app/pnpm-lock.yaml ./
-COPY --from=build /app/node_modules ./node_modules
+COPY --from=server-build /workspace/apps/server/dist        ./dist
+COPY --from=server-build /workspace/apps/server/package.json ./
+COPY --from=server-build /workspace/apps/server/node_modules ./node_modules
+COPY --from=ui-build     /workspace/apps/ui/dist/ui/browser  ./ui
+ENV UI_DIST_PATH=/app/ui
 EXPOSE 5000
 CMD ["node", "dist/index.js"]
