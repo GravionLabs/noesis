@@ -79,6 +79,7 @@ docker compose -f infra/docker-compose.yml down -v       # remove volumes
 | Seq | 80 | **5341** | Web UI + ingestion: http://localhost:5341 (`admin` / `seq-dev-password`, API key `seq-dev-api-key`) |
 | Crawler | 3001 | **3001** | Node.js crawler API |
 | Embedder | 8000 | **8000** | Python embedder API |
+| UI (Angular) | 80 | **4200** | Built Angular app served via nginx |
 | MCP Inspector (UI) | 6274 | **6274** | UI: http://localhost:6274 |
 | MCP Inspector (Proxy) | 6277 | **6277** | Internal proxy/API used by the UI |
 
@@ -132,6 +133,20 @@ DATABASE_URL=postgres://noesis:noesis_dev@localhost:5442/noesis
 ```env
 DATABASE_URL=postgres://noesis:noesis_dev@localhost:5442/noesis
 ```
+
+### GitHub Packages
+
+The `@gravionlabs` npm packages are hosted on GitHub Packages. For installation:
+
+```bash
+# Set a GitHub token with read:packages scope
+export NODE_AUTH_TOKEN=ghp_...
+
+# Required in CI and for fresh installs
+pnpm install
+```
+
+The `apps/ui/.npmrc` file configures the registry for `@gravionlabs` scope.
 
 ### Seq
 
