@@ -10,7 +10,17 @@ vi.mock("../../src/db/pool.js", () => ({
 }));
 
 vi.mock("../../src/services/embedding-service.js", () => ({
+  EmbeddingService: class {
+    constructor() {}
+    getProvider() { return mockGetProvider(); }
+    embedTexts() { return []; }
+    embedText() { return []; }
+    embedUnembeddedChunks() { return 0; }
+  },
   getProvider: (...args: unknown[]) => mockGetProvider(...args),
+  embedTexts: () => [],
+  embedText: () => [],
+  embedUnembeddedChunks: () => 0,
 }));
 
 import { searchByText, searchByVector, searchDocs } from "../../src/search/search.js";
