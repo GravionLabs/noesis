@@ -5,7 +5,7 @@ const mockDbUpdate = vi.fn();
 vi.mock("../../src/db/pool.js", () => ({
   db: { update: (...args: unknown[]) => mockDbUpdate(...args) },
   query: vi.fn(),
-  pool: {},
+  pool: { connect: vi.fn(), end: vi.fn() },
 }));
 
 import { LlmsMetaTxtImporter } from "../../src/importers/llmstxt-meta.js";
@@ -35,7 +35,7 @@ describe("LlmsMetaTxtImporter", () => {
       text: async () => sampleTxt,
     } as Response);
 
-    const setMock = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
+    const setMock = vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: 'src-1' }]) }) });
     mockDbUpdate.mockReturnValue({ set: setMock });
 
     const source = {

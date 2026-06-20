@@ -1,12 +1,35 @@
-import { query } from "../db/pool.js";
 import { chunkMarkdown } from "./chunk-utils.js";
+import type { CrawlChunkData } from "../services/chunk-service.js";
+import { ChunkService } from "../services/chunk-service.js";
 import type { Importer, ImportResult } from "./registry.js";
 import type { Source } from "../models/source.js";
 import { AzureDevOpsProvider } from "../crawler/providers/azure-devops-provider.js";
+import { db, query, pool } from "../db/pool.js";
+import type { Database } from "../db/database.js";
+
+const _defaultDb = {
+  db, query, pool,
+  getClient: async () => pool.connect(),
+  end: async () => { await pool.end(); },
+} as unknown as Database;
+
+const _defaultChunkService = new ChunkService({ database: _defaultDb });
 
 export class AzureDevopsImporter implements Importer {
   readonly type = "azuredevops";
-  private provider = new AzureDevOpsProvider();
+  private chunkService: ChunkService;
+  private provider: AzureDevOpsProvider;
+
+  constructor({
+    chunkService,
+    provider,
+  }: {
+    chunkService: ChunkService;
+    provider: AzureDevOpsProvider;
+  } = { chunkService: _defaultChunkService, provider: new AzureDevOpsProvider() }) {
+    this.chunkService = chunkService;
+    this.provider = provider;
+  }
 
   async import(source: Source): Promise<ImportResult> {
     if (!this.provider.canHandle(source.url)) {
@@ -18,12 +41,22 @@ export class AzureDevopsImporter implements Importer {
 
     const readme = await this.provider.getReadme(source.url);
     if (readme) {
-      const chunks = chunkMarkdown(readme.content);
-      if (chunks.length > 0) {
+      const rawChunks = chunkMarkdown(readme.content);
+      if (rawChunks.length > 0) {
         const title = this.extractRepoName(source.url) + " README";
-        await this.storeDoc(source.id, readme.path, title, readme.content, chunks);
-        totalDocs++;
-        totalChunks += chunks.length;
+        const chunks: CrawlChunkData[] = rawChunks.map((c) => ({
+          docUrl: readme.path,
+          docTitle: title,
+          content: c.content,
+          heading: c.heading,
+          headingPath: c.headingPath,
+          chunkIndex: c.chunkIndex,
+          docContentMd: readme.content,
+        }));
+
+        const saved = await this.chunkService.saveChunks(chunks, source.id);
+        totalDocs += saved.docCount;
+        totalChunks += saved.chunkCount;
       }
     }
 
@@ -31,13 +64,23 @@ export class AzureDevopsImporter implements Importer {
     for (const file of docFiles) {
       try {
         const content = await this.provider.getFile(source.url, file.path);
-        const chunks = chunkMarkdown(content.content);
-        if (chunks.length === 0) continue;
+        const rawChunks = chunkMarkdown(content.content);
+        if (rawChunks.length === 0) continue;
 
         const title = this.extractRepoName(source.url) + file.path.replace(/^.*\/docs\//, "/");
-        await this.storeDoc(source.id, source.url + file.path, title, content.content, chunks);
-        totalDocs++;
-        totalChunks += chunks.length;
+        const chunks: CrawlChunkData[] = rawChunks.map((c) => ({
+          docUrl: source.url + file.path,
+          docTitle: title,
+          content: c.content,
+          heading: c.heading,
+          headingPath: c.headingPath,
+          chunkIndex: c.chunkIndex,
+          docContentMd: content.content,
+        }));
+
+        const saved = await this.chunkService.saveChunks(chunks, source.id);
+        totalDocs += saved.docCount;
+        totalChunks += saved.chunkCount;
       } catch {
         continue;
       }
@@ -49,33 +92,5 @@ export class AzureDevopsImporter implements Importer {
   private extractRepoName(url: string): string {
     const parts = url.replace(/\/$/, "").split("/");
     return parts[parts.length - 1] || url;
-  }
-
-  private async storeDoc(
-    sourceId: string,
-    url: string,
-    title: string,
-    contentMd: string,
-    chunks: Array<{ content: string; heading: string | undefined; headingPath: string[]; chunkIndex: number; tokenCount: number }>,
-  ): Promise<void> {
-    const docResult = await query<{ id: string }>(
-      `INSERT INTO docs (source_id, url, title, content_md, content_hash)
-       VALUES ($1, $2, $3, $4, md5($4))
-       ON CONFLICT (source_id, url)
-       DO UPDATE SET title = EXCLUDED.title, content_md = EXCLUDED.content_md,
-                     content_hash = EXCLUDED.content_hash, indexed_at = now()
-       RETURNING id`,
-      [sourceId, url, title, contentMd],
-    );
-    const docId = docResult.rows[0].id;
-
-    for (const chunk of chunks) {
-      await query(
-        `INSERT INTO chunks (doc_id, source_id, content, heading, heading_path, chunk_index, token_count)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT DO NOTHING`,
-        [docId, sourceId, chunk.content, chunk.heading, chunk.headingPath, chunk.chunkIndex, chunk.tokenCount],
-      );
-    }
   }
 }

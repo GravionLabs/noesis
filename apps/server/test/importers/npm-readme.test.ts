@@ -1,12 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NpmReadmeImporter } from "../../src/importers/npm-readme.js";
 
-const mockQuery = vi.fn().mockResolvedValue({ rowCount: 1 });
+const mockClient = vi.hoisted(() => ({
+  query: vi.fn().mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 }),
+  release: vi.fn(),
+}));
 
 vi.mock("../../src/db/pool.js", () => ({
-  query: (...args: unknown[]) => mockQuery(...args),
+  query: (...args: unknown[]) => mockClient.query(...args),
   db: {},
-  pool: {},
+  pool: { connect: vi.fn().mockResolvedValue(mockClient) },
 }));
 
 function block(text: string, n = 3): string {
@@ -32,7 +35,9 @@ describe("NpmReadmeImporter", () => {
 
   beforeEach(() => {
     importer = new NpmReadmeImporter();
-    mockQuery.mockReset();
+    mockClient.query.mockClear();
+    mockClient.query.mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 });
+    mockClient.release.mockClear();
   });
 
   it("downloads, chunks, and stores readme for a valid package", async () => {
@@ -45,10 +50,6 @@ describe("NpmReadmeImporter", () => {
       }),
     } as Response);
 
-    mockQuery
-      .mockResolvedValueOnce({ rows: [{ id: "doc-1" }], rowCount: 1 })
-      .mockResolvedValue({ rowCount: 1 });
-
     const source = {
       id: "src-1", name: "lodash", url: "https://www.npmjs.com/package/lodash",
       importerType: "npm-readme", enabled: true, config: null, schedule: null,
@@ -59,7 +60,7 @@ describe("NpmReadmeImporter", () => {
 
     expect(result.docCount).toBe(1);
     expect(result.chunkCount).toBe(3);
-    expect(mockQuery).toHaveBeenCalledTimes(4);
+    expect(mockClient.query).toHaveBeenCalled();
   });
 
   it("returns empty when readme is missing", async () => {

@@ -1,3 +1,5 @@
+import type { Config } from "../../config/index.js";
+import { config as envConfig } from "../../config.js";
 import { RepositoryProvider, type RepositoryFileInfo, type RepositoryContent } from "./repository-provider.js";
 
 function parseAzureDevOpsUrl(url: string): { org: string; project: string; repo: string } | null {
@@ -8,6 +10,11 @@ function parseAzureDevOpsUrl(url: string): { org: string; project: string; repo:
 
 export class AzureDevOpsProvider implements RepositoryProvider {
   name = "azure-devops";
+  private config: Config;
+
+  constructor({ config }: { config: Config } = { config: envConfig }) {
+    this.config = config;
+  }
 
   canHandle(url: string): boolean {
     return url.includes("dev.azure.com");
@@ -22,8 +29,8 @@ export class AzureDevOpsProvider implements RepositoryProvider {
     const apiUrl = `https://dev.azure.com/${org}/${project}/_apis/git/repositories/${repo}/items?path=${encodeURIComponent(path || "/")}&recursionLevel=OneLevel&api-version=7.0`;
 
     try {
-      const auth = process.env.AZURE_DEVOPS_TOKEN
-        ? "Basic " + Buffer.from(`:${process.env.AZURE_DEVOPS_TOKEN}`).toString("base64")
+      const auth = this.config.AZURE_DEVOPS_TOKEN
+        ? "Basic " + Buffer.from(`:${this.config.AZURE_DEVOPS_TOKEN}`).toString("base64")
         : undefined;
 
       const response = await fetch(apiUrl, {
@@ -56,8 +63,8 @@ export class AzureDevOpsProvider implements RepositoryProvider {
     const apiUrl = `https://dev.azure.com/${org}/${project}/_apis/git/repositories/${repo}/items?path=${encodeURIComponent(filePath)}&api-version=7.0`;
 
     try {
-      const auth = process.env.AZURE_DEVOPS_TOKEN
-        ? "Basic " + Buffer.from(`:${process.env.AZURE_DEVOPS_TOKEN}`).toString("base64")
+      const auth = this.config.AZURE_DEVOPS_TOKEN
+        ? "Basic " + Buffer.from(`:${this.config.AZURE_DEVOPS_TOKEN}`).toString("base64")
         : undefined;
 
       const response = await fetch(apiUrl, {
@@ -78,7 +85,6 @@ export class AzureDevOpsProvider implements RepositoryProvider {
       try {
         return await this.getFile(repoUrl, name);
       } catch {
-        // continue
       }
     }
     return null;
@@ -90,7 +96,6 @@ export class AzureDevOpsProvider implements RepositoryProvider {
         const files = await this.listFiles(repoUrl, docDir);
         if (files.length > 0) return files.filter((f) => f.path.endsWith(".md"));
       } catch {
-        // continue
       }
     }
     return [];

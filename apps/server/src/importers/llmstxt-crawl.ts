@@ -1,13 +1,30 @@
 import { crawlUrl } from "../crawler/crawler.js";
 import { parseLlmsTxt, extractUrls } from "../crawler/llmstxt-parser.js";
-import { saveChunks } from "../services/chunk-service.js";
+import { ChunkService } from "../services/chunk-service.js";
 import type { Importer, ImportResult } from "./registry.js";
 import type { Source } from "../models/source.js";
+import { db, query, pool } from "../db/pool.js";
+import type { Database } from "../db/database.js";
 
 const CONCURRENCY = 3;
 
+const _defaultDb = {
+  db, query, pool,
+  getClient: async () => pool.connect(),
+  end: async () => { await pool.end(); },
+} as unknown as Database;
+
+const _defaultChunkService = new ChunkService({ database: _defaultDb });
+
 export class LlmsTxtCrawlImporter implements Importer {
   readonly type = "llmstxt-crawl";
+  private chunkService: ChunkService;
+
+  constructor(
+    { chunkService }: { chunkService: ChunkService } = { chunkService: _defaultChunkService },
+  ) {
+    this.chunkService = chunkService;
+  }
 
   async import(source: Source): Promise<ImportResult> {
     const res = await fetch(source.url);
@@ -39,7 +56,7 @@ export class LlmsTxtCrawlImporter implements Importer {
 
     if (allChunks.length === 0) return { docCount: 0, chunkCount: 0 };
 
-    const saved = await saveChunks(allChunks, source.id);
+    const saved = await this.chunkService.saveChunks(allChunks, source.id);
     return saved;
   }
 

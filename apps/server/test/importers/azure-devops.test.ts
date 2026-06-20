@@ -1,16 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AzureDevopsImporter } from "../../src/importers/azure-devops.js";
 
-const mockQuery = vi.fn().mockResolvedValue({ rowCount: 1 });
-
-vi.mock("../../src/db/pool.js", () => ({
-  query: (...args: unknown[]) => mockQuery(...args),
+const mockClient = vi.hoisted(() => ({
+  query: vi.fn().mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 }),
+  release: vi.fn(),
 }));
 
-const mockCanHandle = vi.fn();
-const mockGetReadme = vi.fn();
-const mockGetDocFiles = vi.fn();
-const mockGetFile = vi.fn();
+vi.mock("../../src/db/pool.js", () => ({
+  query: (...args: unknown[]) => mockClient.query(...args),
+  db: {},
+  pool: { connect: vi.fn().mockResolvedValue(mockClient) },
+}));
+
+const mockCanHandle = vi.hoisted(() => vi.fn());
+const mockGetReadme = vi.hoisted(() => vi.fn());
+const mockGetDocFiles = vi.hoisted(() => vi.fn());
+const mockGetFile = vi.hoisted(() => vi.fn());
 
 vi.mock("../../src/crawler/providers/azure-devops-provider.js", () => ({
   AzureDevOpsProvider: vi.fn().mockImplementation(() => ({
@@ -32,7 +37,9 @@ describe("AzureDevopsImporter", () => {
 
   beforeEach(() => {
     importer = new AzureDevopsImporter();
-    mockQuery.mockReset();
+    mockClient.query.mockClear();
+    mockClient.query.mockResolvedValue({ rows: [{ id: "doc-1" }], rowCount: 1 });
+    mockClient.release.mockClear();
     mockCanHandle.mockReset();
     mockGetReadme.mockReset();
     mockGetDocFiles.mockReset();
@@ -56,7 +63,7 @@ describe("AzureDevopsImporter", () => {
     };
 
     await expect(importer.import(source)).rejects.toThrow("requires a dev.azure.com URL");
-    expect(mockQuery).not.toHaveBeenCalled();
+    expect(mockClient.query).not.toHaveBeenCalled();
   });
 
   it("imports README only when no doc files exist", async () => {
@@ -66,10 +73,6 @@ describe("AzureDevopsImporter", () => {
       content: `# My Repo\n\n${block("Content for the README that is long enough to exceed the minimum threshold.", 5)}`,
     });
     mockGetDocFiles.mockResolvedValue([]);
-
-    mockQuery
-      .mockResolvedValueOnce({ rows: [{ id: "doc-1" }], rowCount: 1 })
-      .mockResolvedValue({ rowCount: 1 });
 
     const source = {
       id: "src-1",
@@ -99,12 +102,6 @@ describe("AzureDevopsImporter", () => {
     mockGetReadme.mockResolvedValue({ path: "README.md", content: readmeContent });
     mockGetDocFiles.mockResolvedValue([{ path: "/docs/getting-started.md", isDirectory: false }]);
     mockGetFile.mockResolvedValue({ path: "/docs/getting-started.md", content: docContent });
-
-    mockQuery
-      .mockResolvedValueOnce({ rows: [{ id: "doc-1" }], rowCount: 1 })
-      .mockResolvedValueOnce({ rowCount: 1 })
-      .mockResolvedValueOnce({ rows: [{ id: "doc-2" }], rowCount: 1 })
-      .mockResolvedValue({ rowCount: 1 });
 
     const source = {
       id: "src-1",
