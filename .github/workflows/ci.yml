@@ -90,6 +90,8 @@ jobs:
           output: both
 
       - uses: GravionLabs/ci/docker/lint@main
+        with:
+          dockerfile: apps/server/Dockerfile
 
       - name: Publish Docker image
         if: false  # disabled — manual release for now
