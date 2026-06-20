@@ -32,7 +32,7 @@ services:
   server:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: apps/server/Dockerfile
     container_name: noesis-server
     environment:
       DATABASE_URL: "postgres://noesis:noesis_dev@postgres:5432/noesis"
@@ -48,16 +48,6 @@ services:
         condition: service_healthy
       seq:
         condition: service_started
-
-  ui:
-    image: nginx:alpine
-    container_name: noesis-ui
-    ports:
-      - "4200:80"
-    volumes:
-      - ../apps/ui/dist/ui/browser:/usr/share/nginx/html
-    depends_on:
-      - server
 
 volumes:
   postgres_data:
