@@ -3,7 +3,7 @@ import { Injectable, computed, signal } from '@angular/core';
 @Injectable({ providedIn: 'root' })
 export class SettingsService {
   readonly apiKey = signal<string>(localStorage.getItem('noesis_api_key') ?? '');
-  readonly baseUrl = signal<string>(localStorage.getItem('noesis_base_url') ?? 'http://localhost:5000');
+  readonly baseUrl = signal<string>(localStorage.getItem('noesis_base_url') ?? '');
   readonly hasApiKey = computed(() => this.apiKey().length > 0);
 
   saveApiKey(key: string): void {

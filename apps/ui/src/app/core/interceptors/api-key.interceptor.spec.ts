@@ -57,4 +57,26 @@ describe('apiKeyInterceptor', () => {
     expect(req.request.headers.has('X-Api-Key')).toBe(false);
     req.flush({});
   });
+
+  it('adds X-Api-Key when baseUrl is set and request URL matches', () => {
+    settings.saveApiKey('secret-123');
+    settings.saveBaseUrl('http://my-server:5000');
+
+    http.get('http://my-server:5000/api/sources').subscribe();
+
+    const req = httpTesting.expectOne('http://my-server:5000/api/sources');
+    expect(req.request.headers.get('X-Api-Key')).toBe('secret-123');
+    req.flush([]);
+  });
+
+  it('omits X-Api-Key when baseUrl is set but request is a relative URL', () => {
+    settings.saveApiKey('secret-123');
+    settings.saveBaseUrl('http://my-server:5000');
+
+    http.get('/api/sources').subscribe();
+
+    const req = httpTesting.expectOne('/api/sources');
+    expect(req.request.headers.has('X-Api-Key')).toBe(false);
+    req.flush([]);
+  });
 });

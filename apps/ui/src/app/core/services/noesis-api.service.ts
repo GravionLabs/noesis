@@ -14,7 +14,7 @@ export class NoesisApiService {
 
   private api(path: string): string {
     const base = this.settings.baseUrl().replace(/\/+$/, '');
-    return `${base}${path}`;
+    return base ? `${base}${path}` : path;
   }
 
   listSources(): Observable<Source[]> {

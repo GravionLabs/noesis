@@ -3,19 +3,20 @@ import { inject } from '@angular/core';
 import { SettingsService } from '../services/settings.service';
 
 export const apiKeyInterceptor: HttpInterceptorFn = (req, next) => {
-  if (!req.url.startsWith('/api/')) {
-    return next(req);
-  }
-
   const settings = inject(SettingsService);
 
   if (!settings.hasApiKey()) {
     return next(req);
   }
 
-  const cloned = req.clone({
-    setHeaders: { 'X-Api-Key': settings.apiKey() },
-  });
+  const base = settings.baseUrl().replace(/\/+$/, '');
+  const apiPrefix = base ? `${base}/api/` : '/api/';
 
-  return next(cloned);
+  if (!req.url.startsWith(apiPrefix)) {
+    return next(req);
+  }
+
+  return next(req.clone({
+    setHeaders: { 'X-Api-Key': settings.apiKey() },
+  }));
 };
