@@ -108,26 +108,3 @@ export class JobService {
     return result.rows[0].avg ?? 0;
   }
 }
-
-import { db, query, pool } from "../db/pool.js";
-
-const _shimDb = {
-  pool,
-  db,
-  query,
-  getClient: async () => pool.connect(),
-  end: async () => { await pool.end(); },
-} as unknown as Database;
-
-const _shim = new JobService({ database: _shimDb });
-
-export const createJob = _shim.createJob.bind(_shim);
-export const getJob = _shim.getJob.bind(_shim);
-export const listJobs = _shim.listJobs.bind(_shim);
-export const updateJobStatus = _shim.updateJobStatus.bind(_shim);
-export const getRunningJob = _shim.getRunningJob.bind(_shim);
-export const completeJob = _shim.completeJob.bind(_shim);
-export const failJob = _shim.failJob.bind(_shim);
-export const getPendingJobCount = _shim.getPendingJobCount.bind(_shim);
-export const getTotalJobCount = _shim.getTotalJobCount.bind(_shim);
-export const getAvgImportDuration = _shim.getAvgImportDuration.bind(_shim);

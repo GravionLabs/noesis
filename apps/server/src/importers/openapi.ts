@@ -2,16 +2,6 @@ import type { CrawlChunkData } from "../services/chunk-service.js";
 import { ChunkService } from "../services/chunk-service.js";
 import type { Importer, ImportResult } from "./registry.js";
 import type { Source } from "../models/source.js";
-import { db, query, pool } from "../db/pool.js";
-import type { Database } from "../db/database.js";
-
-const _defaultDb = {
-  db, query, pool,
-  getClient: async () => pool.connect(),
-  end: async () => { await pool.end(); },
-} as unknown as Database;
-
-const _defaultChunkService = new ChunkService({ database: _defaultDb });
 
 interface OpenApiSpec {
   info?: { title?: string; description?: string };
@@ -29,53 +19,58 @@ export class OpenApiImporter implements Importer {
   readonly type = "openapi";
   private chunkService: ChunkService;
 
-  constructor(
-    { chunkService }: { chunkService: ChunkService } = { chunkService: _defaultChunkService },
-  ) {
+  constructor({ chunkService }: { chunkService: ChunkService }) {
     this.chunkService = chunkService;
   }
 
   async import(source: Source): Promise<ImportResult> {
     const res = await fetch(source.url);
-    if (!res.ok) throw new Error(`Failed to fetch ${source.url}: ${res.status}`);
+    if (!res.ok) throw new Error(`Failed to fetch spec: ${res.status}`);
 
-    const spec = (await res.json()) as OpenApiSpec;
-    const title = spec.info?.title ?? new URL(source.url).hostname;
-    const specJson = JSON.stringify(spec, null, 2);
-    const paths = spec.paths ?? {};
+    const spec: OpenApiSpec = await res.json();
+    const apiTitle = spec.info?.title ?? source.name;
+    const docUrl = source.url;
 
-    const operations: Array<{ method: string; path: string; op: OpenApiOperation }> = [];
+    const chunks: CrawlChunkData[] = [];
 
-    for (const [path, methods] of Object.entries(paths)) {
-      for (const method of ["get", "post", "put", "patch", "delete", "options", "head"] as const) {
-        const op = methods?.[method];
-        if (op) operations.push({ method, path, op });
-      }
+    if (spec.info?.description) {
+      chunks.push({
+        docUrl,
+        docTitle: apiTitle,
+        content: spec.info.description,
+        heading: "Description",
+        headingPath: ["Description"],
+        chunkIndex: 0,
+      });
     }
 
-    if (operations.length === 0) return { docCount: 1, chunkCount: 0 };
+    if (!spec.paths) return this.chunkService.saveChunks(chunks, source.id);
 
-    const chunks: CrawlChunkData[] = operations.map(({ method, path, op }, i) => {
-      const content = [
-        `## ${method.toUpperCase()} ${path}`,
-        op.summary ? `**${op.summary}**` : "",
-        op.description ?? "",
-        op.operationId ? `Operation ID: ${op.operationId}` : "",
-        op.tags?.length ? `Tags: ${op.tags.join(", ")}` : "",
-      ]
-        .filter(Boolean)
-        .join("\n\n");
+    let chunkIndex = chunks.length;
+    for (const [path, methods] of Object.entries(spec.paths)) {
+      for (const [method, op] of Object.entries(methods)) {
+        const content = [
+          op.summary,
+          op.description,
+          `Operation ID: ${op.operationId ?? "N/A"}`,
+          `Tags: ${(op.tags ?? []).join(", ") || "N/A"}`,
+        ]
+          .filter(Boolean)
+          .join("\n");
 
-      return {
-        docUrl: source.url,
-        docTitle: title,
-        content,
-        heading: `${method.toUpperCase()} ${path}`,
-        headingPath: [title, `${method.toUpperCase()} ${path}`],
-        chunkIndex: i,
-        docContentMd: specJson,
-      };
-    });
+        chunks.push({
+          docUrl,
+          docTitle: `${method.toUpperCase()} ${path}`,
+          content,
+          heading: op.summary ?? op.operationId ?? `${method.toUpperCase()} ${path}`,
+          headingPath: [
+            ...(op.tags ?? []),
+            op.summary ?? op.operationId ?? `${method.toUpperCase()} ${path}`,
+          ],
+          chunkIndex: chunkIndex++,
+        });
+      }
+    }
 
     return this.chunkService.saveChunks(chunks, source.id);
   }

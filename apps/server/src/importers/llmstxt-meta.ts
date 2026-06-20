@@ -1,16 +1,6 @@
 import type { Importer, ImportResult } from "./registry.js";
 import type { Source } from "../models/source.js";
 import { SourceService } from "../services/source-service.js";
-import { db, query, pool } from "../db/pool.js";
-import type { Database } from "../db/database.js";
-
-const _defaultDb = {
-  db, query, pool,
-  getClient: async () => pool.connect(),
-  end: async () => { await pool.end(); },
-} as unknown as Database;
-
-const _defaultSourceService = new SourceService({ database: _defaultDb });
 
 interface LlmsTxtMeta {
   title?: string;
@@ -18,13 +8,52 @@ interface LlmsTxtMeta {
   links: Array<{ title: string; url: string; optional?: boolean }>;
 }
 
+function parseMetaTxt(text: string): LlmsTxtMeta | null {
+  const lines = text.split("\n");
+  let title: string | undefined;
+  let description: string | undefined;
+  const links: Array<{ title: string; url: string; optional?: boolean }> = [];
+
+  let inMainContent = true;
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+
+    if (inMainContent) {
+      if (line.startsWith("> ")) {
+        description ??= line.slice(2).trim();
+        continue;
+      }
+
+      if (line.startsWith("- ")) {
+        inMainContent = false;
+      } else {
+        title ??= line.replace(/^#\s*/, "").trim();
+        continue;
+      }
+    }
+
+    if (!inMainContent) {
+      const optional = line.includes("[optional]");
+      const linkMatch = line.match(
+        /-\s*(?:\[optional]\s*)?\[([^\]]+)]\s*\(([^)]+)\)/,
+      );
+      if (linkMatch) {
+        links.push({ title: linkMatch[1], url: linkMatch[2], optional });
+      }
+    }
+  }
+
+  if (links.length === 0) return null;
+  return { title, description, links };
+}
+
 export class LlmsMetaTxtImporter implements Importer {
   readonly type = "llmstxt-meta";
   private sourceService: SourceService;
 
-  constructor(
-    { sourceService }: { sourceService: SourceService } = { sourceService: _defaultSourceService },
-  ) {
+  constructor({ sourceService }: { sourceService: SourceService }) {
     this.sourceService = sourceService;
   }
 
@@ -33,45 +62,27 @@ export class LlmsMetaTxtImporter implements Importer {
     if (!res.ok) throw new Error(`Failed to fetch ${source.url}: ${res.status}`);
 
     const text = await res.text();
-    const meta = this.parse(text);
+    const meta = parseMetaTxt(text);
+    if (!meta) return { docCount: 0, chunkCount: 0 };
 
-    const existing = source.config ? JSON.parse(source.config) : {};
-    const updated = { ...existing, ...meta };
+    for (const link of meta.links) {
+      const existing = await this.sourceService.getSourceByUrl(link.url);
+      if (existing) continue;
 
-    await this.sourceService.updateSource(source.id, { config: JSON.stringify(updated) });
+      const existingUrlCheck = await this.sourceService.getSourceByUrl(
+        link.url.replace(/\/?$/, "/llms.txt"),
+      );
+      if (existingUrlCheck) continue;
 
-    return { docCount: 0, chunkCount: 0 };
-  }
-
-  private parse(text: string): LlmsTxtMeta {
-    const lines = text.split("\n");
-    const meta: LlmsTxtMeta = { links: [] };
-
-    for (const line of lines) {
-      const titleMatch = line.match(/^#\s+(.+)/);
-      if (titleMatch && !meta.title) {
-        meta.title = titleMatch[1].trim();
-        continue;
-      }
-
-      const descMatch = line.match(/^>\s*(.+)/);
-      if (descMatch && !meta.description) {
-        meta.description = descMatch[1].trim();
-        continue;
-      }
-
-      const linkMatch = line.match(/^-\s*\[(.+)\]\((.+)\)/);
-      if (linkMatch) {
-        meta.links.push({ title: linkMatch[1].trim(), url: linkMatch[2].trim() });
-        continue;
-      }
-
-      const optionalSection = line.match(/^##\s+Optional/i);
-      if (optionalSection) {
-        meta.links = meta.links.map((l) => ({ ...l, optional: true }));
-      }
+      await this.sourceService.createSource({
+        name: link.title,
+        url: link.url,
+        importerType: link.url.endsWith(".json") || link.url.endsWith(".yaml") || link.url.endsWith(".yml")
+          ? "openapi"
+          : "llmstxt-crawl",
+      });
     }
 
-    return meta;
+    return { docCount: 0, chunkCount: meta.links.length };
   }
 }

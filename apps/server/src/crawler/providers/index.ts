@@ -1,3 +1,4 @@
+import { config } from "../../config.js";
 import { GitHubProvider } from "./github-provider.js";
 import { AzureDevOpsProvider } from "./azure-devops-provider.js";
 import { LocalProvider } from "./local-provider.js";
@@ -7,7 +8,7 @@ export type { RepositoryProvider };
 
 const providers: RepositoryProvider[] = [
   new GitHubProvider(),
-  new AzureDevOpsProvider(),
+  new AzureDevOpsProvider({ config }),
   new LocalProvider(),
 ];
 

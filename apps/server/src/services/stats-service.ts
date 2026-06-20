@@ -1,5 +1,4 @@
 import { Database } from "../db/database.js";
-import { config } from "../config.js";
 import type { SourceService } from "./source-service.js";
 import type { JobService } from "./job-service.js";
 
@@ -61,18 +60,3 @@ export class StatsService {
     };
   }
 }
-
-import { Database as ShimDb } from "../db/database.js";
-import { SourceService as ShimSource } from "./source-service.js";
-import { JobService as ShimJob } from "./job-service.js";
-
-const _shimDb = new ShimDb({ config });
-const _shimSource = new ShimSource({ database: _shimDb });
-const _shimJob = new ShimJob({ database: _shimDb });
-const _shim = new StatsService({
-  database: _shimDb,
-  sourceService: _shimSource,
-  jobService: _shimJob,
-});
-
-export const getStats = _shim.getStats.bind(_shim);

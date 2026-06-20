@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { sources } from "../db/schema.js";
 import type { Database } from "../db/database.js";
-import { db, query, pool } from "../db/pool.js";
 
 export interface CreateSourceInput {
   name: string;
@@ -116,23 +115,3 @@ export class SourceService {
     return result.rows[0].count;
   }
 }
-
-const _shimDb = {
-  pool,
-  db,
-  query,
-  getClient: async () => pool.connect(),
-  end: async () => { await pool.end(); },
-} as unknown as Database;
-
-const _shim = new SourceService({ database: _shimDb });
-
-export const listSources = _shim.listSources.bind(_shim);
-export const getSource = _shim.getSource.bind(_shim);
-export const getSourceByUrl = _shim.getSourceByUrl.bind(_shim);
-export const createSource = _shim.createSource.bind(_shim);
-export const deleteSource = _shim.deleteSource.bind(_shim);
-export const updateSource = _shim.updateSource.bind(_shim);
-export const updateLastImported = _shim.updateLastImported.bind(_shim);
-export const getSourceStats = _shim.getSourceStats.bind(_shim);
-export const getTotalSourceCount = _shim.getTotalSourceCount.bind(_shim);

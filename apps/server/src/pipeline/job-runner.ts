@@ -1,66 +1,39 @@
-import { getSource, updateLastImported } from "../services/source-service.js";
-import {
-  createJob,
-  getJob,
-  getRunningJob,
-  updateJobStatus,
-  completeJob,
-  failJob,
-} from "../services/job-service.js";
-import { getImporter } from "../importers/registry.js";
-import { embedUnembeddedChunks } from "../services/embedding-service.js";
+import type { SourceService } from "../services/source-service.js";
+import type { JobService } from "../services/job-service.js";
+import type { ImporterRegistry } from "../importers/registry.js";
+import type { EmbeddingService } from "../services/embedding-service.js";
+import type { Config } from "../config/index.js";
 import { logger as _logger } from "../logger.js";
-import { config as _config } from "../config.js";
-
-const _log = _logger.child({ module: "job-runner" });
 
 export class JobRunner {
-  private sourceService: {
-    getSource: Function;
-    updateLastImported: Function;
-  };
-  private jobService: {
-    createJob: Function;
-    getJob: Function;
-    getRunningJob: Function;
-    updateJobStatus: Function;
-    completeJob: Function;
-    failJob: Function;
-  };
-  private importerRegistry: { getImporter: Function };
-  private embeddingService: { embedUnembeddedChunks: Function };
-  private config: { MAX_IMPORT_RETRIES: number };
+  private sourceService: SourceService;
+  private jobService: JobService;
+  private importerRegistry: ImporterRegistry;
+  private embeddingService: EmbeddingService;
+  private config: Config;
   private log: ReturnType<typeof _logger.child>;
 
-  constructor(opts?: {
-    sourceService?: { getSource: Function; updateLastImported: Function };
-    jobService?: {
-      createJob: Function;
-      getJob: Function;
-      getRunningJob: Function;
-      updateJobStatus: Function;
-      completeJob: Function;
-      failJob: Function;
-    };
-    importerRegistry?: { getImporter: Function };
-    embeddingService?: { embedUnembeddedChunks: Function };
-    config?: { MAX_IMPORT_RETRIES: number };
-    logger?: { child: Function };
+  constructor({
+    sourceService,
+    jobService,
+    importerRegistry,
+    embeddingService,
+    config,
+    logger,
+  }: {
+    sourceService: SourceService;
+    jobService: JobService;
+    importerRegistry: ImporterRegistry;
+    embeddingService: EmbeddingService;
+    config: Config;
+    logger: typeof _logger;
   }) {
-    this.sourceService = opts?.sourceService ?? { getSource, updateLastImported };
-    this.jobService = opts?.jobService ?? {
-      createJob,
-      getJob,
-      getRunningJob,
-      updateJobStatus,
-      completeJob,
-      failJob,
-    };
-    this.importerRegistry = opts?.importerRegistry ?? { getImporter };
-    this.embeddingService = opts?.embeddingService ?? { embedUnembeddedChunks };
-    this.config = opts?.config ?? _config;
-    const l = opts?.logger ?? _logger;
-    this.log = l.child({ module: "job-runner" });
+    this.sourceService = sourceService;
+    this.jobService = jobService;
+    this.importerRegistry = importerRegistry;
+    this.embeddingService = embeddingService;
+    this.config = config;
+    this.log = logger.child({ module: "job-runner" });
   }
 
   async runImport(sourceId: string) {
@@ -136,6 +109,3 @@ export class JobRunner {
     return final ?? { id: jobId, status: "failed" };
   }
 }
-
-const _default = new JobRunner();
-export const runImport = _default.runImport.bind(_default);

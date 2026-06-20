@@ -1,9 +1,6 @@
 import type { Database } from "../db/database.js";
 import type { EmbeddingService } from "./embedding-service.js";
 import type { EmbeddingProvider } from "../embedding/index.js";
-import { db, query, pool } from "../db/pool.js";
-import { config } from "../config.js";
-import { EmbeddingService as ShimEmbedding } from "./embedding-service.js";
 
 export interface SearchResult {
   sourceName: string;
@@ -144,18 +141,3 @@ export class SearchService {
     return this.searchByText(queryText, limit, sourceName);
   }
 }
-
-const _shimDb = {
-  pool,
-  db,
-  query,
-  getClient: async () => pool.connect(),
-  end: async () => { await pool.end(); },
-} as unknown as Database;
-
-const _shimEmbedding = new ShimEmbedding({ config });
-const _shim = new SearchService({ database: _shimDb, embeddingService: _shimEmbedding });
-
-export const searchDocs = _shim.searchDocs.bind(_shim);
-export const searchByText = _shim.searchByText.bind(_shim);
-export const searchByVector = _shim.searchByVector.bind(_shim);

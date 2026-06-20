@@ -1,30 +1,36 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { searchDocs } from "../search/search.js";
-import { getChunkWithSource } from "../services/chunk-service.js";
-import { listSources } from "../services/source-service.js";
-import { triggerImport } from "../services/import-service.js";
-import { getJob } from "../services/job-service.js";
+import type { SearchService } from "../services/search-service.js";
+import type { ChunkService } from "../services/chunk-service.js";
+import type { SourceService } from "../services/source-service.js";
+import type { ImportService } from "../services/import-service.js";
+import type { JobService } from "../services/job-service.js";
 
 export class McpHandler {
-  private searchService: { searchDocs: Function };
-  private chunkService: { getChunkWithSource: Function };
-  private sourceService: { listSources: Function };
-  private importService: { triggerImport: Function };
-  private jobService: { getJob: Function };
+  private searchService: SearchService;
+  private chunkService: ChunkService;
+  private sourceService: SourceService;
+  private importService: ImportService;
+  private jobService: JobService;
 
-  constructor(opts?: {
-    searchService?: { searchDocs: Function };
-    chunkService?: { getChunkWithSource: Function };
-    sourceService?: { listSources: Function };
-    importService?: { triggerImport: Function };
-    jobService?: { getJob: Function };
+  constructor({
+    searchService,
+    chunkService,
+    sourceService,
+    importService,
+    jobService,
+  }: {
+    searchService: SearchService;
+    chunkService: ChunkService;
+    sourceService: SourceService;
+    importService: ImportService;
+    jobService: JobService;
   }) {
-    this.searchService = opts?.searchService ?? { searchDocs };
-    this.chunkService = opts?.chunkService ?? { getChunkWithSource };
-    this.sourceService = opts?.sourceService ?? { listSources };
-    this.importService = opts?.importService ?? { triggerImport };
-    this.jobService = opts?.jobService ?? { getJob };
+    this.searchService = searchService;
+    this.chunkService = chunkService;
+    this.sourceService = sourceService;
+    this.importService = importService;
+    this.jobService = jobService;
   }
 
   createServer() {
@@ -176,7 +182,7 @@ export class McpHandler {
       },
       async ({ sourceId }) => {
         try {
-          const job = await this.importService.triggerImport(sourceId);
+          const job: any = await this.importService.triggerImport(sourceId);
           return {
             content: [{
               type: "text" as const,
@@ -205,7 +211,7 @@ export class McpHandler {
       },
       async ({ jobId }) => {
         try {
-          const job = await this.jobService.getJob(jobId);
+          const job: any = await this.jobService.getJob(jobId);
           if (!job) {
             return {
               content: [{ type: "text" as const, text: `Job ${jobId} not found.` }],
@@ -241,6 +247,3 @@ export class McpHandler {
     return server;
   }
 }
-
-const _default = new McpHandler();
-export const createMcpServer = _default.createServer.bind(_default);

@@ -2,24 +2,12 @@ import { crawlUrl, normalizeCrawlConfig } from "../crawler/crawler.js";
 import { ChunkService } from "../services/chunk-service.js";
 import type { Importer, ImportResult } from "./registry.js";
 import type { Source } from "../models/source.js";
-import { db, query, pool } from "../db/pool.js";
-import type { Database } from "../db/database.js";
-
-const _defaultDb = {
-  db, query, pool,
-  getClient: async () => pool.connect(),
-  end: async () => { await pool.end(); },
-} as unknown as Database;
-
-const _defaultChunkService = new ChunkService({ database: _defaultDb });
 
 export class CrawlerImporter implements Importer {
   readonly type = "crawler";
   private chunkService: ChunkService;
 
-  constructor(
-    { chunkService }: { chunkService: ChunkService } = { chunkService: _defaultChunkService },
-  ) {
+  constructor({ chunkService }: { chunkService: ChunkService }) {
     this.chunkService = chunkService;
   }
 

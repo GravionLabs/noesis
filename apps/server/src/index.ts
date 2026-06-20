@@ -6,26 +6,27 @@ import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
-import { config } from "./config.js";
-import { logger } from "./logger.js";
-import { pool } from "./db/pool.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { buildContainer } from "./container.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerSourceRoutes } from "./routes/sources.js";
 import { registerJobRoutes } from "./routes/jobs.js";
 import { registerInternalRoutes } from "./routes/internal.js";
 import { registerStatsRoutes } from "./routes/stats.js";
 import { registerSearchRoutes } from "./routes/search.js";
-import { createMcpServer } from "./mcp/handler.js";
-import { startScheduler } from "./pipeline/scheduler.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { requireApiKey } from "./middleware/auth.js";
+
+const container = buildContainer();
+const cradle = container.cradle as any;
+const { config, database, scheduler, mcpHandler } = cradle;
+const logger = cradle.logger;
 
 async function main() {
   logger.info({ port: config.PORT, database: config.DATABASE_URL, embeddingProvider: config.EMBEDDING_PROVIDER, embeddingModel: config.EMBEDDING_MODEL }, "Noesis server starting");
 
   // Verify database connectivity
   try {
-    const client = await pool.connect();
+    const client = await database.getClient();
     await client.query("SELECT 1");
     client.release();
     logger.info("Database connection verified");
@@ -56,12 +57,12 @@ async function main() {
   });
 
   // ---- REST API Routes ----
-  registerHealthRoutes(app);
-  registerSourceRoutes(app);
-  registerJobRoutes(app);
-  registerInternalRoutes(app);
-  registerStatsRoutes(app);
-  registerSearchRoutes(app);
+  registerHealthRoutes(app, cradle);
+  registerSourceRoutes(app, cradle);
+  registerJobRoutes(app, cradle);
+  registerInternalRoutes(app, cradle);
+  registerStatsRoutes(app, cradle);
+  registerSearchRoutes(app, cradle);
 
   // ---- Static UI serving ----
   if (config.SERVE_UI) {
@@ -92,13 +93,12 @@ async function main() {
   }
 
   // ---- MCP Server (Streamable HTTP) ----
-  const mcpServer = createMcpServer();
+  const mcpServer = mcpHandler.createServer();
   const mcpTransport = new StreamableHTTPServerTransport({
     sessionIdGenerator: crypto.randomUUID.bind(crypto),
   });
 
   app.all("/mcp", { preHandler: requireApiKey }, async (req, reply) => {
-    // CORS handled by @fastify/cors for all origins
     const rawReq = req.raw;
     const rawRes = reply.raw;
     try {
@@ -115,7 +115,7 @@ async function main() {
   logger.info("MCP server ready at /mcp");
 
   // ---- Scheduler ----
-  startScheduler();
+  scheduler.startScheduler();
 
   // ---- Startup ----
   await app.listen({ port: config.PORT, host: "0.0.0.0" });
@@ -125,7 +125,7 @@ async function main() {
   const shutdown = async () => {
     logger.info("Shutdown signal received, shutting down gracefully");
     await mcpServer.close();
-    await pool.end();
+    await database.end();
     process.exit(0);
   };
 

@@ -6,7 +6,6 @@ import {
   processPendingChunks,
   type EmbeddingProvider,
 } from "../embedding/index.js";
-import { config as envConfig } from "../config.js";
 
 export class EmbeddingService {
   private provider: EmbeddingProvider;
@@ -51,10 +50,3 @@ export class EmbeddingService {
     return processPendingChunks(this.provider, sourceId);
   }
 }
-
-const _shim = new EmbeddingService({ config: envConfig });
-
-export const getProvider = _shim.getProvider.bind(_shim);
-export const embedTexts = _shim.embedTexts.bind(_shim);
-export const embedText = _shim.embedText.bind(_shim);
-export const embedUnembeddedChunks = _shim.embedUnembeddedChunks.bind(_shim);

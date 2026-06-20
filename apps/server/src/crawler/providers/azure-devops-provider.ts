@@ -1,5 +1,4 @@
 import type { Config } from "../../config/index.js";
-import { config as envConfig } from "../../config.js";
 import { RepositoryProvider, type RepositoryFileInfo, type RepositoryContent } from "./repository-provider.js";
 
 function parseAzureDevOpsUrl(url: string): { org: string; project: string; repo: string } | null {
@@ -12,7 +11,7 @@ export class AzureDevOpsProvider implements RepositoryProvider {
   name = "azure-devops";
   private config: Config;
 
-  constructor({ config }: { config: Config } = { config: envConfig }) {
+  constructor({ config }: { config: Config }) {
     this.config = config;
   }
 

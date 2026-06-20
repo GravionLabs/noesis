@@ -4,16 +4,6 @@ import { ChunkService } from "../services/chunk-service.js";
 import type { Importer, ImportResult } from "./registry.js";
 import type { Source } from "../models/source.js";
 import { AzureDevOpsProvider } from "../crawler/providers/azure-devops-provider.js";
-import { db, query, pool } from "../db/pool.js";
-import type { Database } from "../db/database.js";
-
-const _defaultDb = {
-  db, query, pool,
-  getClient: async () => pool.connect(),
-  end: async () => { await pool.end(); },
-} as unknown as Database;
-
-const _defaultChunkService = new ChunkService({ database: _defaultDb });
 
 export class AzureDevopsImporter implements Importer {
   readonly type = "azuredevops";
@@ -26,7 +16,7 @@ export class AzureDevopsImporter implements Importer {
   }: {
     chunkService: ChunkService;
     provider: AzureDevOpsProvider;
-  } = { chunkService: _defaultChunkService, provider: new AzureDevOpsProvider() }) {
+  }) {
     this.chunkService = chunkService;
     this.provider = provider;
   }

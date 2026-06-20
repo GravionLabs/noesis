@@ -1,11 +1,13 @@
-import { runImport as jobRunnerRunImport } from "../pipeline/job-runner.js";
+import { JobRunner } from "../pipeline/job-runner.js";
 
 export class ImportService {
+  private jobRunner: JobRunner;
+
+  constructor({ jobRunner }: { jobRunner: JobRunner }) {
+    this.jobRunner = jobRunner;
+  }
+
   async triggerImport(sourceId: string) {
-    return jobRunnerRunImport(sourceId);
+    return this.jobRunner.runImport(sourceId);
   }
 }
-
-const _shim = new ImportService();
-
-export const triggerImport = _shim.triggerImport.bind(_shim);

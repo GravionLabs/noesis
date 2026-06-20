@@ -1,6 +1,6 @@
 import cron from "node-cron";
-import { runImport as jobRunnerRunImport } from "./job-runner.js";
-import { listSources } from "../services/source-service.js";
+import type { JobRunner } from "./job-runner.js";
+import type { SourceService } from "../services/source-service.js";
 import { logger as _logger } from "../logger.js";
 
 export interface SourceSchedule {
@@ -9,21 +9,24 @@ export interface SourceSchedule {
 }
 
 export class Scheduler {
-  private jobRunner: { runImport: Function };
-  private sourceService: { listSources: Function };
+  private jobRunner: JobRunner;
+  private sourceService: SourceService;
   private log: ReturnType<typeof _logger.child>;
   private scheduledTasks = new Map<string, cron.ScheduledTask>();
   private intervalHandle: ReturnType<typeof setInterval> | null = null;
 
-  constructor(opts?: {
-    jobRunner?: { runImport: Function };
-    sourceService?: { listSources: Function };
-    logger?: { child: Function };
+  constructor({
+    jobRunner,
+    sourceService,
+    logger,
+  }: {
+    jobRunner: JobRunner;
+    sourceService: SourceService;
+    logger: typeof _logger;
   }) {
-    this.jobRunner = opts?.jobRunner ?? { runImport: jobRunnerRunImport };
-    this.sourceService = opts?.sourceService ?? { listSources };
-    const l = opts?.logger ?? _logger;
-    this.log = l.child({ module: "scheduler" });
+    this.jobRunner = jobRunner;
+    this.sourceService = sourceService;
+    this.log = logger.child({ module: "scheduler" });
   }
 
   isValidCron(expr: string): boolean {
@@ -114,11 +117,3 @@ export class Scheduler {
     this.log.info("Scheduler stopped");
   }
 }
-
-const _default = new Scheduler();
-export const isValidCron = _default.isValidCron.bind(_default);
-export const scheduleNextRun = _default.scheduleNextRun.bind(_default);
-export const refreshSchedules = _default.refreshSchedules.bind(_default);
-export const startScheduler = _default.startScheduler.bind(_default);
-export const isSchedulerRunning = _default.isSchedulerRunning.bind(_default);
-export const stopScheduler = _default.stopScheduler.bind(_default);

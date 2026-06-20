@@ -3,61 +3,46 @@ import type { CrawlChunkData } from "../services/chunk-service.js";
 import { ChunkService } from "../services/chunk-service.js";
 import type { Importer, ImportResult } from "./registry.js";
 import type { Source } from "../models/source.js";
-import { db, query, pool } from "../db/pool.js";
-import type { Database } from "../db/database.js";
 
-const _defaultDb = {
-  db, query, pool,
-  getClient: async () => pool.connect(),
-  end: async () => { await pool.end(); },
-} as unknown as Database;
+const NPM_REGISTRY = "https://registry.npmjs.org";
 
-const _defaultChunkService = new ChunkService({ database: _defaultDb });
+interface NpmPackageInfo {
+  name: string;
+  readme: string;
+  description?: string;
+}
 
 export class NpmReadmeImporter implements Importer {
   readonly type = "npm-readme";
   private chunkService: ChunkService;
 
-  constructor(
-    { chunkService }: { chunkService: ChunkService } = { chunkService: _defaultChunkService },
-  ) {
+  constructor({ chunkService }: { chunkService: ChunkService }) {
     this.chunkService = chunkService;
   }
 
   async import(source: Source): Promise<ImportResult> {
-    const pkgName = this.extractPackageName(source.url);
-    const res = await fetch(`https://registry.npmjs.org/${pkgName}`);
-    if (!res.ok) throw new Error(`npm registry returned ${res.status}`);
+    const match = source.url.match(/npmjs\.com\/package\/(@?[^/]+(?:\/[^/]+)?)/);
+    if (!match) throw new Error(`Invalid npm URL: ${source.url}`);
 
-    const data = (await res.json()) as {
-      name?: string;
-      description?: string;
-      readme?: string;
-    };
+    const packagePath = match[1];
+    const res = await fetch(`${NPM_REGISTRY}/${encodeURIComponent(packagePath)}`);
+    if (!res.ok) throw new Error(`Failed to fetch npm package: ${res.status}`);
 
-    const readme = data.readme ?? "";
-    if (!readme.trim()) return { docCount: 0, chunkCount: 0 };
+    const info: NpmPackageInfo = await res.json();
+    const readme = info.readme;
+    if (!readme) return { docCount: 0, chunkCount: 0 };
 
-    const title = `${data.name ?? pkgName}: ${data.description ?? "README"}`;
+    const docUrl = source.url;
+    const docTitle = `${info.name}${info.description ? `: ${info.description}` : ""}`;
+
     const rawChunks = chunkMarkdown(readme);
-    if (rawChunks.length === 0) return { docCount: 0, chunkCount: 0 };
-
     const chunks: CrawlChunkData[] = rawChunks.map((c) => ({
-      docUrl: source.url,
-      docTitle: title,
-      content: c.content,
-      heading: c.heading,
-      headingPath: c.headingPath,
-      chunkIndex: c.chunkIndex,
+      docUrl,
+      docTitle,
       docContentMd: readme,
+      ...c,
     }));
 
     return this.chunkService.saveChunks(chunks, source.id);
-  }
-
-  private extractPackageName(url: string): string {
-    const u = new URL(url);
-    const parts = u.pathname.replace(/\/$/, "").split("/");
-    return parts[parts.length - 1] || parts[parts.length - 2] || "lodash";
   }
 }

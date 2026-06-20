@@ -1,5 +1,4 @@
 import type { Database } from "../db/database.js";
-import { db, query, pool } from "../db/pool.js";
 
 export interface CrawlChunkData {
   docUrl: string;
@@ -126,18 +125,3 @@ export class ChunkService {
     }
   }
 }
-
-const _shimDb = {
-  pool,
-  db,
-  query,
-  getClient: async () => pool.connect(),
-  end: async () => { await pool.end(); },
-} as unknown as Database;
-
-const _shim = new ChunkService({ database: _shimDb });
-
-export const getChunkWithSource = _shim.getChunkWithSource.bind(_shim);
-export const getChunksByDocId = _shim.getChunksByDocId.bind(_shim);
-export const getChunksBySourceId = _shim.getChunksBySourceId.bind(_shim);
-export const saveChunks = _shim.saveChunks.bind(_shim);
