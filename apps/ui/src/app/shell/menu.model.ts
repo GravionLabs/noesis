@@ -21,7 +21,7 @@ export const NOESIS_MENU_MODEL: HelixRouteMenuItem[] = [
     items: [
       {
         label: 'Sources',
-        icon: 'pi pi-fw pi-database',
+        icon: 'pi pi-fw pi-file',
         path: 'sources',
         component: HelixEmpty,
         breadcrumb: 'Sources',
@@ -29,7 +29,7 @@ export const NOESIS_MENU_MODEL: HelixRouteMenuItem[] = [
       },
       {
         label: 'Jobs',
-        icon: 'pi pi-fw pi-database',
+        icon: 'pi pi-fw pi-sync',
         path: 'jobs',
         component: HelixEmpty,
         breadcrumb: 'Jobs',
