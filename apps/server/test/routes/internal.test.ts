@@ -1,32 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import Fastify from "fastify";
-
-const mockConfig: { API_KEY: string } = { API_KEY: "" };
-
-vi.mock("../../src/config.js", () => ({
-  get config() {
-    return mockConfig;
-  },
-}));
+import { registerInternalRoutes } from "../../src/routes/internal.js";
+import type { Config } from "../../src/config/index.js";
 
 const mockUpdateJobStatus = vi.fn();
 const mockUpdateLastImported = vi.fn();
 
-import { registerInternalRoutes } from "../../src/routes/internal.js";
-
 describe("Internal routes", () => {
-  const buildApp = async () => {
+  const buildApp = async (apiKey = "") => {
     const app = Fastify();
     registerInternalRoutes(app, {
       jobService: { updateJobStatus: mockUpdateJobStatus } as any,
       sourceService: { updateLastImported: mockUpdateLastImported } as any,
+      config: { API_KEY: apiKey } as Config,
     });
     return app;
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockConfig.API_KEY = "";
   });
 
   describe("POST /api/internal/embed-completed", () => {
@@ -46,8 +38,7 @@ describe("Internal routes", () => {
     });
 
     it("rejects with 401 when an API key is required and missing", async () => {
-      mockConfig.API_KEY = "secret-key";
-      const app = await buildApp();
+      const app = await buildApp("secret-key");
 
       const res = await app.inject({
         method: "POST",
@@ -61,8 +52,7 @@ describe("Internal routes", () => {
     });
 
     it("succeeds when the correct API key header is provided", async () => {
-      mockConfig.API_KEY = "secret-key";
-      const app = await buildApp();
+      const app = await buildApp("secret-key");
 
       const res = await app.inject({
         method: "POST",

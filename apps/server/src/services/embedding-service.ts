@@ -1,4 +1,5 @@
 import type { Config } from "../config/index.js";
+import type { Database } from "../db/database.js";
 import {
   LocalEmbeddingProvider,
   OllamaEmbeddingProvider,
@@ -9,8 +10,10 @@ import {
 
 export class EmbeddingService {
   private provider: EmbeddingProvider;
+  private database: Database;
 
-  constructor({ config }: { config: Config }) {
+  constructor({ config, database }: { config: Config; database: Database }) {
+    this.database = database;
     switch (config.EMBEDDING_PROVIDER) {
       case "local":
         this.provider = new LocalEmbeddingProvider(config.EMBEDDING_MODEL);
@@ -47,6 +50,6 @@ export class EmbeddingService {
   }
 
   async embedUnembeddedChunks(sourceId?: string): Promise<number> {
-    return processPendingChunks(this.provider, sourceId);
+    return processPendingChunks(this.database, this.provider, sourceId);
   }
 }

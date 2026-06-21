@@ -23,6 +23,7 @@ describe("import -> embed -> search (integration)", () => {
         EMBEDDING_PROVIDER: "local",
         EMBEDDING_MODEL: "Xenova/all-MiniLM-L6-v2",
       } as Config,
+      database,
     });
     searchService = new SearchService({ database, embeddingService });
   }, 30_000);

@@ -1,4 +1,4 @@
-import { config } from "../config.js";
+import { config } from "../config/index.js";
 import pg from "pg";
 
 const CREATE_EXTENSION = `CREATE EXTENSION IF NOT EXISTS vector`;

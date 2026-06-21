@@ -17,6 +17,8 @@ import {
 } from "../../src/embedding/index.js";
 import type { Config } from "../../src/config/index.js";
 
+const mockDatabase = {} as any;
+
 function buildConfig(overrides: Partial<Config> = {}): Config {
   return {
     EMBEDDING_PROVIDER: "local",
@@ -36,6 +38,7 @@ describe("EmbeddingService", () => {
     it("selects OllamaEmbeddingProvider for the ollama provider", () => {
       const service = new EmbeddingService({
         config: buildConfig({ EMBEDDING_PROVIDER: "ollama", OLLAMA_URL: "http://ollama:11434" }),
+        database: mockDatabase,
       });
 
       expect(service.getProvider()).toBeInstanceOf(OllamaEmbeddingProvider);
@@ -44,6 +47,7 @@ describe("EmbeddingService", () => {
     it("selects OpenAIEmbeddingProvider for the openai provider", () => {
       const service = new EmbeddingService({
         config: buildConfig({ EMBEDDING_PROVIDER: "openai", OPENAI_API_KEY: "sk-test" }),
+        database: mockDatabase,
       });
 
       expect(service.getProvider()).toBeInstanceOf(OpenAIEmbeddingProvider);
@@ -52,6 +56,7 @@ describe("EmbeddingService", () => {
     it("selects LocalEmbeddingProvider for the local provider", () => {
       const service = new EmbeddingService({
         config: buildConfig({ EMBEDDING_PROVIDER: "local" }),
+        database: mockDatabase,
       });
 
       expect(service.getProvider()).toBeInstanceOf(LocalEmbeddingProvider);
@@ -62,6 +67,7 @@ describe("EmbeddingService", () => {
     it("delegates embedTexts to the provider's embed method", async () => {
       const service = new EmbeddingService({
         config: buildConfig({ EMBEDDING_PROVIDER: "ollama" }),
+        database: mockDatabase,
       });
       const embedSpy = vi
         .spyOn(service.getProvider(), "embed")
@@ -76,6 +82,7 @@ describe("EmbeddingService", () => {
     it("delegates embedText to embedTexts and unwraps the first vector", async () => {
       const service = new EmbeddingService({
         config: buildConfig({ EMBEDDING_PROVIDER: "ollama" }),
+        database: mockDatabase,
       });
       vi.spyOn(service.getProvider(), "embed").mockResolvedValue([[0.3, 0.4]]);
 
@@ -87,6 +94,7 @@ describe("EmbeddingService", () => {
     it("returns an empty array from embedText when no vector is produced", async () => {
       const service = new EmbeddingService({
         config: buildConfig({ EMBEDDING_PROVIDER: "ollama" }),
+        database: mockDatabase,
       });
       vi.spyOn(service.getProvider(), "embed").mockResolvedValue([]);
 
@@ -101,12 +109,14 @@ describe("EmbeddingService", () => {
       mockProcessPendingChunks.mockResolvedValue(7);
       const service = new EmbeddingService({
         config: buildConfig({ EMBEDDING_PROVIDER: "ollama" }),
+        database: mockDatabase,
       });
 
       const result = await service.embedUnembeddedChunks("source-1");
 
       expect(result).toBe(7);
       expect(mockProcessPendingChunks).toHaveBeenCalledWith(
+        mockDatabase,
         service.getProvider(),
         "source-1",
       );
@@ -116,12 +126,14 @@ describe("EmbeddingService", () => {
       mockProcessPendingChunks.mockResolvedValue(3);
       const service = new EmbeddingService({
         config: buildConfig({ EMBEDDING_PROVIDER: "ollama" }),
+        database: mockDatabase,
       });
 
       const result = await service.embedUnembeddedChunks();
 
       expect(result).toBe(3);
       expect(mockProcessPendingChunks).toHaveBeenCalledWith(
+        mockDatabase,
         service.getProvider(),
         undefined,
       );

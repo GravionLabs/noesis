@@ -1,6 +1,6 @@
 import pino from "pino";
 import { ecsFormat } from "@elastic/ecs-pino-format";
-import { config } from "./config.js";
+import { config } from "./config/index.js";
 
 function buildTransport() {
   const sink = config.LOG_SINK;
