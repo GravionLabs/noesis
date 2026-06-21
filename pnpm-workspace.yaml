@@ -10,4 +10,7 @@ allowBuilds:
   protobufjs: true
   sharp: true
 
+minimumReleaseAgeExclude:
+  - '@gravionlabs/helix@1.1.0'
+
 onlyBuiltDependencies: '{"@parcel/watcher","lmdb","msgpackr-extract","core-js","esbuild","protobufjs","sharp"}'
