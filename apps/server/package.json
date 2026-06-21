@@ -11,11 +11,13 @@
     "test:watch": "vitest",
     "lint": "biome check --write src/",
     "test:ci": "mkdir -p test-results && vitest run --reporter=junit --outputFile=test-results/junit.xml --coverage",
-    "test:integration": "vitest run test/integration --reporter=verbose",
+    "test:integration": "vitest run --config vitest.integration.config.ts --reporter=verbose",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrations.ts",
     "db:up": "docker compose -f ../../infra/docker-compose.yml up -d postgres && docker compose -f ../../infra/docker-compose.yml wait postgres && pnpm db:migrate",
     "db:down": "docker compose -f ../../infra/docker-compose.yml down",
+    "test:db:up": "docker compose -f ../../infra/docker-compose.yml up -d postgres-test && docker compose -f ../../infra/docker-compose.yml wait postgres-test",
+    "test:db:down": "docker compose -f ../../infra/docker-compose.yml stop postgres-test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -139,3 +139,41 @@ jobs:
 
       - name: Run Angular tests
         run: pnpm --filter @noesis/ui test
+
+  integration:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_DB: noesis_test
+          POSTGRES_USER: noesis
+          POSTGRES_PASSWORD: noesis_dev
+        ports:
+          - 5443:5432
+        options: >-
+          --health-cmd "pg_isready -U noesis -d noesis_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://noesis:noesis_dev@localhost:5443/noesis_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run integration tests
+        run: pnpm --filter @noesis/server test:integration

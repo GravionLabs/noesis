@@ -85,43 +85,49 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS duration_ms integer;
 
 const DROP_IMPORT_JOB_STATES = `DROP TABLE IF EXISTS import_job_states CASCADE`;
 
+export async function runMigrations(pool: pg.Pool): Promise<void> {
+  console.log("Running migrations...");
+
+  await pool.query(DROP_IMPORT_JOB_STATES);
+  console.log("  ✓ import_job_states (dropped legacy table)");
+
+  await pool.query(CREATE_EXTENSION);
+  console.log("  ✓ vector extension");
+
+  await pool.query(CREATE_SOURCES);
+  console.log("  ✓ sources");
+
+  await pool.query(CREATE_DOCS);
+  console.log("  ✓ docs");
+
+  await pool.query(CREATE_CHUNKS);
+  console.log("  ✓ chunks");
+
+  await pool.query(CREATE_EMBEDDINGS);
+  console.log("  ✓ embeddings");
+
+  await pool.query(CREATE_JOBS);
+  console.log("  ✓ jobs");
+
+  await pool.query(ADD_JOB_RETRY_COLUMNS);
+  console.log("  ✓ jobs (retry columns added)");
+
+  console.log("\nAll migrations complete.");
+}
+
 async function migrate() {
   const pool = new pg.Pool({ connectionString: config.DATABASE_URL });
-
   try {
-    console.log("Running migrations...");
-
-    await pool.query(DROP_IMPORT_JOB_STATES);
-    console.log("  ✓ import_job_states (dropped legacy table)");
-
-    await pool.query(CREATE_EXTENSION);
-    console.log("  ✓ vector extension");
-
-    await pool.query(CREATE_SOURCES);
-    console.log("  ✓ sources");
-
-    await pool.query(CREATE_DOCS);
-    console.log("  ✓ docs");
-
-    await pool.query(CREATE_CHUNKS);
-    console.log("  ✓ chunks");
-
-    await pool.query(CREATE_EMBEDDINGS);
-    console.log("  ✓ embeddings");
-
-    await pool.query(CREATE_JOBS);
-    console.log("  ✓ jobs");
-
-    await pool.query(ADD_JOB_RETRY_COLUMNS);
-    console.log("  ✓ jobs (retry columns added)");
-
-    console.log("\nAll migrations complete.");
+    await runMigrations(pool);
   } finally {
     await pool.end();
   }
 }
 
-migrate().catch((err) => {
-  console.error("Migration failed:", err);
-  process.exit(1);
-});
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+if (isMainModule) {
+  migrate().catch((err) => {
+    console.error("Migration failed:", err);
+    process.exit(1);
+  });
+}
