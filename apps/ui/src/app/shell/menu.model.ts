@@ -35,12 +35,6 @@ export const NOESIS_MENU_MODEL: HelixRouteMenuItem[] = [
         breadcrumb: 'Jobs',
         routerLink: ['/jobs'],
       },
-    ],
-  },
-  {
-    label: 'Tools',
-    icon: 'pi pi-fw pi-search',
-    items: [
       {
         label: 'Query',
         icon: 'pi pi-fw pi-search',
@@ -51,6 +45,7 @@ export const NOESIS_MENU_MODEL: HelixRouteMenuItem[] = [
       },
     ],
   },
+
   {
     label: 'Settings',
     icon: 'pi pi-fw pi-cog',
