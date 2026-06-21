@@ -71,4 +71,4 @@ Thumbs.db
 
 # APM dependencies
 apm_modules/
-test-results/
+test-results/opencode.json
