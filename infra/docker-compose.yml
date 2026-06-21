@@ -18,6 +18,23 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres-test:
+    image: pgvector/pgvector:pg18
+    container_name: noesis-postgres-test
+    environment:
+      POSTGRES_DB: noesis_test
+      POSTGRES_USER: noesis
+      POSTGRES_PASSWORD: noesis_dev
+    ports:
+      - "5443:5432"
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U noesis -d noesis_test" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   seq:
     image: datalust/seq:latest
     container_name: noesis-seq
