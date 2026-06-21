@@ -18,15 +18,22 @@ on:
       - "pnpm-workspace.yaml"
       - "biome.json"
       - ".github/workflows/ci.yml"
+  schedule:
+    - cron: "0 4 * * 1" # weekly, Monday 04:00 UTC
   workflow_dispatch:
     inputs:
       force-publish:
         description: "Force Docker publish (skip branch check)"
         type: boolean
         default: false
+      run-integration-tests:
+        description: "Run the Postgres integration test suite"
+        type: boolean
+        default: false
 
 jobs:
   ci:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -116,6 +123,7 @@ jobs:
             --generate-notes
 
   ui:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -141,6 +149,7 @@ jobs:
         run: pnpm --filter @noesis/ui test
 
   integration:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run-integration-tests == true)
     runs-on: ubuntu-latest
     permissions:
       contents: read
