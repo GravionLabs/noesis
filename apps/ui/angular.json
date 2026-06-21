@@ -30,7 +30,9 @@
               }
             ],
             "styles": [
-              "src/styles.scss"
+              "node_modules/primeicons/primeicons.css",
+              "src/styles.scss",
+              "src/assets/tailwind.css"
             ]
           },
           "configurations": {
