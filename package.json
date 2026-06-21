@@ -19,10 +19,12 @@
     "dev:ui": "pnpm --filter @noesis/ui dev",
     "dev:ui:build": "pnpm --filter @noesis/ui build",
     "dev:docker": "docker compose -f infra/docker-compose.yml up -d",
-    "dev:all": "concurrently -n server,ui -c cyan,green \"pnpm dev\" \"pnpm dev:ui\""
+    "dev:all": "concurrently -n server,ui -c cyan,green \"pnpm dev\" \"pnpm dev:ui\"",
+    "changelog": "git-cliff -o CHANGELOG.md"
   },
   "devDependencies": {
     "biome": "^0.3.3",
-    "concurrently": "^10.0.3"
+    "concurrently": "^10.0.3",
+    "git-cliff": "^2.13.1"
   }
 }

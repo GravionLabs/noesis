@@ -137,6 +137,54 @@ All tools are **read-only** and **idempotent**.
 
 ---
 
+## Configuration & Security
+
+Copy [`apps/server/.env.example`](apps/server/.env.example) to `.env` and adjust as needed.
+All variables are validated in `apps/server/src/config/index.ts`.
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `5000` | Server port |
+| `DATABASE_URL` | `postgres://noesis:noesis_dev@localhost:5442/noesis` | Postgres connection string |
+| `EMBEDDING_PROVIDER` | `local` | `local`, `ollama`, or `openai` |
+| `EMBEDDING_MODEL` | `Xenova/bge-base-en-v1.5` | Embedding model name |
+| `EMBEDDING_DIMENSIONS` | `768` | Vector dimensions for the chosen model |
+| `OPENAI_API_KEY` | — | Required when provider is `openai` |
+| `OLLAMA_URL` | `http://localhost:11434` | Required when provider is `ollama` |
+| `GITHUB_TOKEN` | — | Used by the `github` importer/provider |
+| `AZURE_DEVOPS_TOKEN` / `AZURE_DEVOPS_ORG` | — | Used by the `azuredevops` importer |
+| `API_KEY` | — | Shared secret for the `x-api-key` header — see below |
+| `SERVER_URL` | `http://localhost:5000` | Public base URL of this server |
+| `LOG_LEVEL` | `info` | `trace`, `debug`, `info`, `warn`, `error`, `fatal` |
+| `LOG_SINK` | `stdout` | `stdout`, `seq`, or `ecs` |
+| `MAX_IMPORT_RETRIES` | `3` | Max retry attempts for a failed import job |
+| `SERVE_UI` | `true` | Whether to serve the built Angular UI |
+
+### Authentication
+
+`API_KEY` is **empty by default**, which means the REST API and the `/mcp` endpoint
+are **unauthenticated**. This is intended for trusted, localhost-only setups.
+
+For any deployment reachable beyond localhost, set `API_KEY` and send it as the
+`x-api-key` header on every request:
+
+```bash
+curl -H 'x-api-key: <your-key>' http://localhost:5000/api/sources
+```
+
+### Other defaults
+
+- **Rate limiting**: 100 requests/minute per client, enabled by default.
+- **CORS**: enabled with `origin: true` (reflects the request origin) by default.
+
+---
+
+## License
+
+[MIT](LICENSE)
+
+---
+
 ## Further Reading
 
 | Document | Description |
@@ -144,3 +192,4 @@ All tools are **read-only** and **idempotent**.
 | [`specs/README.md`](specs/README.md) | Canonical spec collection and reading order |
 | [`AGENTS.md`](AGENTS.md) | Full architecture, environment variables, pipeline flow |
 | [`infra/README.md`](infra/README.md) | Port reference, connection strings, Docker setup |
+| [`CHANGELOG.md`](CHANGELOG.md) | Release history, generated from conventional commits via `pnpm changelog` |
