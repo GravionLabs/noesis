@@ -1,15 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { FastifyReply, FastifyRequest } from "fastify";
-
-const mockConfig: { API_KEY: string } = { API_KEY: "" };
-
-vi.mock("../../src/config.js", () => ({
-  get config() {
-    return mockConfig;
-  },
-}));
-
-import { requireApiKey } from "../../src/middleware/auth.js";
+import { createRequireApiKey } from "../../src/middleware/auth.js";
+import type { Config } from "../../src/config/index.js";
 
 function buildReply() {
   const reply = {
@@ -25,12 +17,8 @@ function buildRequest(headers: Record<string, string> = {}) {
 }
 
 describe("requireApiKey", () => {
-  beforeEach(() => {
-    mockConfig.API_KEY = "";
-  });
-
   it("passes through without checking headers when no API_KEY is configured", async () => {
-    mockConfig.API_KEY = "";
+    const requireApiKey = createRequireApiKey({ config: { API_KEY: "" } as Config });
     const reply = buildReply();
     const req = buildRequest();
 
@@ -41,7 +29,7 @@ describe("requireApiKey", () => {
   });
 
   it("passes through when the x-api-key header matches", async () => {
-    mockConfig.API_KEY = "secret-key";
+    const requireApiKey = createRequireApiKey({ config: { API_KEY: "secret-key" } as Config });
     const reply = buildReply();
     const req = buildRequest({ "x-api-key": "secret-key" });
 
@@ -52,7 +40,7 @@ describe("requireApiKey", () => {
   });
 
   it("rejects with 401 when the x-api-key header is missing", async () => {
-    mockConfig.API_KEY = "secret-key";
+    const requireApiKey = createRequireApiKey({ config: { API_KEY: "secret-key" } as Config });
     const reply = buildReply();
     const req = buildRequest();
 
@@ -63,7 +51,7 @@ describe("requireApiKey", () => {
   });
 
   it("rejects with 401 when the x-api-key header is wrong", async () => {
-    mockConfig.API_KEY = "secret-key";
+    const requireApiKey = createRequireApiKey({ config: { API_KEY: "secret-key" } as Config });
     const reply = buildReply();
     const req = buildRequest({ "x-api-key": "wrong-key" });
 
@@ -74,7 +62,7 @@ describe("requireApiKey", () => {
   });
 
   it("always returns a Promise so Fastify can detect hook completion", () => {
-    mockConfig.API_KEY = "";
+    const requireApiKey = createRequireApiKey({ config: { API_KEY: "" } as Config });
     const reply = buildReply();
     const req = buildRequest();
 

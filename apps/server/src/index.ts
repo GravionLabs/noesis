@@ -14,12 +14,13 @@ import { registerJobRoutes } from "./routes/jobs.js";
 import { registerInternalRoutes } from "./routes/internal.js";
 import { registerStatsRoutes } from "./routes/stats.js";
 import { registerSearchRoutes } from "./routes/search.js";
-import { requireApiKey } from "./middleware/auth.js";
+import { createRequireApiKey } from "./middleware/auth.js";
 
 const container = buildContainer();
 const cradle = container.cradle as any;
 const { config, database, scheduler, mcpHandler } = cradle;
 const logger = cradle.logger;
+const requireApiKey = createRequireApiKey({ config });
 
 async function main() {
   logger.info({ port: config.PORT, database: config.DATABASE_URL, embeddingProvider: config.EMBEDDING_PROVIDER, embeddingModel: config.EMBEDDING_MODEL }, "Noesis server starting");

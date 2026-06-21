@@ -1,6 +1,6 @@
 import { exec } from "child_process";
 import { promisify } from "util";
-import { config } from "../../config.js";
+import { config } from "../../config/index.js";
 import { RepositoryProvider, type RepositoryFileInfo, type RepositoryContent } from "./repository-provider.js";
 
 const execAsync = promisify(exec);
