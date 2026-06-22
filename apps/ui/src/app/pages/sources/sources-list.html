@@ -1,7 +1,10 @@
-<div class="flex flex-col h-full gap-4 p-4">
+<div
+  class="flex flex-col gap-4 p-4"
+  style="height: calc(100vh - var(--helix-topbar-height) - var(--helix-status-bar-height) - (var(--helix-layout-gap) * 2))"
+>
   <p-toolbar>
     <ng-template #start>
-      <h1 class="text-lg font-semibold mr-4">Sources</h1>
+      <h1 class="text-base font-medium leading-none mr-4">Sources</h1>
       <p-iconfield>
         <p-inputicon class="pi pi-search" />
         <input

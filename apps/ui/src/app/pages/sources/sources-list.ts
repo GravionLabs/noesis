@@ -33,7 +33,7 @@ import { SourceFormDialog } from './source-form-dialog';
     ImporterTypeBadgeComponent,
     SourceFormDialog,
   ],
-  host: { class: 'block h-full' },
+  host: { class: 'block' },
   templateUrl: './sources-list.html',
 })
 export class SourcesList {
