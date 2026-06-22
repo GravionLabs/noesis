@@ -1,19 +1,21 @@
 <div
-  class="flex flex-col gap-4 p-4"
+  class="grid grid-rows-[auto_1fr] gap-4 p-4"
   style="height: calc(100vh - var(--helix-topbar-height) - var(--helix-status-bar-height) - (var(--helix-layout-gap) * 2))"
 >
   <p-toolbar>
     <ng-template #start>
-      <h1 class="text-base font-medium leading-none mr-4">Sources</h1>
-      <p-iconfield>
-        <p-inputicon class="pi pi-search" />
-        <input
-          type="text"
-          pInputText
-          placeholder="Search sources..."
-          (input)="onSearch($event)"
-        />
-      </p-iconfield>
+      <div class="flex items-center gap-4">
+        <b>Sources</b>
+        <p-iconfield>
+          <p-inputicon class="pi pi-search" />
+          <input
+            type="text"
+            pInputText
+            placeholder="Search sources..."
+            (input)="onSearch($event)"
+          />
+        </p-iconfield>
+      </div>
     </ng-template>
     <ng-template #end>
       <p-button label="Add Source" icon="pi pi-plus" (onClick)="openCreate()" />
@@ -28,7 +30,7 @@
     [scrollable]="true"
     scrollHeight="flex"
     dataKey="id"
-    class="flex-1 min-h-0"
+    class="min-h-0"
   >
     <ng-template pTemplate="header">
       <tr>
