@@ -6,6 +6,7 @@ import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
 import { Textarea } from 'primeng/textarea';
 import { Button } from 'primeng/button';
+import { Fluid } from 'primeng/fluid';
 import type { CreateSourceDto, Source, UpdateSourceDto } from '../../core/models/source.model';
 import { SourcesStore } from '../../core/stores/sources.store';
 import { CONFIG_TEMPLATES, IMPORTER_TYPES } from './config-templates';
@@ -15,7 +16,7 @@ const URL_PATTERN = /^https?:\/\/.+/i;
 @Component({
   selector: 'app-source-form-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, HelixFormField, Dialog, InputText, Select, Textarea, Button],
+  imports: [ReactiveFormsModule, HelixFormField, Dialog, InputText, Select, Textarea, Button, Fluid],
   templateUrl: './source-form-dialog.html',
 })
 export class SourceFormDialog {
