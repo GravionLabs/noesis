@@ -8,6 +8,10 @@ describe('SettingsService', () => {
     service = new SettingsService();
   });
 
+  afterEach(() => {
+    localStorage.clear();
+  });
+
   it('has default empty apiKey', () => {
     expect(service.apiKey()).toBe('');
   });

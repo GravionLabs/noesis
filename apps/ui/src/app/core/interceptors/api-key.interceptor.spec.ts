@@ -26,6 +26,7 @@ describe('apiKeyInterceptor', () => {
 
   afterEach(() => {
     httpTesting.verify();
+    localStorage.clear();
   });
 
   it('adds X-Api-Key header when apiKey is set', () => {
