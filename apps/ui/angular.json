@@ -30,7 +30,10 @@
               }
             ],
             "styles": [
-              "src/styles.scss"
+              "node_modules/primeicons/primeicons.css",
+              "node_modules/@gravionlabs/helix/styles.css",
+              "src/styles.scss",
+              "src/assets/tailwind.css"
             ]
           },
           "configurations": {

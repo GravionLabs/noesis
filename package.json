@@ -20,6 +20,8 @@
     "dev:ui:build": "pnpm --filter @noesis/ui build",
     "dev:docker": "docker compose -f infra/docker-compose.yml up -d",
     "dev:all": "concurrently -n server,ui -c cyan,green \"pnpm dev\" \"pnpm dev:ui\"",
+    "build:all": "pnpm --filter @noesis/server build && pnpm --filter @noesis/ui build",
+    "test:all": "pnpm --filter @noesis/server test && pnpm --filter @noesis/ui test",
     "changelog": "git-cliff -o CHANGELOG.md"
   },
   "devDependencies": {
