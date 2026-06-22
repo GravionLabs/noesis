@@ -16,6 +16,7 @@ import { SourcesList } from './pages/sources/sources-list';
 import { SourceDetail } from './pages/sources/source-detail';
 import { JobsList } from './pages/jobs/jobs-list';
 import { JobDetail } from './pages/jobs/job-detail';
+import { Query } from './pages/query/query';
 
 describe('routes / breadcrumbs', () => {
   let httpTesting: HttpTestingController;
@@ -48,9 +49,10 @@ describe('routes / breadcrumbs', () => {
     expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual(['Home']);
   });
 
-  it('/query shows "Knowledge Base > Query"', async () => {
+  it('/query activates Query with "Knowledge Base > Query"', async () => {
     const harness = await RouterTestingHarness.create('/query');
-    expect(activatedComponent(harness, HelixEmpty)).toBeTruthy();
+    httpTesting.expectOne('/api/sources').flush([]);
+    expect(activatedComponent(harness, Query)).toBeTruthy();
     expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual([
       'Knowledge Base',
       'Query',

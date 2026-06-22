@@ -6,6 +6,7 @@ import { SourceDetail } from './pages/sources/source-detail';
 import { SourcesList } from './pages/sources/sources-list';
 import { JobDetail } from './pages/jobs/job-detail';
 import { JobsList } from './pages/jobs/jobs-list';
+import { Query } from './pages/query/query';
 
 export const routes: Routes = [
   {
@@ -21,7 +22,7 @@ export const routes: Routes = [
         path: '',
         data: { breadcrumb: 'Knowledge Base' },
         children: [
-          { path: 'query', component: HelixEmpty, data: { breadcrumb: 'Query' } },
+          { path: 'query', component: Query, data: { breadcrumb: 'Query' } },
           {
             path: 'jobs',
             data: { breadcrumb: 'Jobs' },
