@@ -14,6 +14,8 @@ import { MessageService, ConfirmationService } from 'primeng/api';
 import { routes } from './app.routes';
 import { SourcesList } from './pages/sources/sources-list';
 import { SourceDetail } from './pages/sources/source-detail';
+import { JobsList } from './pages/jobs/jobs-list';
+import { JobDetail } from './pages/jobs/job-detail';
 
 describe('routes / breadcrumbs', () => {
   let httpTesting: HttpTestingController;
@@ -55,12 +57,37 @@ describe('routes / breadcrumbs', () => {
     ]);
   });
 
-  it('/jobs shows "Knowledge Base > Jobs"', async () => {
+  it('/jobs activates JobsList with "Knowledge Base > Jobs"', async () => {
     const harness = await RouterTestingHarness.create('/jobs');
-    expect(activatedComponent(harness, HelixEmpty)).toBeTruthy();
+    httpTesting.expectOne('/api/jobs').flush([]);
+    expect(activatedComponent(harness, JobsList)).toBeTruthy();
     expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual([
       'Knowledge Base',
       'Jobs',
+    ]);
+  });
+
+  it('/jobs/:id activates JobDetail with "Knowledge Base > Jobs > Details"', async () => {
+    const harness = await RouterTestingHarness.create('/jobs/j1');
+    httpTesting.expectOne('/api/jobs/j1').flush({
+      id: 'j1',
+      sourceId: null,
+      type: 'import',
+      status: 'done',
+      error: null,
+      retryCount: 0,
+      maxRetries: 3,
+      durationMs: 1000,
+      startedAt: null,
+      finishedAt: null,
+      createdAt: '2026-01-01T00:00:00Z',
+    });
+
+    expect(activatedComponent(harness, JobDetail)).toBeTruthy();
+    expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual([
+      'Knowledge Base',
+      'Jobs',
+      'Details',
     ]);
   });
 

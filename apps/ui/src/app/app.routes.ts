@@ -4,6 +4,8 @@ import { AppShell } from './shell/app-shell';
 import { NOESIS_MENU_MODEL } from './shell/menu.model';
 import { SourceDetail } from './pages/sources/source-detail';
 import { SourcesList } from './pages/sources/sources-list';
+import { JobDetail } from './pages/jobs/job-detail';
+import { JobsList } from './pages/jobs/jobs-list';
 
 export const routes: Routes = [
   {
@@ -20,7 +22,16 @@ export const routes: Routes = [
         data: { breadcrumb: 'Knowledge Base' },
         children: [
           { path: 'query', component: HelixEmpty, data: { breadcrumb: 'Query' } },
-          { path: 'jobs', component: HelixEmpty, data: { breadcrumb: 'Jobs' } },
+          {
+            path: 'jobs',
+            data: { breadcrumb: 'Jobs' },
+            children: [
+              // breadcrumb explicitly undefined: see the matching comment on
+              // the 'sources' empty-path child route below.
+              { path: '', component: JobsList, data: { breadcrumb: undefined } },
+              { path: ':id', component: JobDetail, data: { breadcrumb: 'Details' } },
+            ],
+          },
           {
             path: 'sources',
             data: { breadcrumb: 'Sources' },

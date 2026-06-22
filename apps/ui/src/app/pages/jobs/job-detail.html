@@ -1,0 +1,38 @@
+@if (job(); as job) {
+  <div class="flex flex-col gap-4 p-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <h1 class="text-lg font-semibold">Job {{ job.id.slice(0, 8) }}</h1>
+        <app-job-status-badge [status]="job.status" />
+      </div>
+      @if (job.status === 'failed') {
+        <p-button label="Retry" icon="pi pi-refresh" (onClick)="retryJob()" />
+      }
+    </div>
+
+    <p-card>
+      <div class="flex flex-col gap-1">
+        <div>
+          <strong>Source:</strong>
+          @if (job.sourceId) {
+            <a [routerLink]="['/sources', job.sourceId]">{{ job.sourceId }}</a>
+          } @else {
+            —
+          }
+        </div>
+        <div><strong>Type:</strong> {{ job.type }}</div>
+        <div><strong>Status:</strong> {{ job.status }}</div>
+        <div><strong>Created:</strong> {{ job.createdAt }}</div>
+        <div><strong>Started:</strong> {{ job.startedAt ?? '—' }}</div>
+        <div><strong>Finished:</strong> {{ job.finishedAt ?? '—' }}</div>
+        <div><strong>Duration:</strong> {{ job.durationMs | duration }}</div>
+      </div>
+    </p-card>
+
+    @if (job.status === 'failed' && job.error) {
+      <p-message severity="error">{{ job.error }}</p-message>
+    }
+
+    <a routerLink="/jobs">&larr; Back to Jobs</a>
+  </div>
+}
