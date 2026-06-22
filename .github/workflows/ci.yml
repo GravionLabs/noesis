@@ -48,6 +48,9 @@ jobs:
         id: version
         uses: GravionLabs/ci/versioning/determine-version@main
 
+      - name: Configure registry auth
+        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_PAT }}" >> ~/.npmrc
+
       - uses: GravionLabs/ci/node/ci@main
         with:
           package-manager: pnpm
@@ -139,6 +142,9 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      - name: Configure registry auth
+        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_PAT }}" >> ~/.npmrc
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -180,6 +186,9 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+
+      - name: Configure registry auth
+        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_PAT }}" >> ~/.npmrc
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
