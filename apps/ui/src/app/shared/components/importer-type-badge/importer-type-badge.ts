@@ -8,7 +8,7 @@ const importerLabels: Record<string, string> = {
   'npm-readme': 'NPM README',
   'openapi': 'OpenAPI',
   'github': 'GitHub',
-  'azure-devops': 'Azure DevOps',
+  'azuredevops': 'Azure DevOps',
 };
 
 @Component({

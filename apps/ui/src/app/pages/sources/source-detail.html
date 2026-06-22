@@ -1,0 +1,71 @@
+@if (source(); as source) {
+  <div class="flex flex-col gap-4 p-4">
+    <div class="flex items-center justify-between">
+      <h1 class="text-xl font-semibold">{{ source.name }}</h1>
+      <div class="flex gap-2">
+        <p-button label="Import Now" icon="pi pi-sync" severity="secondary" (onClick)="importNow()" />
+        <p-button label="Edit" icon="pi pi-pencil" (onClick)="openEdit()" />
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <div><strong>URL:</strong> {{ source.url }}</div>
+      <div><strong>Importer Type:</strong> {{ source.importerType }}</div>
+      <div><strong>Schedule:</strong> {{ source.schedule ?? '—' }}</div>
+      <div><strong>Last Imported:</strong> {{ source.lastImportedAt ?? '—' }}</div>
+    </div>
+
+    @if (stats(); as stats) {
+      <div class="grid grid-cols-4 gap-4">
+        <div class="p-4 border rounded">
+          <div class="text-sm text-muted">Documents</div>
+          <div class="text-xl font-semibold">{{ stats.docCount }}</div>
+        </div>
+        <div class="p-4 border rounded">
+          <div class="text-sm text-muted">Chunks</div>
+          <div class="text-xl font-semibold">{{ stats.chunkCount }}</div>
+        </div>
+        <div class="p-4 border rounded">
+          <div class="text-sm text-muted">Avg Token Count</div>
+          <div class="text-xl font-semibold">{{ stats.avgTokenCount ?? '—' }}</div>
+        </div>
+        <div class="p-4 border rounded">
+          <div class="text-sm text-muted">Latest Job</div>
+          <div class="text-xl font-semibold">{{ stats.latestJobStatus ?? '—' }}</div>
+        </div>
+      </div>
+    }
+
+    <h2 class="text-lg font-semibold">Job History</h2>
+    <p-table [value]="jobHistory()" [loading]="jobsStore.loading()" dataKey="id">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Status</th>
+          <th>Type</th>
+          <th>Created</th>
+          <th>Finished</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-job>
+        <tr>
+          <td><app-job-status-badge [status]="job.status" /></td>
+          <td>{{ job.type }}</td>
+          <td>{{ job.createdAt }}</td>
+          <td>{{ job.finishedAt ?? '—' }}</td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="4">No jobs for this source yet.</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+  <app-source-form-dialog
+    [visible]="dialogVisible()"
+    (visibleChange)="dialogVisible.set($event)"
+    [source]="source"
+    (saved)="onSaved()"
+  />
+}

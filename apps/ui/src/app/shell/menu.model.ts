@@ -1,4 +1,5 @@
 import { type HelixRouteMenuItem, HelixEmpty } from '@gravionlabs/helix';
+import { SourcesList } from '../pages/sources/sources-list';
 
 export const NOESIS_MENU_MODEL: HelixRouteMenuItem[] = [
   {
@@ -39,7 +40,7 @@ export const NOESIS_MENU_MODEL: HelixRouteMenuItem[] = [
         label: 'Sources',
         icon: 'pi pi-fw pi-file',
         path: 'sources',
-        component: HelixEmpty,
+        component: SourcesList,
         breadcrumb: 'Sources',
         routerLink: ['/sources'],
       },
