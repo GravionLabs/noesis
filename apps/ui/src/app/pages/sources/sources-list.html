@@ -1,10 +1,32 @@
-<div class="flex flex-col gap-4 p-4">
-  <div class="flex items-center justify-between">
-    <h1 class="text-lg font-semibold">Sources</h1>
-    <p-button label="Add Source" icon="pi pi-plus" (onClick)="openCreate()" />
-  </div>
+<div class="flex flex-col h-full gap-4 p-4">
+  <p-toolbar>
+    <ng-template #start>
+      <h1 class="text-lg font-semibold mr-4">Sources</h1>
+      <p-iconfield>
+        <p-inputicon class="pi pi-search" />
+        <input
+          type="text"
+          pInputText
+          placeholder="Search sources..."
+          (input)="onSearch($event)"
+        />
+      </p-iconfield>
+    </ng-template>
+    <ng-template #end>
+      <p-button label="Add Source" icon="pi pi-plus" (onClick)="openCreate()" />
+    </ng-template>
+  </p-toolbar>
 
-  <p-table [value]="store.sources()" [loading]="store.loading()" dataKey="id">
+  <p-table
+    #dt
+    [value]="store.sources()"
+    [loading]="store.loading()"
+    [globalFilterFields]="['name', 'url', 'importerType']"
+    [scrollable]="true"
+    scrollHeight="flex"
+    dataKey="id"
+    class="flex-1 min-h-0"
+  >
     <ng-template pTemplate="header">
       <tr>
         <th>Name</th>

@@ -1,11 +1,15 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, viewChild } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfirmationService, MessageService } from 'primeng/api';
-import { TableModule } from 'primeng/table';
+import { Table, TableModule } from 'primeng/table';
 import { Button } from 'primeng/button';
 import { ToggleSwitch } from 'primeng/toggleswitch';
 import { Tooltip } from 'primeng/tooltip';
+import { Toolbar } from 'primeng/toolbar';
+import { IconField } from 'primeng/iconfield';
+import { InputIcon } from 'primeng/inputicon';
+import { InputText } from 'primeng/inputtext';
 import type { Source } from '../../core/models/source.model';
 import { NoesisApiService } from '../../core/services/noesis-api.service';
 import { SourcesStore } from '../../core/stores/sources.store';
@@ -22,9 +26,14 @@ import { SourceFormDialog } from './source-form-dialog';
     Button,
     ToggleSwitch,
     Tooltip,
+    Toolbar,
+    IconField,
+    InputIcon,
+    InputText,
     ImporterTypeBadgeComponent,
     SourceFormDialog,
   ],
+  host: { class: 'block h-full' },
   templateUrl: './sources-list.html',
 })
 export class SourcesList {
@@ -34,11 +43,18 @@ export class SourcesList {
   private readonly messageService = inject(MessageService);
   private readonly confirmationService = inject(ConfirmationService);
 
+  private readonly dt = viewChild.required<Table>('dt');
+
   protected readonly dialogVisible = signal(false);
   protected readonly editingSource = signal<Source | undefined>(undefined);
 
   constructor() {
     this.store.loadSources();
+  }
+
+  protected onSearch(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.dt().filterGlobal(value, 'contains');
   }
 
   protected openCreate(): void {
