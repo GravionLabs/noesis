@@ -1,4 +1,5 @@
-import { type HelixRouteMenuItem, HelixEmpty } from '@gravionlabs/helix';
+import { HelixEmpty, type HelixRouteMenuItem } from '@gravionlabs/helix';
+import { Dashboard } from '../pages/dashboard/dashboard';
 
 export const NOESIS_MENU_MODEL: HelixRouteMenuItem[] = [
   {
@@ -9,7 +10,7 @@ export const NOESIS_MENU_MODEL: HelixRouteMenuItem[] = [
         label: 'Home',
         icon: 'pi pi-fw pi-home',
         path: '',
-        component: HelixEmpty,
+        component: Dashboard,
         breadcrumb: 'Home',
         routerLink: ['/'],
       },

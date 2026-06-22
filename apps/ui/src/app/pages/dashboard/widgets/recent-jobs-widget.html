@@ -1,0 +1,25 @@
+<div class="rounded-border border border-surface bg-surface-card">
+  <div class="p-4 border-b border-surface">
+    <h3 class="font-bold text-lg m-0">Recent Jobs</h3>
+  </div>
+  <div class="p-4">
+    @if (loading()) {
+      <div class="flex justify-center p-4"><i class="pi pi-spin pi-spinner text-2xl"></i></div>
+    } @else if (jobs().length === 0) {
+      <p class="text-muted-color m-0">No recent jobs.</p>
+    } @else {
+      <div class="w-full">
+        @for (job of jobs(); track job.id) {
+          <div class="flex items-center gap-3 py-2 border-b border-surface last:border-b-0">
+            <app-job-status-badge [status]="job.status" />
+            <span class="flex-1 min-w-0 truncate">{{ job.type }}</span>
+            <span class="text-muted-color text-sm">{{ job.durationMs | duration }}</span>
+            <a [routerLink]="['/jobs', job.id]" class="text-primary">
+              <i class="pi pi-chevron-right"></i>
+            </a>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>
