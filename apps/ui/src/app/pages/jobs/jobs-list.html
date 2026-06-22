@@ -1,0 +1,60 @@
+<div
+  class="grid grid-rows-[auto_1fr] gap-4 p-4"
+  style="height: calc(100vh - var(--helix-topbar-height) - var(--helix-status-bar-height) - (var(--helix-layout-gap) * 2))"
+>
+  <p-toolbar>
+    <ng-template #start>
+      <div class="flex items-center gap-4">
+        <b>Jobs</b>
+        <div class="flex gap-2">
+          <p-button label="All" size="small" [outlined]="statusFilter() !== 'all'" (onClick)="setFilter('all')" />
+          <p-button label="Pending" size="small" [outlined]="statusFilter() !== 'pending'" (onClick)="setFilter('pending')" />
+          <p-button label="Running" size="small" [outlined]="statusFilter() !== 'running'" (onClick)="setFilter('running')" />
+          <p-button label="Done" size="small" [outlined]="statusFilter() !== 'done'" (onClick)="setFilter('done')" />
+          <p-button label="Failed" size="small" [outlined]="statusFilter() !== 'failed'" (onClick)="setFilter('failed')" />
+        </div>
+      </div>
+    </ng-template>
+  </p-toolbar>
+
+  <div class="overflow-auto min-h-0 border border-surface rounded-border">
+    <p-table [value]="filteredJobs()" [loading]="store.loading()" dataKey="id">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Status</th>
+          <th>Type</th>
+          <th>Source</th>
+          <th>Created</th>
+          <th>Duration</th>
+          <th></th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-job>
+        <tr>
+          <td><app-job-status-badge [status]="job.status" /></td>
+          <td>{{ job.type }}</td>
+          <td>
+            @if (job.sourceId) {
+              <a [routerLink]="['/sources', job.sourceId]">{{ job.sourceId }}</a>
+            } @else {
+              —
+            }
+          </td>
+          <td>{{ job.createdAt }}</td>
+          <td>{{ job.durationMs | duration }}</td>
+          <td class="flex gap-2 justify-end">
+            @if (job.status === 'failed') {
+              <p-button icon="pi pi-refresh" severity="secondary" text (onClick)="retryJob(job)" pTooltip="Retry" />
+            }
+            <p-button icon="pi pi-eye" severity="secondary" text [routerLink]="['/jobs', job.id]" pTooltip="View" />
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="6">No jobs found.</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>

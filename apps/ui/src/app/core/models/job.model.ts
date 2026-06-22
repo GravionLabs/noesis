@@ -1,4 +1,4 @@
-export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
+export type JobStatus = 'pending' | 'running' | 'done' | 'failed';
 
 export interface Job {
   id: string;

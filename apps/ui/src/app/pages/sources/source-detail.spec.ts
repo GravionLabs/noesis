@@ -26,7 +26,7 @@ const STATS: SourceStats = {
   docCount: 3,
   chunkCount: 42,
   avgTokenCount: 128,
-  latestJobStatus: 'completed',
+  latestJobStatus: 'done',
   latestJobDurationMs: 1000,
 };
 
@@ -35,7 +35,7 @@ const JOBS: Job[] = [
     id: 'j1',
     sourceId: 's1',
     type: 'import',
-    status: 'completed',
+    status: 'done',
     error: null,
     retryCount: 0,
     maxRetries: 3,
@@ -48,7 +48,7 @@ const JOBS: Job[] = [
     id: 'j2',
     sourceId: 's2',
     type: 'import',
-    status: 'completed',
+    status: 'done',
     error: null,
     retryCount: 0,
     maxRetries: 3,
