@@ -1,0 +1,42 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="visibleChange.emit($event)"
+  [modal]="true"
+  [style]="{ width: '32rem' }"
+  [header]="isEdit() ? 'Edit Source' : 'Add Source'"
+>
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <p-fluid class="flex flex-col gap-4">
+      <helix-form-field label="Name" [control]="form.controls.name">
+        <input id="source-name" type="text" pInputText formControlName="name" />
+      </helix-form-field>
+
+      <helix-form-field label="URL" [control]="form.controls.url">
+        <input id="source-url" type="text" pInputText formControlName="url" />
+      </helix-form-field>
+
+      <helix-form-field label="Importer Type" [control]="form.controls.importerType">
+        <p-select
+          id="source-importer-type"
+          formControlName="importerType"
+          [options]="importerTypes"
+          optionLabel="label"
+          optionValue="value"
+        />
+      </helix-form-field>
+
+      <helix-form-field label="Schedule (cron, optional)" [control]="form.controls.schedule">
+        <input id="source-schedule" type="text" pInputText formControlName="schedule" placeholder="0 0 * * *" />
+      </helix-form-field>
+
+      <helix-form-field label="Config (JSON)" [control]="form.controls.config">
+        <textarea id="source-config" pTextarea formControlName="config" rows="8"></textarea>
+      </helix-form-field>
+    </p-fluid>
+  </form>
+
+  <ng-template #footer>
+    <p-button label="Cancel" severity="secondary" (onClick)="close()" />
+    <p-button label="Save" (onClick)="submit()" />
+  </ng-template>
+</p-dialog>

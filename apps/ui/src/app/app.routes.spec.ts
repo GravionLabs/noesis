@@ -1,0 +1,111 @@
+import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
+import { RouterTestingHarness } from '@angular/router/testing';
+import { ActivatedRoute } from '@angular/router';
+import { provideRouter } from '@angular/router';
+import { By } from '@angular/platform-browser';
+import type { Type } from '@angular/core';
+import { HelixEmpty, helixBreadcrumbsFromRoutes } from '@gravionlabs/helix';
+import { MessageService, ConfirmationService } from 'primeng/api';
+import { routes } from './app.routes';
+import { SourcesList } from './pages/sources/sources-list';
+import { SourceDetail } from './pages/sources/source-detail';
+
+describe('routes / breadcrumbs', () => {
+  let httpTesting: HttpTestingController;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      providers: [
+        provideRouter(routes),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        MessageService,
+        ConfirmationService,
+      ],
+    }).compileComponents();
+
+    httpTesting = TestBed.inject(HttpTestingController);
+  });
+
+  function breadcrumbLabelsFor(route: ActivatedRoute): unknown[] {
+    return helixBreadcrumbsFromRoutes(route).map((item) => item.label);
+  }
+
+  function activatedComponent<T>(harness: RouterTestingHarness, type: Type<T>): T {
+    return harness.fixture.debugElement.query(By.directive(type)).componentInstance as T;
+  }
+
+  it('/ activates the Home placeholder with no breadcrumb trail', async () => {
+    const harness = await RouterTestingHarness.create('/');
+    expect(activatedComponent(harness, HelixEmpty)).toBeTruthy();
+    expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual(['Home']);
+  });
+
+  it('/query shows "Knowledge Base > Query"', async () => {
+    const harness = await RouterTestingHarness.create('/query');
+    expect(activatedComponent(harness, HelixEmpty)).toBeTruthy();
+    expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual([
+      'Knowledge Base',
+      'Query',
+    ]);
+  });
+
+  it('/jobs shows "Knowledge Base > Jobs"', async () => {
+    const harness = await RouterTestingHarness.create('/jobs');
+    expect(activatedComponent(harness, HelixEmpty)).toBeTruthy();
+    expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual([
+      'Knowledge Base',
+      'Jobs',
+    ]);
+  });
+
+  it('/settings shows no breadcrumb trail (single segment)', async () => {
+    const harness = await RouterTestingHarness.create('/settings');
+    expect(activatedComponent(harness, HelixEmpty)).toBeTruthy();
+    expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual(['Settings']);
+  });
+
+  it('/sources activates SourcesList with "Knowledge Base > Sources"', async () => {
+    const harness = await RouterTestingHarness.create('/sources');
+    httpTesting.expectOne('/api/sources').flush([]);
+    expect(activatedComponent(harness, SourcesList)).toBeTruthy();
+    expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual([
+      'Knowledge Base',
+      'Sources',
+    ]);
+  });
+
+  it('/sources/:id activates SourceDetail with "Knowledge Base > Sources > Details"', async () => {
+    const harness = await RouterTestingHarness.create('/sources/s1');
+    httpTesting.expectOne('/api/sources/s1').flush({
+      id: 's1',
+      name: 'Test',
+      url: 'https://example.com',
+      importerType: 'llmstxt',
+      enabled: true,
+      config: null,
+      schedule: null,
+      lastImportedAt: null,
+    });
+    httpTesting.expectOne('/api/sources/s1/stats').flush({
+      docCount: 0,
+      chunkCount: 0,
+      avgTokenCount: null,
+      latestJobStatus: null,
+      latestJobDurationMs: null,
+    });
+    httpTesting.expectOne('/api/jobs').flush([]);
+
+    expect(activatedComponent(harness, SourceDetail)).toBeTruthy();
+    expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual([
+      'Knowledge Base',
+      'Sources',
+      'Details',
+    ]);
+  });
+});

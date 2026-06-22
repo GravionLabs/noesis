@@ -16,6 +16,13 @@ export const NOESIS_MENU_MODEL: HelixRouteMenuItem[] = [
     ],
   },
   {
+    // Routed separately in app.routes.ts as a componentless 'Knowledge Base'
+    // parent route, so Query/Jobs/Sources all get a real
+    // "Knowledge Base > ..." breadcrumb trail matching this nav grouping.
+    // `path` (no `component`) is kept here even though helixRoutesFrom
+    // won't generate a route from it — HelixNavRailItem.isActive requires
+    // item().path to compute the active highlight, and a path with no
+    // component is safely skipped (not recursed into a duplicate route).
     label: 'Knowledge Base',
     icon: 'pi pi-fw pi-database',
     items: [
@@ -23,24 +30,18 @@ export const NOESIS_MENU_MODEL: HelixRouteMenuItem[] = [
         label: 'Query',
         icon: 'pi pi-fw pi-search',
         path: 'query',
-        component: HelixEmpty,
-        breadcrumb: 'Query',
         routerLink: ['/query'],
       },
       {
         label: 'Jobs',
         icon: 'pi pi-fw pi-sync',
         path: 'jobs',
-        component: HelixEmpty,
-        breadcrumb: 'Jobs',
         routerLink: ['/jobs'],
       },
       {
         label: 'Sources',
         icon: 'pi pi-fw pi-file',
         path: 'sources',
-        component: HelixEmpty,
-        breadcrumb: 'Sources',
         routerLink: ['/sources'],
       },
     ],
