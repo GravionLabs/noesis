@@ -8,6 +8,13 @@
       "when": 1780839581365,
       "tag": "0000_boring_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782202855448,
+      "tag": "0001_colorful_black_bolt",
+      "breakpoints": true
     }
   ]
 }

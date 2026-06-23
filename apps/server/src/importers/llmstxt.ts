@@ -3,6 +3,7 @@ import type { CrawlChunkData } from "../services/chunk-service.js";
 import { ChunkService } from "../services/chunk-service.js";
 import type { Importer, ImportResult } from "./registry.js";
 import type { Source } from "../models/source.js";
+import { fetchOrThrow } from "../utils/fetch.js";
 
 export class LlmsTxtImporter implements Importer {
   readonly type = "llmstxt";
@@ -13,8 +14,7 @@ export class LlmsTxtImporter implements Importer {
   }
 
   async import(source: Source): Promise<ImportResult> {
-    const res = await fetch(source.url);
-    if (!res.ok) throw new Error(`Failed to fetch ${source.url}: ${res.status}`);
+    const res = await fetchOrThrow(source.url);
 
     const text = await res.text();
     const rawChunks = chunkMarkdown(text);

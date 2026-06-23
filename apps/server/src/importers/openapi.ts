@@ -2,6 +2,7 @@ import type { CrawlChunkData } from "../services/chunk-service.js";
 import { ChunkService } from "../services/chunk-service.js";
 import type { Importer, ImportResult } from "./registry.js";
 import type { Source } from "../models/source.js";
+import { fetchOrThrow } from "../utils/fetch.js";
 
 interface OpenApiSpec {
   info?: { title?: string; description?: string };
@@ -24,8 +25,7 @@ export class OpenApiImporter implements Importer {
   }
 
   async import(source: Source): Promise<ImportResult> {
-    const res = await fetch(source.url);
-    if (!res.ok) throw new Error(`Failed to fetch spec: ${res.status}`);
+    const res = await fetchOrThrow(source.url);
 
     const spec: OpenApiSpec = await res.json();
     const apiTitle = spec.info?.title ?? source.name;

@@ -3,6 +3,7 @@ import { parseLlmsTxt, extractUrls } from "../crawler/llmstxt-parser.js";
 import { ChunkService } from "../services/chunk-service.js";
 import type { Importer, ImportResult } from "./registry.js";
 import type { Source } from "../models/source.js";
+import { fetchOrThrow } from "../utils/fetch.js";
 
 const CONCURRENCY = 3;
 
@@ -15,8 +16,7 @@ export class LlmsTxtCrawlImporter implements Importer {
   }
 
   async import(source: Source): Promise<ImportResult> {
-    const res = await fetch(source.url);
-    if (!res.ok) throw new Error(`Failed to fetch ${source.url}: ${res.status}`);
+    const res = await fetchOrThrow(source.url);
 
     const content = await res.text();
     const metadata = parseLlmsTxt(content);

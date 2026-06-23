@@ -1,6 +1,7 @@
 import type { Importer, ImportResult } from "./registry.js";
 import type { Source } from "../models/source.js";
 import { SourceService } from "../services/source-service.js";
+import { fetchOrThrow } from "../utils/fetch.js";
 
 interface LlmsTxtMeta {
   title?: string;
@@ -58,8 +59,7 @@ export class LlmsMetaTxtImporter implements Importer {
   }
 
   async import(source: Source): Promise<ImportResult> {
-    const res = await fetch(source.url);
-    if (!res.ok) throw new Error(`Failed to fetch ${source.url}: ${res.status}`);
+    const res = await fetchOrThrow(source.url);
 
     const text = await res.text();
     const meta = parseMetaTxt(text);
