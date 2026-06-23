@@ -16,9 +16,10 @@
     "db:migrate": "tsx src/db/migrations.ts",
     "db:up": "docker compose -f ../../infra/docker-compose.yml up -d postgres && docker compose -f ../../infra/docker-compose.yml wait postgres && pnpm db:migrate",
     "db:down": "docker compose -f ../../infra/docker-compose.yml down",
-    "test:db:up": "docker compose -f ../../infra/docker-compose.yml up -d postgres-test && docker compose -f ../../infra/docker-compose.yml wait postgres-test",
-    "test:db:down": "docker compose -f ../../infra/docker-compose.yml stop postgres-test",
-    "typecheck": "tsc --noEmit"
+    "test:db:up": "docker compose -f ../../infra/docker-compose.yml --profile test up -d postgres-test && docker compose -f ../../infra/docker-compose.yml --profile test wait postgres-test",
+    "test:db:down": "docker compose -f ../../infra/docker-compose.yml --profile test stop postgres-test",
+    "typecheck": "tsc --noEmit",
+    "mcp:inspect": "npx @modelcontextprotocol/inspector --transport http --server-url http://localhost:5000/mcp"
   },
   "dependencies": {
     "@elastic/ecs-pino-format": "^1.5.0",

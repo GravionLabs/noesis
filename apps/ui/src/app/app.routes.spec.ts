@@ -12,6 +12,7 @@ import type { Type } from '@angular/core';
 import { HelixEmpty, helixBreadcrumbsFromRoutes } from '@gravionlabs/helix';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { routes } from './app.routes';
+import { Dashboard } from './pages/dashboard/dashboard';
 import { SourcesList } from './pages/sources/sources-list';
 import { SourceDetail } from './pages/sources/source-detail';
 import { JobsList } from './pages/jobs/jobs-list';
@@ -45,7 +46,7 @@ describe('routes / breadcrumbs', () => {
 
   it('/ activates the Home placeholder with no breadcrumb trail', async () => {
     const harness = await RouterTestingHarness.create('/');
-    expect(activatedComponent(harness, HelixEmpty)).toBeTruthy();
+    expect(activatedComponent(harness, Dashboard)).toBeTruthy();
     expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual(['Home']);
   });
 

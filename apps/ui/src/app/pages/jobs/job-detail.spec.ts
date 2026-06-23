@@ -53,6 +53,7 @@ describe('JobDetail', () => {
     const fixture = TestBed.createComponent(JobDetail);
     fixture.detectChanges();
     httpTesting.expectOne('/api/jobs/j1').flush(FAILED_JOB);
+    httpTesting.expectOne('/api/sources').flush([]);
     fixture.detectChanges();
     return fixture;
   }
@@ -60,6 +61,11 @@ describe('JobDetail', () => {
   it('loads the job', () => {
     const fixture = createComponent();
     expect(fixture.componentInstance['job']()).toEqual(FAILED_JOB);
+  });
+
+  it('resolves the source name, falling back to the id when unknown', () => {
+    const fixture = createComponent();
+    expect(fixture.componentInstance['sourceName']('s1')).toBe('s1');
   });
 
   it('retryJob retries and navigates to /jobs on success', () => {

@@ -64,6 +64,7 @@ describe('JobsList', () => {
     const fixture = TestBed.createComponent(JobsList);
     fixture.detectChanges();
     httpTesting.expectOne('/api/jobs').flush(jobs);
+    httpTesting.expectOne('/api/sources').flush([]);
     fixture.detectChanges();
     return fixture;
   }
@@ -71,6 +72,22 @@ describe('JobsList', () => {
   it('loads jobs on init', () => {
     const fixture = createComponent([PENDING_JOB, FAILED_JOB]);
     expect(fixture.componentInstance['store'].jobs()).toEqual([PENDING_JOB, FAILED_JOB]);
+  });
+
+  it('resolves source names for jobs, falling back to the id when unknown', () => {
+    const fixture = TestBed.createComponent(JobsList);
+    fixture.detectChanges();
+    httpTesting.expectOne('/api/jobs').flush([PENDING_JOB, FAILED_JOB]);
+    httpTesting
+      .expectOne('/api/sources')
+      .flush([
+        { id: 's1', name: 'Docs', url: 'https://example.com', importerType: 'llmstxt', enabled: true, config: null, schedule: null, lastImportedAt: null },
+      ]);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    expect(component['sourceName']('s1')).toBe('Docs');
+    expect(component['sourceName']('s2')).toBe('s2');
   });
 
   it('filters jobs by status', () => {

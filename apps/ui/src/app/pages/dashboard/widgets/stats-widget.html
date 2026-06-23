@@ -1,0 +1,30 @@
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="rounded-border border border-surface bg-surface-card p-4">
+    <div class="flex items-center gap-2 text-muted-color text-sm mb-1">
+      <i class="pi pi-globe"></i>
+      <span>Total Sources</span>
+    </div>
+    <div class="text-3xl font-bold">{{ loading() ? '\u2026' : (stats()?.totalSources ?? '\u2014') }}</div>
+  </div>
+  <div class="rounded-border border border-surface bg-surface-card p-4">
+    <div class="flex items-center gap-2 text-muted-color text-sm mb-1">
+      <i class="pi pi-file"></i>
+      <span>Total Docs</span>
+    </div>
+    <div class="text-3xl font-bold">{{ loading() ? '\u2026' : (stats()?.totalDocs ?? '\u2014') }}</div>
+  </div>
+  <div class="rounded-border border border-surface bg-surface-card p-4">
+    <div class="flex items-center gap-2 text-muted-color text-sm mb-1">
+      <i class="pi pi-cubes"></i>
+      <span>Total Chunks</span>
+    </div>
+    <div class="text-3xl font-bold">{{ loading() ? '\u2026' : (stats()?.totalChunks ?? '\u2014') }}</div>
+  </div>
+  <div class="rounded-border border border-surface bg-surface-card p-4">
+    <div class="flex items-center gap-2 text-muted-color text-sm mb-1">
+      <i class="pi pi-sync"></i>
+      <span>Pending Jobs</span>
+    </div>
+    <div class="text-3xl font-bold">{{ loading() ? '\u2026' : (health()?.pendingJobs ?? '\u2014') }}</div>
+  </div>
+</div>

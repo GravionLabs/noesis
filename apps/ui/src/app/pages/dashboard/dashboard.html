@@ -1,0 +1,18 @@
+<div
+  class="grid grid-rows-[auto_1fr] gap-4 p-4"
+  style="height: calc(100vh - var(--helix-topbar-height) - var(--helix-status-bar-height) - (var(--helix-layout-gap) * 2))"
+>
+  <p-toolbar>
+    <ng-template #start>
+      <b>Dashboard</b>
+    </ng-template>
+  </p-toolbar>
+
+  <div class="overflow-auto min-h-0 space-y-4 pr-2">
+    <app-stats-widget />
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <app-recent-jobs-widget />
+      <app-sources-chart-widget />
+    </div>
+  </div>
+</div>

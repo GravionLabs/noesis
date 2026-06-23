@@ -6,13 +6,15 @@ import { Card } from 'primeng/card';
 import { Message } from 'primeng/message';
 import type { Job } from '../../core/models/job.model';
 import { NoesisApiService } from '../../core/services/noesis-api.service';
+import { SourcesStore } from '../../core/stores/sources.store';
 import { DurationPipe } from '../../shared/pipes/duration.pipe';
+import { DateTimePipe } from '../../shared/pipes/datetime.pipe';
 import { JobStatusBadgeComponent } from '../../shared/components/job-status-badge/job-status-badge';
 
 @Component({
   selector: 'app-job-detail',
   standalone: true,
-  imports: [RouterLink, Button, Card, Message, DurationPipe, JobStatusBadgeComponent],
+  imports: [RouterLink, Button, Card, Message, DurationPipe, DateTimePipe, JobStatusBadgeComponent],
   templateUrl: './job-detail.html',
 })
 export class JobDetail implements OnInit {
@@ -20,12 +22,18 @@ export class JobDetail implements OnInit {
   private readonly router = inject(Router);
   private readonly api = inject(NoesisApiService);
   private readonly messageService = inject(MessageService);
+  protected readonly sourcesStore = inject(SourcesStore);
 
   protected readonly job = signal<Job | undefined>(undefined);
 
   protected readonly jobId = this.route.snapshot.paramMap.get('id') ?? '';
 
+  protected sourceName(sourceId: string): string {
+    return this.sourcesStore.sourceById()(sourceId)?.name ?? sourceId;
+  }
+
   ngOnInit(): void {
+    this.sourcesStore.loadSources();
     this.load();
   }
 

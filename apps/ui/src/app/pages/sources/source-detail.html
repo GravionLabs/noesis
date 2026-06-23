@@ -12,7 +12,7 @@
       <div><strong>URL:</strong> {{ source.url }}</div>
       <div><strong>Importer Type:</strong> {{ source.importerType }}</div>
       <div><strong>Schedule:</strong> {{ source.schedule ?? '—' }}</div>
-      <div><strong>Last Imported:</strong> {{ source.lastImportedAt ?? '—' }}</div>
+      <div><strong>Last Imported:</strong> {{ source.lastImportedAt | datetime }}</div>
     </div>
 
     @if (stats(); as stats) {
@@ -50,8 +50,8 @@
         <tr>
           <td><app-job-status-badge [status]="job.status" /></td>
           <td>{{ job.type }}</td>
-          <td>{{ job.createdAt }}</td>
-          <td>{{ job.finishedAt ?? '—' }}</td>
+          <td>{{ job.createdAt | datetime }}</td>
+          <td>{{ job.finishedAt | datetime }}</td>
         </tr>
       </ng-template>
       <ng-template pTemplate="emptymessage">
