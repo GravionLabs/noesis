@@ -7,6 +7,7 @@ import fastifyStatic from "@fastify/static";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { buildContainer } from "./container.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerSourceRoutes } from "./routes/sources.js";
@@ -94,16 +95,45 @@ async function main() {
   }
 
   // ---- MCP Server (Streamable HTTP) ----
-  const mcpServer = mcpHandler.createServer();
-  const mcpTransport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: crypto.randomUUID.bind(crypto),
-  });
+  // Each client session gets its own McpServer + transport pair, keyed by the
+  // `mcp-session-id` header the SDK assigns on `initialize`. A single shared
+  // transport can only ever complete one `initialize` handshake for the life
+  // of the process — every later client (e.g. reconnecting in MCP Inspector)
+  // would get rejected with "Server already initialized".
+  const mcpTransports = new Map<string, StreamableHTTPServerTransport>();
 
   app.all("/mcp", { preHandler: requireApiKey }, async (req, reply) => {
     const rawReq = req.raw;
     const rawRes = reply.raw;
+    const sessionId = req.headers["mcp-session-id"] as string | undefined;
+
     try {
-      await mcpTransport.handleRequest(rawReq, rawRes, req.body);
+      let transport = sessionId ? mcpTransports.get(sessionId) : undefined;
+
+      if (!transport) {
+        if (sessionId || !isInitializeRequest(req.body)) {
+          reply.code(400).send({
+            jsonrpc: "2.0",
+            error: { code: -32000, message: "Bad Request: No valid session ID provided" },
+            id: null,
+          });
+          return;
+        }
+
+        transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: crypto.randomUUID.bind(crypto),
+          onsessioninitialized: (newSessionId) => {
+            mcpTransports.set(newSessionId, transport!);
+          },
+        });
+        transport.onclose = () => {
+          if (transport!.sessionId) mcpTransports.delete(transport!.sessionId);
+        };
+
+        await mcpHandler.createServer().connect(transport);
+      }
+
+      await transport.handleRequest(rawReq, rawRes, req.body);
     } catch (err) {
       app.log.error({ err }, "MCP transport error");
       if (!rawRes.headersSent) {
@@ -112,7 +142,6 @@ async function main() {
     }
   });
 
-  await mcpServer.connect(mcpTransport);
   logger.info("MCP server ready at /mcp");
 
   // ---- Scheduler ----
@@ -125,7 +154,7 @@ async function main() {
   // ---- Graceful shutdown ----
   const shutdown = async () => {
     logger.info("Shutdown signal received, shutting down gracefully");
-    await mcpServer.close();
+    await Promise.all([...mcpTransports.values()].map((transport) => transport.close()));
     await database.end();
     process.exit(0);
   };

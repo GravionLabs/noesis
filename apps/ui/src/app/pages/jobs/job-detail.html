@@ -15,16 +15,16 @@
         <div>
           <strong>Source:</strong>
           @if (job.sourceId) {
-            <a [routerLink]="['/sources', job.sourceId]">{{ job.sourceId }}</a>
+            <a [routerLink]="['/sources', job.sourceId]">{{ sourceName(job.sourceId) }}</a>
           } @else {
             —
           }
         </div>
         <div><strong>Type:</strong> {{ job.type }}</div>
         <div><strong>Status:</strong> {{ job.status }}</div>
-        <div><strong>Created:</strong> {{ job.createdAt }}</div>
-        <div><strong>Started:</strong> {{ job.startedAt ?? '—' }}</div>
-        <div><strong>Finished:</strong> {{ job.finishedAt ?? '—' }}</div>
+        <div><strong>Created:</strong> {{ job.createdAt | datetime }}</div>
+        <div><strong>Started:</strong> {{ job.startedAt | datetime }}</div>
+        <div><strong>Finished:</strong> {{ job.finishedAt | datetime }}</div>
         <div><strong>Duration:</strong> {{ job.durationMs | duration }}</div>
       </div>
     </p-card>

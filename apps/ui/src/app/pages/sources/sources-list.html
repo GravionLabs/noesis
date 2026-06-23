@@ -47,7 +47,7 @@
               (onChange)="toggleEnabled(source, $event.checked)"
             />
           </td>
-          <td>{{ source.lastImportedAt ?? '—' }}</td>
+          <td>{{ source.lastImportedAt | datetime }}</td>
           <td class="flex gap-2 justify-end">
             <p-button icon="pi pi-sync" severity="secondary" text (onClick)="importNow(source)" pTooltip="Import Now" />
             <p-button icon="pi pi-pencil" severity="secondary" text (onClick)="openEdit(source)" pTooltip="Edit" />

@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import TurndownService from "turndown";
-import { chromium } from "playwright";
+import { chromium, type Browser } from "playwright";
 import { chunkMarkdown } from "../importers/chunk-utils.js";
 
 const td = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
@@ -149,11 +149,11 @@ async function crawlDocs(startUrl: string, config: CrawlConfig = {}): Promise<Cr
 }
 
 async function crawlPage(
-  browser: Awaited<ReturnType<typeof chromium.launch>>,
+  browser: Browser,
   url: string,
   options: NormalizedCrawlConfig,
 ): Promise<CrawlPageResult> {
-  const page = await browser.newPage();
+  const page = await browser.newPage({ userAgent: await getUserAgent(browser) });
 
   try {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: options.pageTimeoutMs });
@@ -182,6 +182,29 @@ async function crawlPage(
   } finally {
     await page.close();
   }
+}
+
+// Some sites (e.g. ag-grid.com's CloudFront WAF) block requests whose
+// User-Agent contains "HeadlessChrome", returning a near-empty 403 page.
+// Strip that marker so pages render normally, while keeping the real
+// Chromium version so the UA stays internally consistent.
+const userAgentCache = new WeakMap<Browser, Promise<string>>();
+
+async function getUserAgent(browser: Browser): Promise<string> {
+  let cached = userAgentCache.get(browser);
+  if (!cached) {
+    cached = (async () => {
+      const probe = await browser.newPage();
+      try {
+        const ua = await probe.evaluate(() => navigator.userAgent);
+        return ua.replace("HeadlessChrome", "Chrome");
+      } finally {
+        await probe.close();
+      }
+    })();
+    userAgentCache.set(browser, cached);
+  }
+  return cached;
 }
 
 function extractChunks(html: string, url: string): CrawlChunk[] {

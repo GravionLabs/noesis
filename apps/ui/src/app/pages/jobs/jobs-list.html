@@ -35,12 +35,12 @@
           <td>{{ job.type }}</td>
           <td>
             @if (job.sourceId) {
-              <a [routerLink]="['/sources', job.sourceId]">{{ job.sourceId }}</a>
+              <a [routerLink]="['/sources', job.sourceId]">{{ sourceName(job.sourceId) }}</a>
             } @else {
               —
             }
           </td>
-          <td>{{ job.createdAt }}</td>
+          <td>{{ job.createdAt | datetime }}</td>
           <td>{{ job.durationMs | duration }}</td>
           <td class="flex gap-2 justify-end">
             @if (job.status === 'failed') {

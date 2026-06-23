@@ -69,4 +69,45 @@ describe("chunkMarkdown", () => {
   it("returns empty array for empty input", () => {
     expect(chunkMarkdown("")).toEqual([]);
   });
+
+  it("strips standalone HTML tag lines but keeps their text content", () => {
+    const text = [
+      "# Title",
+      "",
+      '<div style="margin: 2em">',
+      block("Maintained by a dedicated team at Google, this paragraph is long enough to count.", 1),
+      "</div>",
+      "",
+      '<docs-nav-card title="Want to see some code?" iconImgSrc="adev/src/assets/icons/star.svg">',
+      '  <docs-nav-link title="Essentials" iconName="docs" href="essentials" iconImgSrc="adev/src/assets/icons/docs.svg">',
+      "    An overview of what it's like to use Angular and why it might be a good fit for your project.",
+      "  </docs-nav-link>",
+      "</docs-nav-card>",
+    ].join("\n");
+
+    const chunks = chunkMarkdown(text);
+    expect(chunks.length).toBe(1);
+    expect(chunks[0].content).not.toContain("<div");
+    expect(chunks[0].content).not.toContain("<docs-nav-card");
+    expect(chunks[0].content).not.toContain("<docs-nav-link");
+    expect(chunks[0].content).toContain("Maintained by a dedicated team at Google");
+    expect(chunks[0].content).toContain("An overview of what it's like to use Angular");
+  });
+
+  it("does not strip tag-like syntax inside fenced code blocks", () => {
+    const text = [
+      "# Title",
+      "",
+      "```ts",
+      "const list: Array<string> = [];",
+      "<NotARealTag>",
+      "```",
+      "",
+      block("Some prose long enough to exceed the fifty character minimum threshold.", 2),
+    ].join("\n");
+
+    const chunks = chunkMarkdown(text);
+    expect(chunks[0].content).toContain("Array<string>");
+    expect(chunks[0].content).toContain("<NotARealTag>");
+  });
 });

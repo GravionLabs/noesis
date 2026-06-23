@@ -14,6 +14,7 @@ import type { Source } from '../../core/models/source.model';
 import { NoesisApiService } from '../../core/services/noesis-api.service';
 import { SourcesStore } from '../../core/stores/sources.store';
 import { ImporterTypeBadgeComponent } from '../../shared/components/importer-type-badge/importer-type-badge';
+import { DateTimePipe } from '../../shared/pipes/datetime.pipe';
 import { SourceFormDialog } from './source-form-dialog';
 
 @Component({
@@ -31,6 +32,7 @@ import { SourceFormDialog } from './source-form-dialog';
     InputIcon,
     InputText,
     ImporterTypeBadgeComponent,
+    DateTimePipe,
     SourceFormDialog,
   ],
   host: { class: 'block' },
