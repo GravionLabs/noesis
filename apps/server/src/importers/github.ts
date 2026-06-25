@@ -35,7 +35,7 @@ export class GithubImporter implements Importer {
     const docUrl = `https://github.com/${source.url.match(/github\.com\/([^/]+\/[^/]+)/)![1]}`;
     const docTitle = source.name;
 
-    const rawChunks = chunkMarkdown(readme);
+    const { chunks: rawChunks, droppedCount } = chunkMarkdown(readme);
     const chunks: CrawlChunkData[] = rawChunks.map((c) => ({
       docUrl,
       docTitle,
@@ -43,6 +43,10 @@ export class GithubImporter implements Importer {
       ...c,
     }));
 
-    return this.chunkService.saveChunks(chunks, source.id);
+    const saved = await this.chunkService.saveChunks(chunks, source.id);
+    return {
+      ...saved,
+      ...(droppedCount > 0 ? { chunksDropped: [{ reason: "link_list", count: droppedCount }] } : {}),
+    };
   }
 }

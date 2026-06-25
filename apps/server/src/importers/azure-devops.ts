@@ -28,10 +28,12 @@ export class AzureDevopsImporter implements Importer {
 
     let totalDocs = 0;
     let totalChunks = 0;
+    let totalDropped = 0;
 
     const readme = await this.provider.getReadme(source.url);
     if (readme) {
-      const rawChunks = chunkMarkdown(readme.content);
+      const { chunks: rawChunks, droppedCount } = chunkMarkdown(readme.content);
+      totalDropped += droppedCount;
       if (rawChunks.length > 0) {
         const title = this.extractRepoName(source.url) + " README";
         const chunks: CrawlChunkData[] = rawChunks.map((c) => ({
@@ -54,7 +56,8 @@ export class AzureDevopsImporter implements Importer {
     for (const file of docFiles) {
       try {
         const content = await this.provider.getFile(source.url, file.path);
-        const rawChunks = chunkMarkdown(content.content);
+        const { chunks: rawChunks, droppedCount } = chunkMarkdown(content.content);
+        totalDropped += droppedCount;
         if (rawChunks.length === 0) continue;
 
         const title = this.extractRepoName(source.url) + file.path.replace(/^.*\/docs\//, "/");
@@ -76,7 +79,11 @@ export class AzureDevopsImporter implements Importer {
       }
     }
 
-    return { docCount: totalDocs, chunkCount: totalChunks };
+    return {
+      docCount: totalDocs,
+      chunkCount: totalChunks,
+      ...(totalDropped > 0 ? { chunksDropped: [{ reason: "link_list", count: totalDropped }] } : {}),
+    };
   }
 
   private extractRepoName(url: string): string {

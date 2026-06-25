@@ -35,7 +35,7 @@ export class NpmReadmeImporter implements Importer {
     const docUrl = source.url;
     const docTitle = `${info.name}${info.description ? `: ${info.description}` : ""}`;
 
-    const rawChunks = chunkMarkdown(readme);
+    const { chunks: rawChunks, droppedCount } = chunkMarkdown(readme);
     const chunks: CrawlChunkData[] = rawChunks.map((c) => ({
       docUrl,
       docTitle,
@@ -43,6 +43,10 @@ export class NpmReadmeImporter implements Importer {
       ...c,
     }));
 
-    return this.chunkService.saveChunks(chunks, source.id);
+    const saved = await this.chunkService.saveChunks(chunks, source.id);
+    return {
+      ...saved,
+      ...(droppedCount > 0 ? { chunksDropped: [{ reason: "link_list", count: droppedCount }] } : {}),
+    };
   }
 }

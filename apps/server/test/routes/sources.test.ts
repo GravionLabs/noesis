@@ -9,6 +9,7 @@ const mockDeleteSource = vi.fn();
 const mockTriggerImport = vi.fn();
 const mockScheduleNextRun = vi.fn();
 const mockIsValidCron = vi.fn().mockReturnValue(true);
+const mockPurgeNoisyChunks = vi.fn();
 
 import { registerSourceRoutes } from "../../src/routes/sources.js";
 
@@ -42,6 +43,9 @@ describe("Source routes", () => {
       scheduler: {
         isValidCron: mockIsValidCron,
         scheduleNextRun: mockScheduleNextRun,
+      } as any,
+      chunkService: {
+        purgeNoisyChunks: mockPurgeNoisyChunks,
       } as any,
     });
     return app;
@@ -234,6 +238,50 @@ describe("Source routes", () => {
 
       const app = await buildApp();
       const res = await app.inject({ method: "POST", url: "/api/sources/00000000-0000-0000-0000-000000000099/import" });
+
+      expect(res.statusCode).toBe(404);
+    });
+  });
+
+  describe("POST /api/sources/:id/backfill", () => {
+    it("returns 200 with purged count when source exists", async () => {
+      mockGetSource.mockResolvedValue(sourceFixture);
+      mockPurgeNoisyChunks.mockResolvedValue({ purged: 5 });
+
+      const app = await buildApp();
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/sources/00000000-0000-0000-0000-000000000001/backfill",
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.purged).toBe(5);
+      expect(mockPurgeNoisyChunks).toHaveBeenCalledWith("00000000-0000-0000-0000-000000000001");
+    });
+
+    it("returns 0 purged when source is already clean (idempotent)", async () => {
+      mockGetSource.mockResolvedValue(sourceFixture);
+      mockPurgeNoisyChunks.mockResolvedValue({ purged: 0 });
+
+      const app = await buildApp();
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/sources/00000000-0000-0000-0000-000000000001/backfill",
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(JSON.parse(res.body).purged).toBe(0);
+    });
+
+    it("returns 404 when source does not exist", async () => {
+      mockGetSource.mockResolvedValue(null);
+
+      const app = await buildApp();
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/sources/00000000-0000-0000-0000-000000000099/backfill",
+      });
 
       expect(res.statusCode).toBe(404);
     });

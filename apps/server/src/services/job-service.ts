@@ -62,10 +62,10 @@ export class JobService {
     return rows[0] ?? null;
   }
 
-  async completeJob(id: string, durationMs: number) {
+  async completeJob(id: string, durationMs: number, result?: string) {
     await this.database.db
       .update(jobs)
-      .set({ status: "done", finishedAt: new Date(), durationMs })
+      .set({ status: "done", finishedAt: new Date(), durationMs, ...(result !== undefined ? { result } : {}) })
       .where(eq(jobs.id, id));
   }
 

@@ -83,6 +83,10 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS max_retries integer NOT NULL DEFAULT 3
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS duration_ms integer;
 `;
 
+const ADD_JOB_RESULT_COLUMN = `
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS result text;
+`;
+
 const DROP_IMPORT_JOB_STATES = `DROP TABLE IF EXISTS import_job_states CASCADE`;
 
 export async function runMigrations(pool: pg.Pool): Promise<void> {
@@ -111,6 +115,9 @@ export async function runMigrations(pool: pg.Pool): Promise<void> {
 
   await pool.query(ADD_JOB_RETRY_COLUMNS);
   console.log("  ✓ jobs (retry columns added)");
+
+  await pool.query(ADD_JOB_RESULT_COLUMN);
+  console.log("  ✓ jobs (result column added)");
 
   console.log("\nAll migrations complete.");
 }

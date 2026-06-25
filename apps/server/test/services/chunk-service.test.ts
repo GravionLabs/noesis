@@ -192,4 +192,84 @@ describe("ChunkService", () => {
       expect(mockRelease).toHaveBeenCalled();
     });
   });
+
+  describe("purgeNoisyChunks", () => {
+    it("deletes chunks classified as link-list noise and returns purged count", async () => {
+      const noisyContent = [
+        "- [Zoneless change detection](/guide/zoneless)",
+        "- [Linked Signal API](/guide/signals/linked-signal)",
+        "- [Incremental hydration](/guide/incremental-hydration)",
+        "- [Resource API](/guide/resource)",
+        "- [Component testing](/guide/testing/components)",
+      ].join("\n");
+
+      const cleanContent =
+        "Angular is a platform and framework for building single-page client applications. " +
+        "It implements core and optional functionality as a set of TypeScript libraries.";
+
+      mockQuery.mockImplementation((sql: string) => {
+        if (sql.includes("SELECT id, content FROM chunks")) {
+          return Promise.resolve({
+            rows: [
+              { id: "noisy-1", content: noisyContent },
+              { id: "clean-1", content: cleanContent },
+              { id: "noisy-2", content: noisyContent },
+            ],
+          });
+        }
+        if (sql.includes("DELETE FROM chunks")) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const result = await service.purgeNoisyChunks("source-1");
+
+      expect(result).toEqual({ purged: 2 });
+
+      const deleteSql = mockQuery.mock.calls.find(([sql]) => sql.includes("DELETE FROM chunks"));
+      expect(deleteSql).toBeDefined();
+      expect(deleteSql![1]).toEqual([["noisy-1", "noisy-2"]]);
+    });
+
+    it("returns { purged: 0 } for a clean source (idempotent)", async () => {
+      const cleanContent =
+        "Angular is a platform and framework for building single-page client applications. " +
+        "It implements core and optional functionality as a set of TypeScript libraries.";
+
+      mockQuery.mockResolvedValue({
+        rows: [{ id: "clean-1", content: cleanContent }],
+      });
+
+      const result = await service.purgeNoisyChunks("source-1");
+
+      expect(result).toEqual({ purged: 0 });
+      // No DELETE query issued
+      const deleteSql = mockQuery.mock.calls.find(([sql]) => sql.includes("DELETE FROM chunks"));
+      expect(deleteSql).toBeUndefined();
+    });
+
+    it("scans all sources when no sourceId is provided", async () => {
+      mockQuery.mockResolvedValue({ rows: [] });
+
+      await service.purgeNoisyChunks();
+
+      const selectCall = mockQuery.mock.calls.find(([sql]) =>
+        sql.includes("SELECT id, content FROM chunks"),
+      );
+      expect(selectCall![0]).not.toContain("WHERE");
+    });
+
+    it("filters by sourceId when provided", async () => {
+      mockQuery.mockResolvedValue({ rows: [] });
+
+      await service.purgeNoisyChunks("source-42");
+
+      const selectCall = mockQuery.mock.calls.find(([sql]) =>
+        sql.includes("SELECT id, content FROM chunks"),
+      );
+      expect(selectCall![0]).toContain("WHERE source_id");
+      expect(selectCall![1]).toEqual(["source-42"]);
+    });
+  });
 });

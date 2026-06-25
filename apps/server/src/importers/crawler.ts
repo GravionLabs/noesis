@@ -19,6 +19,11 @@ export class CrawlerImporter implements Importer {
     if (result.chunks.length === 0) return { docCount: 0, chunkCount: 0 };
 
     const saved = await this.chunkService.saveChunks(result.chunks, source.id);
-    return saved;
+    return {
+      ...saved,
+      ...(result.droppedCount > 0
+        ? { chunksDropped: [{ reason: "link_list_and_dedup", count: result.droppedCount }] }
+        : {}),
+    };
   }
 }
