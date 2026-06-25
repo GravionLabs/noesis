@@ -3,7 +3,7 @@ import { Dashboard } from '../pages/dashboard/dashboard';
 
 export const NOESIS_MENU_MODEL: HelixRouteMenuItem[] = [
   {
-    label: 'Dashboard',
+    label: 'Home',
     icon: 'pi pi-fw pi-home',
     items: [
       {
