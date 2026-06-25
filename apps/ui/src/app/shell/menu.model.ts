@@ -3,15 +3,15 @@ import { Dashboard } from '../pages/dashboard/dashboard';
 
 export const NOESIS_MENU_MODEL: HelixRouteMenuItem[] = [
   {
-    label: 'Home',
+    label: 'Dashboard',
     icon: 'pi pi-fw pi-home',
     items: [
       {
-        label: 'Home',
+        label: 'Dashboard',
         icon: 'pi pi-fw pi-home',
         path: '',
         component: Dashboard,
-        breadcrumb: 'Home',
+        breadcrumb: 'Dashboard',
         routerLink: ['/'],
       },
     ],
