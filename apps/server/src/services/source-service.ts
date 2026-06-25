@@ -1,5 +1,21 @@
-import { eq } from "drizzle-orm";
-import { sources } from "../db/schema.js";
+/**
+ * SourceService — source lifecycle management.
+ *
+ * Tables (owned): sources
+ * Tables (read):  docs, chunks, jobs (in getSourceStats correlated subquery)
+ *
+ * DB access: Drizzle ORM for all CRUD; db.execute(sql``) for getSourceStats
+ *   (single-round-trip correlated subquery returning 5 fields).
+ * Key methods:
+ *   createSource()       — deduplicates by URL; returns null on conflict (409)
+ *   deleteSource()       — cascade deletes all dependents (docs, chunks,
+ *                          embeddings, jobs) via DB-level ON DELETE CASCADE
+ *   getSourceStats()     — docCount, chunkCount, avgTokenCount, latestJobStatus,
+ *                          latestJobDurationMs in one query
+ *   getTotalSourceCount() — used by StatsService
+ */
+import { eq, count, sql } from "drizzle-orm";
+import { sources, docs, chunks, jobs } from "../db/schema.js";
 import type { Database } from "../db/database.js";
 
 export interface CreateSourceInput {
@@ -90,28 +106,25 @@ export class SourceService {
   }
 
   async getSourceStats(sourceId: string) {
-    const result = await this.database.query<{
+    const r = await this.database.db.execute<{
       docCount: number;
       chunkCount: number;
       avgTokenCount: number | null;
       latestJobStatus: string | null;
       latestJobDurationMs: number | null;
-    }>(
-      `SELECT
-        (SELECT COUNT(*)::int FROM docs WHERE source_id = $1) AS "docCount",
-        (SELECT COUNT(*)::int FROM chunks WHERE source_id = $1) AS "chunkCount",
-        (SELECT ROUND(AVG(token_count))::int FROM chunks WHERE source_id = $1) AS "avgTokenCount",
-        (SELECT status FROM jobs WHERE source_id = $1 ORDER BY created_at DESC LIMIT 1) AS "latestJobStatus",
-        (SELECT duration_ms FROM jobs WHERE source_id = $1 ORDER BY created_at DESC LIMIT 1) AS "latestJobDurationMs"`,
-      [sourceId],
-    );
-    return result.rows[0] ?? null;
+    }>(sql`
+      SELECT
+        (SELECT COUNT(*)::int FROM ${docs}   WHERE source_id = ${sourceId}) AS "docCount",
+        (SELECT COUNT(*)::int FROM ${chunks} WHERE source_id = ${sourceId}) AS "chunkCount",
+        (SELECT ROUND(AVG(token_count))::int FROM ${chunks} WHERE source_id = ${sourceId}) AS "avgTokenCount",
+        (SELECT status      FROM ${jobs} WHERE source_id = ${sourceId} ORDER BY created_at DESC LIMIT 1) AS "latestJobStatus",
+        (SELECT duration_ms FROM ${jobs} WHERE source_id = ${sourceId} ORDER BY created_at DESC LIMIT 1) AS "latestJobDurationMs"
+    `);
+    return (r.rows[0] as any) ?? null;
   }
 
   async getTotalSourceCount() {
-    const result = await this.database.query<{ count: number }>(
-      `SELECT COUNT(*)::int AS count FROM sources`,
-    );
-    return result.rows[0].count;
+    const r = await this.database.db.select({ count: count() }).from(sources);
+    return Number(r[0].count);
   }
 }

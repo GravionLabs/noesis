@@ -1,4 +1,19 @@
-import { eq, desc, and } from "drizzle-orm";
+/**
+ * JobService — import job lifecycle management.
+ *
+ * Tables (owned): jobs
+ *
+ * DB access: Drizzle ORM for all CRUD; db.execute(sql``) for getAvgImportDuration
+ *   (needs ROUND(AVG(...))::int which has no Drizzle aggregate helper).
+ * Key methods:
+ *   createJob()          — creates a pending job for a source import
+ *   completeJob()        — marks done; accepts optional result JSON (chunksDropped)
+ *   failJob()            — marks failed; persists retryCount for retry tracking
+ *   getRunningJob()      — used by job-runner to prevent duplicate concurrent imports
+ *   getPendingJobCount() — used by StatsService
+ *   getAvgImportDuration() — used by StatsService
+ */
+import { eq, desc, and, count, sql } from "drizzle-orm";
 import { jobs } from "../db/schema.js";
 import type { Database } from "../db/database.js";
 
@@ -88,23 +103,22 @@ export class JobService {
   }
 
   async getPendingJobCount() {
-    const result = await this.database.query<{ count: number }>(
-      `SELECT COUNT(*)::int AS count FROM jobs WHERE status = 'pending'`,
-    );
-    return result.rows[0].count;
+    const r = await this.database.db
+      .select({ count: count() })
+      .from(jobs)
+      .where(eq(jobs.status, "pending"));
+    return Number(r[0].count);
   }
 
   async getTotalJobCount() {
-    const result = await this.database.query<{ count: number }>(
-      `SELECT COUNT(*)::int AS count FROM jobs`,
-    );
-    return result.rows[0].count;
+    const r = await this.database.db.select({ count: count() }).from(jobs);
+    return Number(r[0].count);
   }
 
   async getAvgImportDuration() {
-    const result = await this.database.query<{ avg: number | null }>(
-      `SELECT ROUND(AVG(duration_ms))::int AS avg FROM jobs WHERE duration_ms IS NOT NULL`,
+    const r = await this.database.db.execute<{ avg: number | null }>(
+      sql`SELECT ROUND(AVG(duration_ms))::int AS avg FROM ${jobs} WHERE duration_ms IS NOT NULL`,
     );
-    return result.rows[0].avg ?? 0;
+    return (r.rows[0]?.avg as number | null) ?? 0;
   }
 }

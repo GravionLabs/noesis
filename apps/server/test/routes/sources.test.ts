@@ -8,6 +8,7 @@ const mockUpdateSource = vi.fn();
 const mockDeleteSource = vi.fn();
 const mockTriggerImport = vi.fn();
 const mockScheduleNextRun = vi.fn();
+const mockUnschedule = vi.fn();
 const mockIsValidCron = vi.fn().mockReturnValue(true);
 const mockPurgeNoisyChunks = vi.fn();
 
@@ -43,6 +44,7 @@ describe("Source routes", () => {
       scheduler: {
         isValidCron: mockIsValidCron,
         scheduleNextRun: mockScheduleNextRun,
+        unschedule: mockUnschedule,
       } as any,
       chunkService: {
         purgeNoisyChunks: mockPurgeNoisyChunks,
@@ -209,6 +211,24 @@ describe("Source routes", () => {
       const res = await app.inject({ method: "DELETE", url: "/api/sources/00000000-0000-0000-0000-000000000001" });
 
       expect(res.statusCode).toBe(204);
+    });
+
+    it("calls scheduler.unschedule after successful delete", async () => {
+      mockDeleteSource.mockResolvedValue(sourceFixture);
+
+      const app = await buildApp();
+      await app.inject({ method: "DELETE", url: "/api/sources/00000000-0000-0000-0000-000000000001" });
+
+      expect(mockUnschedule).toHaveBeenCalledWith("00000000-0000-0000-0000-000000000001");
+    });
+
+    it("does not call scheduler.unschedule when source not found", async () => {
+      mockDeleteSource.mockResolvedValue(null);
+
+      const app = await buildApp();
+      await app.inject({ method: "DELETE", url: "/api/sources/00000000-0000-0000-0000-000000000099" });
+
+      expect(mockUnschedule).not.toHaveBeenCalled();
     });
 
     it("returns 404 when source not found", async () => {

@@ -87,6 +87,14 @@ const ADD_JOB_RESULT_COLUMN = `
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS result text;
 `;
 
+const ADD_CASCADE_FK_CONSTRAINTS = `
+ALTER TABLE jobs DROP CONSTRAINT IF EXISTS jobs_source_id_fkey;
+ALTER TABLE jobs ADD CONSTRAINT jobs_source_id_fkey
+  FOREIGN KEY (source_id) REFERENCES sources(id) ON DELETE CASCADE;
+ALTER TABLE chunks ADD CONSTRAINT IF NOT EXISTS chunks_source_id_fkey
+  FOREIGN KEY (source_id) REFERENCES sources(id) ON DELETE CASCADE;
+`;
+
 const DROP_IMPORT_JOB_STATES = `DROP TABLE IF EXISTS import_job_states CASCADE`;
 
 export async function runMigrations(pool: pg.Pool): Promise<void> {
@@ -118,6 +126,9 @@ export async function runMigrations(pool: pg.Pool): Promise<void> {
 
   await pool.query(ADD_JOB_RESULT_COLUMN);
   console.log("  ✓ jobs (result column added)");
+
+  await pool.query(ADD_CASCADE_FK_CONSTRAINTS);
+  console.log("  ✓ jobs + chunks (ON DELETE CASCADE FK constraints added)");
 
   console.log("\nAll migrations complete.");
 }

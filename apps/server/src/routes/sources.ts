@@ -145,6 +145,7 @@ export function registerSourceRoutes(
     async (req, reply) => {
       const deleted = await sourceService.deleteSource(req.params.id);
       if (!deleted) return reply.code(404).send({ error: "Source not found" });
+      scheduler.unschedule(req.params.id);
       return reply.code(204).send();
     },
   );

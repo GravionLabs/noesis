@@ -85,7 +85,8 @@ export const chunks = pgTable(
     docId: uuid("doc_id")
       .notNull()
       .references(() => docs.id, { onDelete: "cascade" }),
-    sourceId: uuid("source_id").notNull(),
+    sourceId: uuid("source_id").notNull()
+      .references(() => sources.id, { onDelete: "cascade" }),
     content: text("content").notNull(),
     heading: text("heading"),
     headingPath: text("heading_path").array(),
@@ -125,7 +126,8 @@ export const jobs = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     type: text("type").notNull().default("import"),
-    sourceId: uuid("source_id"),
+    sourceId: uuid("source_id")
+      .references(() => sources.id, { onDelete: "cascade" }),
     status: text("status").notNull().default("pending"),
     error: text("error"),
     retryCount: integer("retry_count").notNull().default(0),

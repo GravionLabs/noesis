@@ -1,3 +1,21 @@
+/**
+ * EmbeddingService — embedding provider management and batch embedding.
+ *
+ * Tables (write): embeddings (via processPendingChunks in batch-processor.ts)
+ * Tables (read):  chunks (anti-join against embeddings to find unembedded)
+ *
+ * DB access: delegates to processPendingChunks() in src/embedding/batch-processor.ts
+ *   which uses Drizzle ORM with notExists() + onConflictDoNothing().
+ *
+ * Provider selection (EMBEDDING_PROVIDER env var):
+ *   "local"  → Xenova/transformers ONNX (default, no external service)
+ *   "openai" → OpenAI embeddings API (requires OPENAI_API_KEY)
+ *   "ollama" → Ollama local inference (requires OLLAMA_URL)
+ *
+ * Key methods:
+ *   embedUnembeddedChunks(sourceId?) — process all pending chunks in batches of 100
+ *   getProvider()                    — returns the active EmbeddingProvider instance
+ */
 import type { Config } from "../config/index.js";
 import type { Database } from "../db/database.js";
 import {

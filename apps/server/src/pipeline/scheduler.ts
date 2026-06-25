@@ -102,6 +102,15 @@ export class Scheduler {
     return this.intervalHandle !== null;
   }
 
+  unschedule(sourceId: string): void {
+    const task = this.scheduledTasks.get(sourceId);
+    if (task) {
+      task.stop();
+      this.scheduledTasks.delete(sourceId);
+      this.log.debug({ sourceId }, "Source unscheduled");
+    }
+  }
+
   stopScheduler(): void {
     if (this.intervalHandle) {
       clearInterval(this.intervalHandle);

@@ -171,4 +171,24 @@ describe("Scheduler", () => {
       expect(task2.stop).toHaveBeenCalled();
     });
   });
+
+  describe("unschedule", () => {
+    it("stops and removes a scheduled task by sourceId", async () => {
+      const task = makeTask();
+      vi.spyOn(cron, "validate").mockReturnValue(true);
+      vi.spyOn(cron, "schedule").mockReturnValue(task);
+
+      await scheduler.scheduleNextRun({ id: "src-1", schedule: "0 */6 * * *" });
+      expect((scheduler as any).scheduledTasks.size).toBe(1);
+
+      scheduler.unschedule("src-1");
+
+      expect(task.stop).toHaveBeenCalled();
+      expect((scheduler as any).scheduledTasks.size).toBe(0);
+    });
+
+    it("is a no-op for a sourceId that has no scheduled task", () => {
+      expect(() => scheduler.unschedule("nonexistent-id")).not.toThrow();
+    });
+  });
 });

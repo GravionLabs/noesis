@@ -1,3 +1,16 @@
+/**
+ * Embedding batch processor — finds unembedded chunks and generates vectors.
+ *
+ * Tables (read):  chunks (anti-join against embeddings)
+ * Tables (write): embeddings (upsert via onConflictDoNothing)
+ *
+ * DB access: Drizzle ORM with notExists() for the anti-join subquery;
+ *   onConflictDoNothing() for idempotent embedding upserts.
+ *   The floatVec custom type in schema.ts serialises number[] ↔ "[...]" string
+ *   so no manual ::vector cast is required here.
+ */
+import { and, eq, notExists, count, sql } from "drizzle-orm";
+import { chunks, embeddings } from "../db/schema.js";
 import type { Database } from "../db/database.js";
 import type { EmbeddingProvider } from "./provider.js";
 
@@ -16,45 +29,49 @@ export async function processPendingChunks(
   let total = 0;
 
   while (true) {
-    let sql = `
-      SELECT c.id, c.content
-      FROM chunks c
-      WHERE NOT EXISTS (
-        SELECT 1 FROM embeddings e
-        WHERE e.chunk_id = c.id AND e.model = $1
+    const unembedded = database.db
+      .select({ one: sql`1` })
+      .from(embeddings)
+      .where(
+        and(
+          eq(embeddings.chunkId, chunks.id),
+          eq(embeddings.model, provider.model),
+        ),
+      );
+
+    const batch = await database.db
+      .select({ id: chunks.id, content: chunks.content })
+      .from(chunks)
+      .where(
+        and(
+          notExists(unembedded),
+          ...(sourceId ? [eq(chunks.sourceId, sourceId)] : []),
+        ),
       )
-    `;
-    const params: unknown[] = [provider.model];
+      .limit(BATCH_SIZE);
 
-    if (sourceId) {
-      sql += ` AND c.source_id = $2`;
-      params.push(sourceId);
-    }
+    if (batch.length === 0) break;
 
-    sql += ` LIMIT $${params.length + 1}`;
-    params.push(BATCH_SIZE);
-
-    const result = await database.query<{ id: string; content: string }>(sql, params);
-
-    if (result.rows.length === 0) break;
-
-    const texts = result.rows.map((r) => r.content);
+    const texts = batch.map((r) => r.content);
     const vectors = await provider.embed(texts);
 
-    for (let i = 0; i < result.rows.length; i++) {
-      const chunkId = result.rows[i].id;
+    for (let i = 0; i < batch.length; i++) {
+      const chunkId = batch[i].id;
       const vector = vectors[i];
       if (!vector || vector.length === 0) continue;
 
-      await database.query(
-        `INSERT INTO embeddings (chunk_id, model, dimensions, vector)
-         VALUES ($1, $2, $3, $4::vector)
-         ON CONFLICT (chunk_id, model) DO NOTHING`,
-        [chunkId, provider.model, provider.dimensions, `[${vector.join(",")}]`],
-      );
+      await database.db
+        .insert(embeddings)
+        .values({
+          chunkId,
+          model: provider.model,
+          dimensions: provider.dimensions,
+          vector,
+        })
+        .onConflictDoNothing();
     }
 
-    total += result.rows.length;
+    total += batch.length;
   }
 
   return total;
@@ -68,21 +85,20 @@ export async function countPendingChunks(
   model: string,
   sourceId?: string,
 ): Promise<number> {
-  let sql = `
-    SELECT COUNT(*)::int AS count
-    FROM chunks c
-    WHERE NOT EXISTS (
-      SELECT 1 FROM embeddings e
-      WHERE e.chunk_id = c.id AND e.model = $1
-    )
-  `;
-  const params: unknown[] = [model];
+  const unembedded = database.db
+    .select({ one: sql`1` })
+    .from(embeddings)
+    .where(and(eq(embeddings.chunkId, chunks.id), eq(embeddings.model, model)));
 
-  if (sourceId) {
-    sql += ` AND c.source_id = $2`;
-    params.push(sourceId);
-  }
+  const r = await database.db
+    .select({ count: count() })
+    .from(chunks)
+    .where(
+      and(
+        notExists(unembedded),
+        ...(sourceId ? [eq(chunks.sourceId, sourceId)] : []),
+      ),
+    );
 
-  const result = await database.query<{ count: number }>(sql, params);
-  return result.rows[0]?.count ?? 0;
+  return Number(r[0]?.count ?? 0);
 }
