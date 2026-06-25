@@ -1,4 +1,5 @@
 {
   "/api": { "target": "http://localhost:5000", "secure": false },
-  "/mcp": { "target": "http://localhost:5000", "secure": false }
+  "/mcp": { "target": "http://localhost:5000", "secure": false },
+  "/healthz": { "target": "http://localhost:5000", "secure": false }
 }

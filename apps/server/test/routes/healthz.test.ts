@@ -5,12 +5,12 @@ const mockIsSchedulerRunning = vi.fn();
 const mockGetPendingJobCount = vi.fn();
 const mockGetTotalSourceCount = vi.fn();
 
-import { registerHealthRoutes } from "../../src/routes/health.js";
+import { registerHealthzRoutes } from "../../src/routes/healthz.js";
 
-describe("Health routes", () => {
+describe("Healthz routes", () => {
   const buildApp = async () => {
     const app = Fastify();
-    registerHealthRoutes(app, {
+    registerHealthzRoutes(app, {
       config: {
         EMBEDDING_PROVIDER: "local",
         EMBEDDING_MODEL: "test-model",
@@ -27,10 +27,10 @@ describe("Health routes", () => {
     vi.clearAllMocks();
   });
 
-  describe("GET /alive", () => {
+  describe("GET /healthz/live", () => {
     it("returns alive status", async () => {
       const app = await buildApp();
-      const res = await app.inject({ method: "GET", url: "/alive" });
+      const res = await app.inject({ method: "GET", url: "/healthz/live" });
 
       expect(res.statusCode).toBe(200);
       const body = JSON.parse(res.body);
@@ -38,14 +38,14 @@ describe("Health routes", () => {
     });
   });
 
-  describe("GET /health", () => {
+  describe("GET /healthz/ready", () => {
     it("returns health with embedding config and runtime stats", async () => {
       mockIsSchedulerRunning.mockReturnValue(true);
       mockGetPendingJobCount.mockResolvedValue(5);
       mockGetTotalSourceCount.mockResolvedValue(10);
 
       const app = await buildApp();
-      const res = await app.inject({ method: "GET", url: "/health" });
+      const res = await app.inject({ method: "GET", url: "/healthz/ready" });
 
       expect(res.statusCode).toBe(200);
       const body = JSON.parse(res.body);

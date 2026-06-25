@@ -7,7 +7,7 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { pipe, switchMap, tap, interval, catchError, of, Subscription } from 'rxjs';
+import { pipe, switchMap, tap, catchError, of } from 'rxjs';
 import type { Job } from '../models/job.model';
 import { NoesisApiService } from '../services/noesis-api.service';
 
@@ -32,7 +32,7 @@ export const JobsStore = signalStore(
       state.jobs().some((j) => j.status === 'running' || j.status === 'pending'),
   })),
   withMethods((_store, api = inject(NoesisApiService)) => {
-    let refreshSub: Subscription | null = null;
+    let eventSource: EventSource | null = null;
 
     const loadJobs = rxMethod<void>(
       pipe(
@@ -54,16 +54,35 @@ export const JobsStore = signalStore(
       retryJob(id: string): void {
         api.retryJob(id).subscribe({ next: () => loadJobs() });
       },
-      startAutoRefresh(intervalMs = 5000): void {
-        stopAutoRefreshImpl();
-        refreshSub = interval(intervalMs).subscribe(() => loadJobs());
+      /**
+       * Opens an SSE connection to /api/jobs/stream. Each incoming event
+       * updates the matching job in state by id, so consumers always see the
+       * latest status without polling. Relies on EventSource's built-in
+       * reconnect logic. Call loadJobs() first for the initial snapshot.
+       */
+      connectSse(): void {
+        disconnectSseImpl();
+        eventSource = new EventSource(api.getJobStreamUrl());
+        eventSource.addEventListener('message', (e: MessageEvent) => {
+          try {
+            const updated: Partial<Job> & { id: string } = JSON.parse(e.data);
+            patchState(_store, (state) => ({
+              jobs: state.jobs.map((j) => (j.id === updated.id ? { ...j, ...updated } : j)),
+            }));
+          } catch {
+            // ignore malformed frames
+          }
+        });
+        eventSource.addEventListener('error', () => {
+          // EventSource reconnects automatically; no action needed here.
+        });
       },
-      stopAutoRefresh: stopAutoRefreshImpl,
+      disconnectSse: disconnectSseImpl,
     };
 
-    function stopAutoRefreshImpl() {
-      refreshSub?.unsubscribe();
-      refreshSub = null;
+    function disconnectSseImpl() {
+      eventSource?.close();
+      eventSource = null;
     }
   }),
 );

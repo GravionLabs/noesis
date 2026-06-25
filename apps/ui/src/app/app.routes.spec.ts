@@ -19,10 +19,18 @@ import { JobsList } from './pages/jobs/jobs-list';
 import { JobDetail } from './pages/jobs/job-detail';
 import { Query } from './pages/query/query';
 
+/** Minimal EventSource stub — jsdom does not provide EventSource. */
+class FakeEventSource {
+  close = vi.fn();
+  addEventListener = vi.fn();
+}
+
 describe('routes / breadcrumbs', () => {
   let httpTesting: HttpTestingController;
 
   beforeEach(async () => {
+    vi.stubGlobal('EventSource', FakeEventSource);
+
     await TestBed.configureTestingModule({
       providers: [
         provideRouter(routes),
@@ -36,6 +44,10 @@ describe('routes / breadcrumbs', () => {
     httpTesting = TestBed.inject(HttpTestingController);
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   function breadcrumbLabelsFor(route: ActivatedRoute): unknown[] {
     return helixBreadcrumbsFromRoutes(route).map((item) => item.label);
   }
@@ -44,10 +56,10 @@ describe('routes / breadcrumbs', () => {
     return harness.fixture.debugElement.query(By.directive(type)).componentInstance as T;
   }
 
-  it('/ activates the Home placeholder with no breadcrumb trail', async () => {
+  it('/ activates the Dashboard with the "Dashboard" breadcrumb', async () => {
     const harness = await RouterTestingHarness.create('/');
     expect(activatedComponent(harness, Dashboard)).toBeTruthy();
-    expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual(['Home']);
+    expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual(['Dashboard']);
   });
 
   it('/query activates Query with "Knowledge Base > Query"', async () => {
@@ -63,6 +75,7 @@ describe('routes / breadcrumbs', () => {
   it('/jobs activates JobsList with "Knowledge Base > Jobs"', async () => {
     const harness = await RouterTestingHarness.create('/jobs');
     httpTesting.expectOne('/api/jobs').flush([]);
+    httpTesting.expectOne('/api/sources').flush([]);
     expect(activatedComponent(harness, JobsList)).toBeTruthy();
     expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual([
       'Knowledge Base',

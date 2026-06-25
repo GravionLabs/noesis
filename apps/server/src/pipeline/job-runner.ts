@@ -4,6 +4,7 @@ import type { ImporterRegistry } from "../importers/registry.js";
 import type { EmbeddingService } from "../services/embedding-service.js";
 import type { Config } from "../config/index.js";
 import { logger as _logger } from "../logger.js";
+import { jobEvents } from "./job-events.js";
 
 export class JobRunner {
   private sourceService: SourceService;
@@ -59,6 +60,7 @@ export class JobRunner {
 
     try {
       await this.jobService.updateJobStatus(jobId, "running");
+      jobEvents.emit("job", { id: jobId, sourceId, status: "running" });
 
       const importer = this.importerRegistry.getImporter(source.importerType);
       if (!importer) throw new Error(`Unknown importer type: ${source.importerType}`);
@@ -74,6 +76,7 @@ export class JobRunner {
 
       const durationMs = Date.now() - startedAt;
       await this.jobService.completeJob(jobId, durationMs);
+      jobEvents.emit("job", { id: jobId, sourceId, status: "done", durationMs });
       await this.sourceService.updateLastImported(sourceId);
       this.log.info({ jobId, sourceId, durationMs }, "Import job completed successfully");
     } catch (err) {
@@ -88,6 +91,7 @@ export class JobRunner {
         this.log.info({ jobId, sourceId, backoffMs, retryAttempt: newRetryCount }, "Scheduling retry");
 
         await this.jobService.failJob(jobId, message, durationMs, retryCount);
+        jobEvents.emit("job", { id: jobId, sourceId, status: "failed", error: message });
 
         return new Promise((resolve) => {
           setTimeout(async () => {
@@ -102,6 +106,7 @@ export class JobRunner {
         });
       } else {
         await this.jobService.failJob(jobId, message, durationMs, retryCount);
+        jobEvents.emit("job", { id: jobId, sourceId, status: "failed", error: message });
       }
     }
 

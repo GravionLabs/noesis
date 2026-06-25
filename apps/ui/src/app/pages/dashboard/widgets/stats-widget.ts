@@ -1,5 +1,6 @@
 import { Component, inject, signal, OnDestroy } from '@angular/core';
-import { forkJoin, type Subscription } from 'rxjs';
+import { forkJoin, of, type Subscription } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { NoesisApiService } from '../../../core/services/noesis-api.service';
 import type { AggregateStats, HealthInfo } from '../../../core/models/stats.model';
 
@@ -19,8 +20,8 @@ export class StatsWidget implements OnDestroy {
 
   constructor() {
     this.sub = forkJoin({
-      stats: this.api.getStats(),
-      health: this.api.getHealth(),
+      stats: this.api.getStats().pipe(catchError(() => of(null))),
+      health: this.api.getHealth().pipe(catchError(() => of(null))),
     }).subscribe({
       next: (result) => {
         this.stats.set(result.stats);
