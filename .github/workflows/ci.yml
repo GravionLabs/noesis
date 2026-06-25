@@ -135,7 +135,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 11.5.0
+          version: 11.8.0
 
       - uses: actions/setup-node@v4
         with:
@@ -180,7 +180,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 11.5.0
+          version: 11.8.0
 
       - uses: actions/setup-node@v4
         with:

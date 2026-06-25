@@ -3,7 +3,7 @@ WORKDIR /workspace
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/server/package.json ./apps/server/
 COPY apps/ui/package.json      ./apps/ui/
-RUN npm install -g pnpm@11.5.0 && pnpm install --frozen-lockfile
+RUN npm install -g pnpm@11.8.0 && pnpm install --frozen-lockfile
 
 FROM deps AS ui-build
 COPY apps/ui/ ./apps/ui/
