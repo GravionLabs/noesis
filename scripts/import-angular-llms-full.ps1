@@ -55,8 +55,8 @@ function Ensure-Migrations {
     if ($LASTEXITCODE -ne 0) { throw "docker compose run ef-migrate --migrate failed." }
 }
 
-Write-Host "Checking server: $ApiBaseUrl/health"
-[void](Invoke-Api -Method GET -Url "$ApiBaseUrl/health")
+Write-Host "Checking server: $ApiBaseUrl/healthz/ready"
+[void](Invoke-Api -Method GET -Url "$ApiBaseUrl/healthz/ready")
 
 if ($EnsureMigrations.IsPresent) {
     Ensure-Migrations

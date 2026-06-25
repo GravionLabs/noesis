@@ -75,6 +75,11 @@ export class NoesisApiService {
   }
 
   getHealth(): Observable<HealthInfo> {
-    return this.http.get<HealthInfo>(this.api('/health'));
+    return this.http.get<HealthInfo>(this.api('/healthz/ready'));
+  }
+
+  /** Returns the fully-qualified URL for the SSE job stream (respects baseUrl). */
+  getJobStreamUrl(): string {
+    return this.api('/api/jobs/stream');
   }
 }

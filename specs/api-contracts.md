@@ -2,8 +2,11 @@
 
 ## Public API
 
-### `GET /health`
-- Returns a simple `ok` payload.
+### `GET /healthz/live`
+- Liveness probe. Returns `{ status: "alive" }`.
+
+### `GET /healthz/ready`
+- Readiness probe. Returns embedding config, scheduler state, and live DB counts.
 
 ### `GET /api/sources`
 - Returns all sources.

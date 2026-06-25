@@ -57,7 +57,7 @@ See [`infra/README.md`](infra/README.md) for port reference.
 
 | Endpoint | Description |
 |---|---|
-| `GET /health` | Health check |
+| `GET /health` | Health check (crawler service — separate from server's `/healthz/*`) |
 | `POST /jobs/crawl` | Crawl a URL with Playwright |
 
 After completion, the crawler writes chunks directly to Postgres.

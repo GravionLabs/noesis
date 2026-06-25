@@ -148,8 +148,8 @@ PY
   fi
 }
 
-echo "Checking server: $API_BASE_URL/health"
-api_call GET "$API_BASE_URL/health"
+echo "Checking server: $API_BASE_URL/healthz/ready"
+api_call GET "$API_BASE_URL/healthz/ready"
 
 if [[ "$ENSURE_MIGRATIONS" == "true" ]]; then
   ensure_migrations

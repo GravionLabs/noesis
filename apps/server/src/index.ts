@@ -9,7 +9,7 @@ import { dirname, resolve } from "path";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { buildContainer } from "./container.js";
-import { registerHealthRoutes } from "./routes/health.js";
+import { registerHealthzRoutes } from "./routes/healthz.js";
 import { registerSourceRoutes } from "./routes/sources.js";
 import { registerJobRoutes } from "./routes/jobs.js";
 import { registerInternalRoutes } from "./routes/internal.js";
@@ -59,7 +59,7 @@ async function main() {
   });
 
   // ---- REST API Routes ----
-  registerHealthRoutes(app, cradle);
+  registerHealthzRoutes(app, cradle);
   registerSourceRoutes(app, cradle);
   registerJobRoutes(app, cradle);
   registerInternalRoutes(app, cradle);
@@ -82,8 +82,7 @@ async function main() {
       if (
         u.startsWith("/api") ||
         u.startsWith("/mcp") ||
-        u.startsWith("/health") ||
-        u.startsWith("/alive") ||
+        u.startsWith("/healthz") ||
         u.startsWith("/openapi")
       ) {
         return reply.code(404).send({ error: "Not found" });

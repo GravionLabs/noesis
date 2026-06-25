@@ -52,9 +52,9 @@ describe('apiKeyInterceptor', () => {
   it('omits X-Api-Key header for non-/api/ requests', () => {
     settings.saveApiKey('secret-123');
 
-    http.get('/health').subscribe();
+    http.get('/healthz/ready').subscribe();
 
-    const req = httpTesting.expectOne('/health');
+    const req = httpTesting.expectOne('/healthz/ready');
     expect(req.request.headers.has('X-Api-Key')).toBe(false);
     req.flush({});
   });
