@@ -1,4 +1,4 @@
-import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { TableModule } from 'primeng/table';
@@ -41,18 +41,11 @@ export class JobsList implements OnDestroy {
   constructor() {
     this.store.loadJobs();
     this.sourcesStore.loadSources();
-
-    effect(() => {
-      if (this.store.hasActiveJobs()) {
-        this.store.startAutoRefresh();
-      } else {
-        this.store.stopAutoRefresh();
-      }
-    });
+    this.store.connectSse();
   }
 
   ngOnDestroy(): void {
-    this.store.stopAutoRefresh();
+    this.store.disconnectSse();
   }
 
   protected setFilter(filter: StatusFilter): void {

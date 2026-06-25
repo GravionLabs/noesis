@@ -38,10 +38,34 @@ const FAILED_JOB: Job = {
   createdAt: '2026-01-01T00:00:00Z',
 };
 
+/** Minimal EventSource fake that records listeners and exposes a fire() helper. */
+class FakeEventSource {
+  static instances: FakeEventSource[] = [];
+  private listeners: Record<string, ((e: MessageEvent) => void)[]> = {};
+  close = vi.fn();
+
+  constructor(public url: string) {
+    FakeEventSource.instances.push(this);
+  }
+
+  addEventListener(type: string, cb: (e: MessageEvent) => void) {
+    (this.listeners[type] ??= []).push(cb);
+  }
+
+  fire(type: string, data: unknown) {
+    this.listeners[type]?.forEach((cb) =>
+      cb(new MessageEvent(type, { data: JSON.stringify(data) })),
+    );
+  }
+}
+
 describe('JobsList', () => {
   let httpTesting: HttpTestingController;
 
   beforeEach(async () => {
+    FakeEventSource.instances = [];
+    vi.stubGlobal('EventSource', FakeEventSource);
+
     await TestBed.configureTestingModule({
       imports: [JobsList],
       providers: [
@@ -56,8 +80,9 @@ describe('JobsList', () => {
   });
 
   afterEach(() => {
-    TestBed.inject(JobsStore).stopAutoRefresh();
+    TestBed.inject(JobsStore).disconnectSse();
     httpTesting.verify();
+    vi.unstubAllGlobals();
   });
 
   function createComponent(jobs: Job[]) {
@@ -101,19 +126,36 @@ describe('JobsList', () => {
     expect(component['filteredJobs']()).toEqual([PENDING_JOB, FAILED_JOB]);
   });
 
-  it('starts auto-refresh when active jobs remain and stops once none remain', () => {
+  it('opens an SSE stream on init', () => {
     const store = TestBed.inject(JobsStore);
-    const startSpy = vi.spyOn(store, 'startAutoRefresh');
-    const stopSpy = vi.spyOn(store, 'stopAutoRefresh');
+    const connectSpy = vi.spyOn(store, 'connectSse');
 
+    createComponent([]);
+
+    expect(connectSpy).toHaveBeenCalledOnce();
+    expect(FakeEventSource.instances).toHaveLength(1);
+    expect(FakeEventSource.instances[0].url).toContain('/api/jobs/stream');
+  });
+
+  it('updates a job in real time when the SSE stream emits', () => {
     const fixture = createComponent([PENDING_JOB]);
-    expect(startSpy).toHaveBeenCalled();
+    const store = fixture.componentInstance['store'];
 
-    store.loadJobs();
-    httpTesting.expectOne('/api/jobs').flush([{ ...PENDING_JOB, status: 'done' }]);
+    // Simulate the SSE stream pushing a status update for j1
+    const updatedJob = { id: 'j1', status: 'done' };
+    FakeEventSource.instances[0].fire('message', updatedJob);
     fixture.detectChanges();
 
-    expect(stopSpy).toHaveBeenCalled();
+    expect(store.jobs().find((j) => j.id === 'j1')?.status).toBe('done');
+  });
+
+  it('closes the SSE stream when the component is destroyed', () => {
+    const fixture = createComponent([]);
+    const es = FakeEventSource.instances[0];
+
+    fixture.destroy();
+
+    expect(es.close).toHaveBeenCalledOnce();
   });
 
   it('retryJob retries via the store and shows a success toast', () => {
