@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Features
+
+- Search result quality — chunk noise filtering (#261) (#273)
+
+
+## [0.0.27] - 2026-06-23
+
+### Features
+
+- Epic #106 — Dashboard with stats, recent jobs, and source chart (#256)
+
+
+## [0.0.26] - 2026-06-22
+
+### Features
+
+- Epic #109 — Query/Search page with copy & full-chunk dialog (#255)
+
+
+## [0.0.22] - 2026-06-21
+
+### Documentation
+
+- Add release artifacts — LICENSE, .env.example, changelog, config docs (#251)
+
+
+## [0.0.21] - 2026-06-21
+
 ### Refactor
 
 - Consolidate config module and remove global DB pool (Epic #229) (#250)
