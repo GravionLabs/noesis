@@ -36,6 +36,15 @@ async function main() {
     process.exit(1);
   }
 
+  // Run migrations
+  try {
+    await database.migrate();
+    logger.info("Migrations complete");
+  } catch (err) {
+    logger.fatal({ err }, "Migration failed");
+    process.exit(1);
+  }
+
   const app = Fastify({ logger: true });
 
   // ---- Plugins ----

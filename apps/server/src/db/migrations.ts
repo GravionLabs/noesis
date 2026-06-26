@@ -91,8 +91,17 @@ const ADD_CASCADE_FK_CONSTRAINTS = `
 ALTER TABLE jobs DROP CONSTRAINT IF EXISTS jobs_source_id_fkey;
 ALTER TABLE jobs ADD CONSTRAINT jobs_source_id_fkey
   FOREIGN KEY (source_id) REFERENCES sources(id) ON DELETE CASCADE;
-ALTER TABLE chunks ADD CONSTRAINT IF NOT EXISTS chunks_source_id_fkey
-  FOREIGN KEY (source_id) REFERENCES sources(id) ON DELETE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'chunks_source_id_fkey'
+      AND conrelid = 'chunks'::regclass
+  ) THEN
+    ALTER TABLE chunks ADD CONSTRAINT chunks_source_id_fkey
+      FOREIGN KEY (source_id) REFERENCES sources(id) ON DELETE CASCADE;
+  END IF;
+END $$;
 `;
 
 const DROP_IMPORT_JOB_STATES = `DROP TABLE IF EXISTS import_job_states CASCADE`;

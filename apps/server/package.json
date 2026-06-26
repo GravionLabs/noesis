@@ -4,6 +4,7 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
+    "postinstall": "node -e \"if (!process.env.CI) require('child_process').execSync('playwright install chromium', {stdio: 'inherit'})\"",
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",

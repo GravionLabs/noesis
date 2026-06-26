@@ -2,6 +2,7 @@ import pg from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "./schema.js";
 import type { Config } from "../config/index.js";
+import { runMigrations } from "./migrations.js";
 
 export class Database {
   private readonly pool: pg.Pool;
@@ -18,6 +19,10 @@ export class Database {
     });
 
     this.db = drizzle(this.pool, { schema });
+  }
+
+  async migrate(): Promise<void> {
+    await runMigrations(this.pool);
   }
 
   async end(): Promise<void> {
