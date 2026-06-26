@@ -1,5 +1,5 @@
 import type { Routes } from '@angular/router';
-import { HelixEmpty, HelixNotfound, helixRoutesFrom } from '@gravionlabs/helix';
+import { HelixNotfound, helixRoutesFrom } from '@gravionlabs/helix';
 import { AppShell } from './shell/app-shell';
 import { NOESIS_MENU_MODEL } from './shell/menu.model';
 import { SourceDetail } from './pages/sources/source-detail';
@@ -7,6 +7,7 @@ import { SourcesList } from './pages/sources/sources-list';
 import { JobDetail } from './pages/jobs/job-detail';
 import { JobsList } from './pages/jobs/jobs-list';
 import { Query } from './pages/query/query';
+import { Settings } from './pages/settings/settings';
 
 export const routes: Routes = [
   {
@@ -14,6 +15,10 @@ export const routes: Routes = [
     component: AppShell,
     children: [
       ...helixRoutesFrom(NOESIS_MENU_MODEL),
+      // Settings is a top-level nav item (not under 'Knowledge Base'), so its
+      // route lives here — outside the componentless 'Knowledge Base' group —
+      // and carries no parent breadcrumb label.
+      { path: 'settings', component: Settings, data: { breadcrumb: undefined } },
       {
         // Componentless parent mirroring the 'Knowledge Base' nav grouping,
         // so Query/Jobs/Sources all get a "Knowledge Base > ..." breadcrumb
