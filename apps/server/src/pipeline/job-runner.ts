@@ -67,7 +67,10 @@ export class JobRunner {
 
       const result = await importer.import(source);
 
-      this.log.info({ jobId, sourceId, chunkCount: result.chunkCount }, "Import finished, starting embedding");
+      this.log.info(
+        { jobId, sourceId, chunkCount: result.chunkCount, chunksDropped: result.chunksDropped ?? [] },
+        "Import finished, starting embedding",
+      );
 
       if (result.chunkCount > 0) {
         await this.embeddingService.embedUnembeddedChunks(sourceId);
@@ -75,7 +78,10 @@ export class JobRunner {
       }
 
       const durationMs = Date.now() - startedAt;
-      await this.jobService.completeJob(jobId, durationMs);
+      const resultJson = result.chunksDropped?.length
+        ? JSON.stringify({ chunksDropped: result.chunksDropped })
+        : undefined;
+      await this.jobService.completeJob(jobId, durationMs, resultJson);
       jobEvents.emit("job", { id: jobId, sourceId, status: "done", durationMs });
       await this.sourceService.updateLastImported(sourceId);
       this.log.info({ jobId, sourceId, durationMs }, "Import job completed successfully");

@@ -1,8 +1,14 @@
 import type { Source } from "../models/source.js";
 
+export interface ChunksDroppedEntry {
+  reason: string;
+  count: number;
+}
+
 export interface ImportResult {
   docCount: number;
   chunkCount: number;
+  chunksDropped?: ChunksDroppedEntry[];
 }
 
 export interface Importer {

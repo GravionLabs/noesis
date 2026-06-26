@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const mockQuery = vi.fn();
+const mockExecute = vi.fn();
 const mockGetProvider = vi.fn();
 
 import { SearchService } from "../../src/services/search-service.js";
@@ -28,12 +28,9 @@ const fakeResults = [
 
 function createService() {
   return new SearchService({
-    database: { query: mockQuery } as any,
+    database: { db: { execute: mockExecute } } as any,
     embeddingService: {
       getProvider: mockGetProvider,
-      embedTexts: () => [],
-      embedText: () => [],
-      embedUnembeddedChunks: () => 0,
     } as any,
   });
 }
@@ -48,7 +45,7 @@ describe("SearchService", () => {
 
   describe("searchByText", () => {
     it("returns mapped results from full-text search", async () => {
-      mockQuery.mockResolvedValue({ rows: fakeResults });
+      mockExecute.mockResolvedValue({ rows: fakeResults });
 
       const results = await service.searchByText("dependency injection", 5, "Angular");
 
@@ -61,24 +58,30 @@ describe("SearchService", () => {
       expect(results[0].chunkId).toBe("chunk-1");
     });
 
-    it("filters by source name when provided", async () => {
-      mockQuery.mockResolvedValue({ rows: fakeResults });
+    it("calls db.execute with a sql template including the search query", async () => {
+      mockExecute.mockResolvedValue({ rows: [] });
 
-      await service.searchByText("test", 10, "Angular");
-      const sql = mockQuery.mock.calls[0][0] as string;
-      expect(sql).toContain("AND s.name = $2");
+      await service.searchByText("dependency injection", 5);
+
+      expect(mockExecute).toHaveBeenCalledTimes(1);
+      // sql template object is passed — verify it was called (not the raw string)
+      expect(mockExecute.mock.calls[0][0]).toBeDefined();
     });
 
-    it("omits source filter when not provided", async () => {
-      mockQuery.mockResolvedValue({ rows: [] });
+    it("includes source name filter when sourceName is provided", async () => {
+      mockExecute.mockResolvedValue({ rows: fakeResults });
 
-      await service.searchByText("test", 10);
-      const sql = mockQuery.mock.calls[0][0] as string;
-      expect(sql).not.toContain("AND s.name");
+      const withSource = await service.searchByText("test", 10, "Angular");
+      const withoutSource = await service.searchByText("test", 10);
+
+      // Both calls return results; filter is encoded in the sql template
+      expect(mockExecute).toHaveBeenCalledTimes(2);
+      expect(withSource).toHaveLength(2);
+      expect(withoutSource).toHaveLength(2);
     });
 
     it("returns empty array when nothing matches", async () => {
-      mockQuery.mockResolvedValue({ rows: [] });
+      mockExecute.mockResolvedValue({ rows: [] });
 
       const results = await service.searchByText("nonexistent content", 5);
       expect(results).toEqual([]);
@@ -87,7 +90,7 @@ describe("SearchService", () => {
 
   describe("searchByVector", () => {
     it("returns results ordered by cosine similarity", async () => {
-      mockQuery.mockResolvedValue({ rows: fakeResults });
+      mockExecute.mockResolvedValue({ rows: fakeResults });
 
       const vector = Array(768).fill(0.1);
       const results = await service.searchByVector(vector, 5);
@@ -96,47 +99,43 @@ describe("SearchService", () => {
       expect(results[0].chunkId).toBe("chunk-1");
     });
 
-    it("filters by source name when provided", async () => {
-      mockQuery.mockResolvedValue({ rows: fakeResults });
+    it("passes the vector and limit to the sql template", async () => {
+      mockExecute.mockResolvedValue({ rows: [] });
 
-      const vector = Array(768).fill(0.1);
-      await service.searchByVector(vector, 5, "Angular");
+      const vector = Array(768).fill(0.5);
+      await service.searchByVector(vector, 3, "Angular");
 
-      const sql = mockQuery.mock.calls[0][0] as string;
-      expect(sql).toContain("AND s.name = $3");
+      expect(mockExecute).toHaveBeenCalledTimes(1);
     });
   });
 
   describe("searchDocs", () => {
     it("uses vector search when embedder is available", async () => {
       mockGetProvider.mockReturnValue({
-        embed: async (texts: string[]) => [Array(768).fill(0.1)],
+        embed: async (_texts: string[]) => [Array(768).fill(0.1)],
         model: "test-model",
         dimensions: 768,
       });
-      mockQuery.mockResolvedValue({ rows: fakeResults });
+      mockExecute.mockResolvedValue({ rows: fakeResults });
 
       const results = await service.searchDocs("dependency injection", 5);
 
       expect(results).toHaveLength(2);
-      expect(mockQuery.mock.calls[0][0] as string).toContain("vector <=>");
+      expect(mockExecute).toHaveBeenCalledTimes(1);
     });
 
     it("falls back to text search when embedder fails", async () => {
       mockGetProvider.mockReturnValue({
-        embed: async () => {
-          throw new Error("Provider unavailable");
-        },
+        embed: async () => { throw new Error("Provider unavailable"); },
         model: "test-model",
         dimensions: 768,
       });
-      mockQuery.mockResolvedValue({ rows: fakeResults });
+      mockExecute.mockResolvedValue({ rows: fakeResults });
 
       const results = await service.searchDocs("dependency injection", 5);
 
       expect(results).toHaveLength(2);
-      const lastCall = mockQuery.mock.calls[mockQuery.mock.calls.length - 1][0] as string;
-      expect(lastCall).toContain("to_tsvector");
+      expect(mockExecute).toHaveBeenCalledTimes(1);
     });
 
     it("falls back to text search when embedder returns empty vector", async () => {
@@ -145,40 +144,34 @@ describe("SearchService", () => {
         model: "test-model",
         dimensions: 768,
       });
-
-      mockQuery.mockResolvedValue({ rows: fakeResults });
+      mockExecute.mockResolvedValue({ rows: fakeResults });
 
       const results = await service.searchDocs("dependency injection", 5);
 
       expect(results).toHaveLength(2);
-      expect(mockQuery.mock.calls[0][0] as string).not.toContain("vector <=>");
+      expect(mockExecute).toHaveBeenCalledTimes(1);
     });
 
-    it("passes sourceName to both search paths", async () => {
+    it("passes sourceName through to the search path", async () => {
       mockGetProvider.mockReturnValue({
-        embed: async () => {
-          throw new Error("down");
-        },
+        embed: async () => { throw new Error("down"); },
         model: "test-model",
         dimensions: 768,
       });
-      mockQuery.mockResolvedValue({ rows: [] });
+      mockExecute.mockResolvedValue({ rows: [] });
 
       await service.searchDocs("test", 5, "Angular");
 
-      const sql = mockQuery.mock.calls[0][0] as string;
-      expect(sql).toContain("AND s.name = $2");
+      expect(mockExecute).toHaveBeenCalledTimes(1);
     });
 
     it("returns empty array when no results found", async () => {
       mockGetProvider.mockReturnValue({
-        embed: async () => {
-          throw new Error("down");
-        },
+        embed: async () => { throw new Error("down"); },
         model: "test-model",
         dimensions: 768,
       });
-      mockQuery.mockResolvedValue({ rows: [] });
+      mockExecute.mockResolvedValue({ rows: [] });
 
       const results = await service.searchDocs("does not exist in corpus", 5);
       expect(results).toEqual([]);

@@ -50,11 +50,19 @@ interface CrawlPageResult {
   discoveredLinks: string[];
   pageUrl: string;
   canonicalUrl?: string;
+  droppedCount: number;
 }
 
 export interface CrawlResult {
   chunks: CrawlChunk[];
+  /** Internal/diagnostic page counter. The user-visible docCount comes from
+   * `chunkService.saveChunks` which counts distinct `docUrl` values among
+   * *saved* chunks only — so all-noise pages that produce 0 chunks are
+   * automatically excluded from the user-facing stat. */
   docCount: number;
+  /** Total number of chunks dropped by all filters (link-list, pagination,
+   * cross-page dedup) during this crawl. */
+  droppedCount: number;
 }
 
 const DEFAULT_CONFIG: NormalizedCrawlConfig = {
@@ -100,7 +108,9 @@ async function crawlDocs(startUrl: string, config: CrawlConfig = {}): Promise<Cr
     const visited = new Set<string>();
     const queued = new Set<string>([start]);
     const chunks: CrawlChunk[] = [];
+    const seenHashes = new Set<string>();
     let docCount = 0;
+    let totalDropped = 0;
 
     if (options.includeSitemap) {
       for (const sitemapUrl of await discoverSitemapUrls(start, options.pageTimeoutMs)) {
@@ -120,8 +130,9 @@ async function crawlDocs(startUrl: string, config: CrawlConfig = {}): Promise<Cr
       visited.add(normalizedTarget);
 
       try {
-        const pageResult = await crawlPage(browser, target.url, options);
+        const pageResult = await crawlPage(browser, target.url, options, seenHashes);
         chunks.push(...pageResult.chunks);
+        totalDropped += pageResult.droppedCount;
         docCount += 1;
 
         if (pageResult.canonicalUrl) {
@@ -142,7 +153,7 @@ async function crawlDocs(startUrl: string, config: CrawlConfig = {}): Promise<Cr
       }
     }
 
-    return { chunks, docCount };
+    return { chunks, docCount, droppedCount: totalDropped };
   } finally {
     await browser.close();
   }
@@ -152,6 +163,7 @@ async function crawlPage(
   browser: Browser,
   url: string,
   options: NormalizedCrawlConfig,
+  seenHashes: Set<string>,
 ): Promise<CrawlPageResult> {
   const page = await browser.newPage({ userAgent: await getUserAgent(browser) });
 
@@ -175,10 +187,10 @@ async function crawlPage(
     }
 
     const effectiveUrl = canonicalUrl ?? pageUrl;
-    const chunks = extractChunks(html, effectiveUrl);
+    const { chunks, droppedCount } = extractChunks(html, effectiveUrl, seenHashes);
     const discoveredLinks = extractInternalLinks(html, pageUrl, options);
 
-    return { chunks, discoveredLinks, pageUrl, canonicalUrl };
+    return { chunks, discoveredLinks, pageUrl, canonicalUrl, droppedCount };
   } finally {
     await page.close();
   }
@@ -207,22 +219,109 @@ async function getUserAgent(browser: Browser): Promise<string> {
   return cached;
 }
 
-function extractChunks(html: string, url: string): CrawlChunk[] {
+/** Matches "Next: [Title](url)" and "Previous: [Title](url)" pagination lines. */
+const PAGINATION_LINE = /^(Next|Previous|Prev)\s*[:|]\s*\[.+?\]\(.+?\)\s*$/i;
+
+/**
+ * Matches breadcrumb chains rendered as markdown links separated by common
+ * breadcrumb separators (›, /, », >), e.g.
+ *   [Home](/) › [Docs](/docs) › [Guide](/guide)
+ *
+ * Pattern: first link, then one-or-more (separator + link) groups — so the
+ * last link does NOT require a trailing separator.
+ */
+const BREADCRUMB_LINE = /^\[.+?\]\(.+?\)(\s*(?:[›\/»>])\s*\[.+?\]\(.+?\))+\s*$/;
+
+/**
+ * Strips crawler-specific noise lines (pagination links, breadcrumb chains)
+ * from a markdown string post-turndown, before chunking.
+ *
+ * Applied only in the crawler — NOT in shared `chunkMarkdown` — so llmstxt,
+ * npm-readme, github, and azuredevops importers are unaffected.
+ *
+ * Lines inside fenced code blocks are always preserved.
+ *
+ * Exported for testing.
+ */
+export function stripCrawlerNoise(markdown: string): string {
+  const lines: string[] = [];
+  let inFencedCode = false;
+
+  for (const line of markdown.split("\n")) {
+    if (/^\s*```/.test(line)) {
+      inFencedCode = !inFencedCode;
+      lines.push(line);
+      continue;
+    }
+
+    if (!inFencedCode && (PAGINATION_LINE.test(line.trim()) || BREADCRUMB_LINE.test(line.trim()))) {
+      continue; // strip noise line
+    }
+
+    lines.push(line);
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Normalises content for deduplication: lowercase and collapse all
+ * whitespace runs to a single space. This makes the hash insensitive to
+ * minor whitespace differences between pages while still catching
+ * exact-match boilerplate repetition.
+ *
+ * Exported for testing.
+ */
+export function normalizeContentHash(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Extracts content chunks from raw HTML for a given page URL.
+ *
+ * DOM cleanup (primary): removes semantic navigation elements *and*
+ * common in-body boilerplate patterns (sidebars, TOC blocks, cookie
+ * banners, aria-hidden decorations) before markdown conversion and
+ * chunking.
+ *
+ * Cross-page dedup (fallback): chunks whose normalised content hash was
+ * already seen earlier in the same crawl are silently dropped. Pass the
+ * same `seenHashes` Set across all pages in a crawl to enable this.
+ *
+ * Exported so unit tests can call it directly without a browser.
+ */
+export function extractChunks(
+  html: string,
+  url: string,
+  seenHashes: Set<string> = new Set(),
+): { chunks: CrawlChunk[]; droppedCount: number } {
   const $ = cheerio.load(html);
   const title = $("title").text().trim() || $("h1").first().text().trim();
 
-  $('nav, footer, script, style, noscript, [role="navigation"]').remove();
+  $(
+    'nav, footer, script, style, noscript, [role="navigation"], ' +
+    'aside, [class*="sidebar"], [class*="toc"], [id*="toc"], ' +
+    '[class*="cookie"], [aria-hidden="true"]',
+  ).remove();
 
   const mainContent = $('main, article, [role="main"], .content, .docs-content, .documentation, .docs, #content').first();
   const target = mainContent.length ? mainContent : $("body");
-  const markdown = td.turndown(target.html() ?? "");
+  const markdown = stripCrawlerNoise(td.turndown(target.html() ?? ""));
 
-  const rawChunks = chunkMarkdown(markdown);
-  return rawChunks.map((c) => ({
-    ...c,
-    docUrl: url,
-    docTitle: title,
-  }));
+  const { chunks: rawChunks, droppedCount } = chunkMarkdown(markdown);
+
+  const result: CrawlChunk[] = [];
+  let dedupDropped = 0;
+  for (const c of rawChunks) {
+    const hash = normalizeContentHash(c.content);
+    if (seenHashes.has(hash)) {
+      dedupDropped++;
+      continue;
+    }
+    seenHashes.add(hash);
+    result.push({ ...c, docUrl: url, docTitle: title });
+  }
+  return { chunks: result, droppedCount: droppedCount + dedupDropped };
 }
 
 function extractInternalLinks(html: string, pageUrl: string, options: NormalizedCrawlConfig): string[] {

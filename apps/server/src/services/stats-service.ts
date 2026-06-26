@@ -1,4 +1,15 @@
-import { Database } from "../db/database.js";
+/**
+ * StatsService — aggregated platform-wide statistics.
+ *
+ * Tables (read): sources, docs, chunks, embeddings, jobs (via service delegates)
+ * DB access: Drizzle ORM count() for table totals; sql tagged template for
+ *   functions not covered by ORM helpers (COALESCE, SUM, LENGTH).
+ * Dependencies: delegates source/job counts to SourceService and JobService
+ *   to avoid duplicating query logic.
+ */
+import { count, sql } from "drizzle-orm";
+import { docs, chunks, embeddings } from "../db/schema.js";
+import type { Database } from "../db/database.js";
 import type { SourceService } from "./source-service.js";
 import type { JobService } from "./job-service.js";
 
@@ -28,35 +39,24 @@ export class StatsService {
       this.jobService.getAvgImportDuration(),
     ]);
 
-    const [docResult, chunkResult, embedResult] = await Promise.all([
-      this.database.query<{ count: number }>(
-        "SELECT COUNT(*)::int AS count FROM docs",
-      ),
-      this.database.query<{ count: number }>(
-        "SELECT COUNT(*)::int AS count FROM chunks",
-      ),
-      this.database.query<{ count: number }>(
-        "SELECT COUNT(*)::int AS count FROM embeddings",
-      ),
+    const [docR, chunkR, embedR] = await Promise.all([
+      this.database.db.select({ count: count() }).from(docs),
+      this.database.db.select({ count: count() }).from(chunks),
+      this.database.db.select({ count: count() }).from(embeddings),
     ]);
 
-    const totalDocs = docResult.rows[0].count;
-    const totalChunks = chunkResult.rows[0].count;
-    const totalEmbeddings = embedResult.rows[0].count;
-
-    const sizeResult = await this.database.query<{ bytes: number }>(
-      "SELECT COALESCE(SUM(LENGTH(content))::int, 0) AS bytes FROM chunks",
+    const sizeR = await this.database.db.execute<{ bytes: number }>(
+      sql`SELECT COALESCE(SUM(LENGTH(${chunks.content}))::int, 0) AS bytes FROM ${chunks}`,
     );
-    const storageBytes = sizeResult.rows[0].bytes;
 
     return {
       totalSources,
-      totalDocs,
-      totalChunks,
-      totalEmbeddings,
+      totalDocs: Number(docR[0].count),
+      totalChunks: Number(chunkR[0].count),
+      totalEmbeddings: Number(embedR[0].count),
       totalJobs,
       avgImportDurationMs,
-      storageBytes,
+      storageBytes: (sizeR.rows[0]?.bytes as number) ?? 0,
     };
   }
 }

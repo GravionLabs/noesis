@@ -1,3 +1,16 @@
+/**
+ * SearchService — full-text and vector similarity search.
+ *
+ * Tables (read): chunks, docs, sources, embeddings
+ * DB access: db.execute(sql``) tagged template — Postgres-specific operators
+ *   (to_tsvector/ts_rank/@@ for FTS; <=> cosine distance for pgvector) have
+ *   no Drizzle ORM equivalent and require raw SQL. The sql`` tagged template
+ *   provides parameter safety and keeps table references in sync with schema.
+ * Fallback: searchDocs() tries vector search first; falls back to FTS if the
+ *   embedding provider fails or returns no vector.
+ */
+import { sql } from "drizzle-orm";
+import { chunks, docs, sources, embeddings } from "../db/schema.js";
 import type { Database } from "../db/database.js";
 import type { EmbeddingService } from "./embedding-service.js";
 import type { EmbeddingProvider } from "../embedding/index.js";
@@ -12,7 +25,7 @@ export interface SearchResult {
   chunkId: string;
 }
 
-interface SearchResultRow {
+interface SearchResultRow extends Record<string, unknown> {
   chunk_id: string;
   content: string;
   heading: string | null;
@@ -54,7 +67,7 @@ export class SearchService {
     limit = 10,
     sourceName?: string,
   ): Promise<SearchResult[]> {
-    let sql = `
+    const result = await this.database.db.execute<SearchResultRow>(sql`
       SELECT
         c.id          AS chunk_id,
         c.content,
@@ -63,26 +76,16 @@ export class SearchService {
         d.title       AS doc_title,
         s.name        AS source_name,
         ts_rank(to_tsvector('english', c.content),
-                plainto_tsquery('english', $1)) AS score
-      FROM chunks c
-      JOIN docs d ON d.id = c.doc_id
-      JOIN sources s ON s.id = c.source_id
-      WHERE to_tsvector('english', c.content) @@ plainto_tsquery('english', $1)
-    `;
-
-    const params: unknown[] = [searchQuery];
-    let paramIdx = 2;
-
-    if (sourceName) {
-      sql += ` AND s.name = $${paramIdx++}`;
-      params.push(sourceName);
-    }
-
-    sql += ` ORDER BY score DESC LIMIT $${paramIdx}`;
-    params.push(limit);
-
-    const result = await this.database.query<SearchResultRow>(sql, params);
-    return result.rows.map(mapRow);
+                plainto_tsquery('english', ${searchQuery})) AS score
+      FROM ${chunks} c
+      JOIN ${docs} d ON d.id = c.doc_id
+      JOIN ${sources} s ON s.id = c.source_id
+      WHERE to_tsvector('english', c.content) @@ plainto_tsquery('english', ${searchQuery})
+      ${sourceName ? sql`AND s.name = ${sourceName}` : sql``}
+      ORDER BY score DESC
+      LIMIT ${limit}
+    `);
+    return (result.rows as SearchResultRow[]).map(mapRow);
   }
 
   async searchByVector(
@@ -93,7 +96,7 @@ export class SearchService {
     const dims = vector.length;
     const vectorLit = `[${vector.join(",")}]`;
 
-    let sql = `
+    const result = await this.database.db.execute<SearchResultRow>(sql`
       SELECT
         c.id          AS chunk_id,
         c.content,
@@ -101,27 +104,17 @@ export class SearchService {
         d.url         AS doc_url,
         d.title       AS doc_title,
         s.name        AS source_name,
-        1 - (e.vector <=> $1::vector) AS score
-      FROM embeddings e
-      JOIN chunks c ON c.id = e.chunk_id
-      JOIN docs d ON d.id = c.doc_id
-      JOIN sources s ON s.id = c.source_id
-      WHERE e.dimensions = $2
-    `;
-
-    const params: unknown[] = [vectorLit, dims];
-    let paramIdx = 3;
-
-    if (sourceName) {
-      sql += ` AND s.name = $${paramIdx++}`;
-      params.push(sourceName);
-    }
-
-    sql += ` ORDER BY e.vector <=> $1::vector LIMIT $${paramIdx}`;
-    params.push(limit);
-
-    const result = await this.database.query<SearchResultRow>(sql, params);
-    return result.rows.map(mapRow);
+        1 - (e.vector <=> ${vectorLit}::vector) AS score
+      FROM ${embeddings} e
+      JOIN ${chunks} c ON c.id = e.chunk_id
+      JOIN ${docs} d ON d.id = c.doc_id
+      JOIN ${sources} s ON s.id = c.source_id
+      WHERE e.dimensions = ${dims}
+      ${sourceName ? sql`AND s.name = ${sourceName}` : sql``}
+      ORDER BY e.vector <=> ${vectorLit}::vector
+      LIMIT ${limit}
+    `);
+    return (result.rows as SearchResultRow[]).map(mapRow);
   }
 
   async searchDocs(

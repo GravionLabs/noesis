@@ -120,7 +120,7 @@ describe("runImport", () => {
       status: "pending",
       maxRetries: 3,
     });
-    expect(mockCompleteJob).toHaveBeenCalledWith("job-1", expect.any(Number));
+    expect(mockCompleteJob).toHaveBeenCalledWith("job-1", expect.any(Number), undefined);
     expect(mockEmbed).toHaveBeenCalledWith("src-1");
     expect(mockUpdateLastImported).toHaveBeenCalledWith("src-1");
   });
@@ -177,7 +177,7 @@ describe("runImport", () => {
       expect.any(Number),
       0,
     );
-    expect(mockCompleteJob).toHaveBeenCalledWith("job-2", expect.any(Number));
+    expect(mockCompleteJob).toHaveBeenCalledWith("job-2", expect.any(Number), undefined);
   });
 
   it("stops retrying after max retries reached", async () => {

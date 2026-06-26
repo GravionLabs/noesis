@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { SourceService } from "../services/source-service.js";
 import type { ImportService } from "../services/import-service.js";
 import type { Scheduler } from "../pipeline/scheduler.js";
+import type { ChunkService } from "../services/chunk-service.js";
 
 const createSourceSchema = z.object({
   name: z.string().min(1),
@@ -43,9 +44,9 @@ const sourceObject = {
 
 export function registerSourceRoutes(
   app: FastifyInstance,
-  deps: { sourceService: SourceService; importService: ImportService; scheduler: Scheduler },
+  deps: { sourceService: SourceService; importService: ImportService; scheduler: Scheduler; chunkService: ChunkService },
 ) {
-  const { sourceService, importService, scheduler } = deps;
+  const { sourceService, importService, scheduler, chunkService } = deps;
 
   app.get("/api/sources", async (_req, reply) => {
     const sources = await sourceService.listSources();
@@ -144,6 +145,7 @@ export function registerSourceRoutes(
     async (req, reply) => {
       const deleted = await sourceService.deleteSource(req.params.id);
       if (!deleted) return reply.code(404).send({ error: "Source not found" });
+      scheduler.unschedule(req.params.id);
       return reply.code(204).send();
     },
   );
@@ -175,6 +177,25 @@ export function registerSourceRoutes(
         const message = err instanceof Error ? err.message : String(err);
         return reply.code(404).send({ error: message });
       }
+    },
+  );
+
+  /**
+   * POST /api/sources/:id/backfill
+   *
+   * Purges existing chunks for this source that are classified as link-list
+   * noise by the same predicate applied at ingestion time. Embeddings are
+   * cascade-deleted. Idempotent — calling twice on an already-clean source
+   * returns { purged: 0 }.
+   */
+  app.post<{ Params: { id: string } }>(
+    "/api/sources/:id/backfill",
+    async (req, reply) => {
+      const source = await sourceService.getSource(req.params.id);
+      if (!source) return reply.code(404).send({ error: "Source not found" });
+
+      const result = await chunkService.purgeNoisyChunks(req.params.id);
+      return reply.code(200).send(result);
     },
   );
 }

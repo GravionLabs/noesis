@@ -71,6 +71,17 @@ export function registerJobRoutes(
     async (req, reply) => {
       const job = await jobService.getJob(req.params.id);
       if (!job) return reply.code(404).send({ error: "Job not found" });
+
+      let chunksDropped: { reason: string; count: number }[] | undefined;
+      if (job.result) {
+        try {
+          const parsed = JSON.parse(job.result);
+          if (Array.isArray(parsed.chunksDropped)) chunksDropped = parsed.chunksDropped;
+        } catch {
+          // ignore malformed result JSON
+        }
+      }
+
       return {
         id: job.id,
         sourceId: job.sourceId,
@@ -80,6 +91,7 @@ export function registerJobRoutes(
         retryCount: job.retryCount,
         maxRetries: job.maxRetries,
         durationMs: job.durationMs,
+        chunksDropped,
         startedAt: job.startedAt,
         finishedAt: job.finishedAt,
         createdAt: job.createdAt,

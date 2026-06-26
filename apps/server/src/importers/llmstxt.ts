@@ -17,7 +17,7 @@ export class LlmsTxtImporter implements Importer {
     const res = await fetchOrThrow(source.url);
 
     const text = await res.text();
-    const rawChunks = chunkMarkdown(text);
+    const { chunks: rawChunks, droppedCount } = chunkMarkdown(text);
 
     const title = text.match(/^#\s+(.+)/m)?.[1]?.trim() ?? source.name;
     const chunks: CrawlChunkData[] = rawChunks.map((c) => ({
@@ -27,6 +27,10 @@ export class LlmsTxtImporter implements Importer {
       ...c,
     }));
 
-    return this.chunkService.saveChunks(chunks, source.id);
+    const saved = await this.chunkService.saveChunks(chunks, source.id);
+    return {
+      ...saved,
+      ...(droppedCount > 0 ? { chunksDropped: [{ reason: "link_list", count: droppedCount }] } : {}),
+    };
   }
 }

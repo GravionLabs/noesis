@@ -13,6 +13,7 @@ const jobFixture = {
   type: "import",
   status: "done",
   error: null,
+  result: null,
   startedAt: null,
   finishedAt: null,
   createdAt: new Date("2026-01-01"),
@@ -77,6 +78,32 @@ describe("Job routes", () => {
       const res = await app.inject({ method: "GET", url: "/api/jobs/00000000-0000-0000-0000-000000000099" });
 
       expect(res.statusCode).toBe(404);
+    });
+
+    it("includes chunksDropped when result JSON is present", async () => {
+      const dropped = [{ reason: "link_list", count: 12 }];
+      mockGetJob.mockResolvedValue({
+        ...jobFixture,
+        result: JSON.stringify({ chunksDropped: dropped }),
+      });
+
+      const app = await buildApp();
+      const res = await app.inject({ method: "GET", url: "/api/jobs/00000000-0000-0000-0000-000000000001" });
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.chunksDropped).toEqual(dropped);
+    });
+
+    it("omits chunksDropped when result is null", async () => {
+      mockGetJob.mockResolvedValue({ ...jobFixture, result: null });
+
+      const app = await buildApp();
+      const res = await app.inject({ method: "GET", url: "/api/jobs/00000000-0000-0000-0000-000000000001" });
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.body);
+      expect(body.chunksDropped).toBeUndefined();
     });
   });
 

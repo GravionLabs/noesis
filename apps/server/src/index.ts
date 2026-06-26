@@ -6,6 +6,7 @@ import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
+import { sql } from "drizzle-orm";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { buildContainer } from "./container.js";
@@ -28,12 +29,19 @@ async function main() {
 
   // Verify database connectivity
   try {
-    const client = await database.getClient();
-    await client.query("SELECT 1");
-    client.release();
+    await database.db.execute(sql`SELECT 1`);
     logger.info("Database connection verified");
   } catch (err) {
     logger.fatal({ err }, "Database connection failed");
+    process.exit(1);
+  }
+
+  // Run migrations
+  try {
+    await database.migrate();
+    logger.info("Migrations complete");
+  } catch (err) {
+    logger.fatal({ err }, "Migration failed");
     process.exit(1);
   }
 
