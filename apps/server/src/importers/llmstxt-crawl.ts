@@ -1,4 +1,5 @@
 import { crawlUrl } from "../crawler/crawler.js";
+import type { CrawlConfig } from "../crawler/crawler.js";
 import { parseLlmsTxt, extractUrls } from "../crawler/llmstxt-parser.js";
 import { ChunkService } from "../services/chunk-service.js";
 import type { Importer, ImportResult } from "./registry.js";
@@ -20,7 +21,8 @@ export class LlmsTxtCrawlImporter implements Importer {
 
     const content = await res.text();
     const metadata = parseLlmsTxt(content);
-    const includeOptional = this.parseOptional(source.config);
+    const parsedConfig = this.parseConfig(source.config);
+    const { crawlConfig, includeOptional } = parsedConfig;
     const urls = extractUrls(metadata, includeOptional);
 
     if (urls.length === 0) return { docCount: 0, chunkCount: 0 };
@@ -34,26 +36,49 @@ export class LlmsTxtCrawlImporter implements Importer {
       chunkIndex: number;
     }> = [];
 
+    let failedUrlCount = 0;
+
     for (let i = 0; i < urls.length; i += CONCURRENCY) {
       const batch = urls.slice(i, i + CONCURRENCY);
-      const results = await Promise.all(
-        batch.map((u) => crawlUrl(u)),
+      const results = await Promise.allSettled(
+        batch.map((u) => crawlUrl(u, crawlConfig)),
       );
-      for (const result of results) allChunks.push(...result.chunks);
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          allChunks.push(...result.value.chunks);
+        } else {
+          failedUrlCount++;
+          console.warn(`llmstxt-crawl: URL crawl failed: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
+        }
+      }
     }
 
     if (allChunks.length === 0) return { docCount: 0, chunkCount: 0 };
 
     const saved = await this.chunkService.saveChunks(allChunks, source.id);
-    return saved;
+
+    if (failedUrlCount > 0) {
+      return {
+        docCount: saved.docCount,
+        chunkCount: saved.chunkCount,
+        chunksDropped: [{ reason: "crawl_error", count: failedUrlCount }],
+      };
+    }
+
+    return saved as ImportResult;
   }
 
-  private parseOptional(configStr: string | null): boolean {
-    if (!configStr) return false;
+  private parseConfig(configStr: string | null): { crawlConfig: CrawlConfig; includeOptional: boolean } {
+    if (!configStr) return { crawlConfig: {}, includeOptional: false };
     try {
-      return JSON.parse(configStr).includeOptional ?? false;
+      const parsed = JSON.parse(configStr);
+      const { includeOptional, ...crawlConfig } = parsed;
+      return {
+        crawlConfig,
+        includeOptional: includeOptional ?? false,
+      };
     } catch {
-      return false;
+      return { crawlConfig: {}, includeOptional: false };
     }
   }
 }
