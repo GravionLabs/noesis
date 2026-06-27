@@ -20,6 +20,10 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
     this.dimensions = this.model === FALLBACK_MODEL ? FALLBACK_DIMS : DEFAULT_DIMS;
   }
 
+  async health(): Promise<boolean> {
+    return true;
+  }
+
   async embed(texts: string[]): Promise<number[][]> {
     const ext = await this.getExtractor();
     const results: number[][] = [];

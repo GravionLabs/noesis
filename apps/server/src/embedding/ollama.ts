@@ -16,6 +16,15 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
     this.dimensions = 768;
   }
 
+  async health(): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/api/tags`, { method: "GET", signal: AbortSignal.timeout(5000) });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
   async embed(texts: string[]): Promise<number[][]> {
     const results: number[][] = [];
     for (const text of texts) {
