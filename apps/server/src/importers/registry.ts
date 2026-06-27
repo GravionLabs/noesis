@@ -9,6 +9,7 @@ export interface ImportResult {
   docCount: number;
   chunkCount: number;
   chunksDropped?: ChunksDroppedEntry[];
+  skippedCount?: number;
 }
 
 export interface Importer {

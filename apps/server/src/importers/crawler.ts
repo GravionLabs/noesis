@@ -15,6 +15,10 @@ export class CrawlerImporter implements Importer {
     const sourceConfig = source.config ? JSON.parse(source.config) : {};
     const crawlConfig = normalizeCrawlConfig(sourceConfig);
 
+    if (crawlConfig.incremental) {
+      crawlConfig.knownHashes = await this.chunkService.getDocHashes(source.id);
+    }
+
     const result = await crawlUrl(source.url, crawlConfig);
     if (result.chunks.length === 0) return { docCount: 0, chunkCount: 0 };
 
@@ -31,6 +35,7 @@ export class CrawlerImporter implements Importer {
     return {
       ...saved,
       ...(chunksDropped.length > 0 ? { chunksDropped } : {}),
+      ...(result.skippedCount > 0 ? { skippedCount: result.skippedCount } : {}),
     };
   }
 }

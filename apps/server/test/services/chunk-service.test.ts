@@ -198,6 +198,32 @@ describe("ChunkService", () => {
     });
   });
 
+  describe("getDocHashes", () => {
+    it("returns a map of url → contentHash for the given source", async () => {
+      mockDb._selectResult = [
+        { url: "https://example.com/page1", contentHash: "abc123" },
+        { url: "https://example.com/page2", contentHash: "def456" },
+        { url: "https://example.com/page3", contentHash: null as any },
+      ];
+
+      const result = await service.getDocHashes("source-1");
+
+      expect(result.size).toBe(2);
+      expect(result.get("https://example.com/page1")).toBe("abc123");
+      expect(result.get("https://example.com/page2")).toBe("def456");
+      expect(result.has("https://example.com/page3")).toBe(false);
+      expect(mockDb.where).toHaveBeenCalled();
+    });
+
+    it("returns an empty map when source has no docs", async () => {
+      mockDb._selectResult = [];
+
+      const result = await service.getDocHashes("source-empty");
+
+      expect(result.size).toBe(0);
+    });
+  });
+
   describe("purgeNoisyChunks", () => {
     const noisyContent = [
       "- [Zoneless change detection](/guide/zoneless)",
