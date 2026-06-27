@@ -12,6 +12,8 @@ export const IMPORTER_TYPES: ImporterTypeOption[] = [
   { label: 'OpenAPI', value: 'openapi' },
   { label: 'GitHub', value: 'github' },
   { label: 'Azure DevOps', value: 'azuredevops' },
+  { label: 'URL List', value: 'url-list' },
+  { label: 'Local Filesystem', value: 'local' },
 ];
 
 const CRAWLER_TEMPLATE = JSON.stringify(
@@ -43,4 +45,6 @@ export const CONFIG_TEMPLATES: Record<string, string> = {
   openapi: EMPTY_TEMPLATE,
   github: EMPTY_TEMPLATE,
   azuredevops: EMPTY_TEMPLATE,
+  'url-list': EMPTY_TEMPLATE,
+  local: EMPTY_TEMPLATE,
 };
