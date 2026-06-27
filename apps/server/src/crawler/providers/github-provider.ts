@@ -1,59 +1,64 @@
-import { exec } from "child_process";
-import { promisify } from "util";
-import { config } from "../../config/index.js";
+import type { Config } from "../../config/index.js";
 import { RepositoryProvider, type RepositoryFileInfo, type RepositoryContent } from "./repository-provider.js";
 
-const execAsync = promisify(exec);
-
 function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
-  const httpsMatch = url.match(/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?$/);
-  if (httpsMatch) return { owner: httpsMatch[1], repo: httpsMatch[2] };
-
-  const sshMatch = url.match(/github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/);
-  if (sshMatch) return { owner: sshMatch[1], repo: sshMatch[2] };
-
+  const match = url.match(/github\.com\/([^/]+)\/([^/#?]+?)(?:\/|\.git|$)/);
+  if (match) return { owner: match[1], repo: match[2].replace(/\.git$/, "") };
   return null;
 }
 
-export class GitHubProvider implements RepositoryProvider {
+export class GithubProvider implements RepositoryProvider {
   name = "github";
+  private config: Config;
+
+  constructor({ config }: { config: Config }) {
+    this.config = config;
+  }
 
   canHandle(url: string): boolean {
     return url.includes("github.com");
+  }
+
+  private apiHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      Accept: "application/vnd.github+json",
+      "User-Agent": "Noesis/1.0",
+    };
+    if (this.config.GITHUB_TOKEN) {
+      headers.Authorization = `Bearer ${this.config.GITHUB_TOKEN}`;
+    }
+    return headers;
   }
 
   async listFiles(repoUrl: string, path = "", maxDepth = 4): Promise<RepositoryFileInfo[]> {
     const parsed = parseGitHubUrl(repoUrl);
     if (!parsed) throw new Error(`Invalid GitHub URL: ${repoUrl}`);
 
-    const { owner, repo } = parsed;
     const files: RepositoryFileInfo[] = [];
-    const apiPath = path ? path : "";
-    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${apiPath}`;
+    const queue: Array<{ path: string; depth: number }> = [{ path, depth: 0 }];
 
-    try {
-      const response = await fetch(url, {
-        headers: {
-          Accept: "application/vnd.github.v3+json",
-          ...(config.GITHUB_TOKEN && { Authorization: `Bearer ${config.GITHUB_TOKEN}` }),
-        },
-      });
+    while (queue.length > 0) {
+      const entry = queue.shift()!;
+      if (entry.depth > maxDepth) continue;
 
-      if (!response.ok) throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+      const url = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/contents/${encodeURIComponent(entry.path)}`;
+      const res = await fetch(url, { headers: this.apiHeaders() });
+      if (!res.ok) continue;
 
-      const items = (await response.json()) as Array<{
-        name: string;
-        path: string;
-        type: "file" | "dir";
-        size?: number;
-      }>;
+      const data = (await res.json()) as Array<{ name: string; path: string; type: string; size?: number }>;
+      if (!Array.isArray(data)) continue;
 
-      for (const item of items) {
-        files.push({ path: item.path, isDirectory: item.type === "dir", size: item.size });
+      for (const item of data) {
+        const info: RepositoryFileInfo = {
+          path: item.path,
+          isDirectory: item.type === "dir",
+          size: item.size,
+        };
+        files.push(info);
+        if (item.type === "dir" && entry.depth < maxDepth) {
+          queue.push({ path: item.path, depth: entry.depth + 1 });
+        }
       }
-    } catch (error) {
-      console.error(`Failed to list files from GitHub: ${error}`);
-      throw error;
     }
 
     return files;
@@ -63,24 +68,18 @@ export class GitHubProvider implements RepositoryProvider {
     const parsed = parseGitHubUrl(repoUrl);
     if (!parsed) throw new Error(`Invalid GitHub URL: ${repoUrl}`);
 
-    const { owner, repo } = parsed;
-    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`;
+    const tryFetch = async (branch: string): Promise<Response> => {
+      const url = `https://raw.githubusercontent.com/${parsed.owner}/${parsed.repo}/${branch}/${filePath}`;
+      return fetch(url, { headers: { "User-Agent": "Noesis/1.0" } });
+    };
 
-    try {
-      const response = await fetch(url, {
-        headers: {
-          Accept: "application/vnd.github.raw",
-          ...(config.GITHUB_TOKEN && { Authorization: `Bearer ${config.GITHUB_TOKEN}` }),
-        },
-      });
+    const res = await tryFetch("main");
+    if (res.ok) return { path: filePath, content: await res.text() };
 
-      if (!response.ok) throw new Error(`GitHub API error: ${response.status}`);
-      const content = await response.text();
-      return { path: filePath, content };
-    } catch (error) {
-      console.error(`Failed to get file from GitHub: ${error}`);
-      throw error;
-    }
+    const fallback = await tryFetch("master");
+    if (!fallback.ok) throw new Error(`Failed to fetch ${filePath} from ${parsed.owner}/${parsed.repo}`);
+
+    return { path: filePath, content: await fallback.text() };
   }
 
   async getReadme(repoUrl: string): Promise<RepositoryContent | null> {
@@ -95,14 +94,26 @@ export class GitHubProvider implements RepositoryProvider {
   }
 
   async getDocFiles(repoUrl: string): Promise<RepositoryFileInfo[]> {
+    const parsed = parseGitHubUrl(repoUrl);
+    if (!parsed) return [];
+
     for (const docDir of ["docs", "doc", "documentation"]) {
-      try {
-        const files = await this.listFiles(repoUrl, docDir);
-        if (files.length > 0) return files.filter((f) => f.path.endsWith(".md"));
-      } catch {
-        // continue
-      }
+      const url = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/contents/${encodeURIComponent(docDir)}`;
+      const res = await fetch(url, { headers: this.apiHeaders() });
+      if (!res.ok) continue;
+
+      const data = (await res.json()) as Array<{ name: string; path: string; type: string; size?: number }>;
+      if (!Array.isArray(data)) continue;
+
+      return data
+        .filter((item) => item.type === "file" && item.name.endsWith(".md"))
+        .map((item) => ({
+          path: item.path,
+          isDirectory: false,
+          size: item.size,
+        }));
     }
+
     return [];
   }
 }

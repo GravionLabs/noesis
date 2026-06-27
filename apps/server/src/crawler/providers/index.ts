@@ -1,5 +1,5 @@
 import { config } from "../../config/index.js";
-import { GitHubProvider } from "./github-provider.js";
+import { GithubProvider } from "./github-provider.js";
 import { AzureDevOpsProvider } from "./azure-devops-provider.js";
 import { LocalProvider } from "./local-provider.js";
 import type { RepositoryProvider } from "./repository-provider.js";
@@ -7,7 +7,7 @@ import type { RepositoryProvider } from "./repository-provider.js";
 export type { RepositoryProvider };
 
 const providers: RepositoryProvider[] = [
-  new GitHubProvider(),
+  new GithubProvider({ config }),
   new AzureDevOpsProvider({ config }),
   new LocalProvider(),
 ];
@@ -19,4 +19,4 @@ export function getProvider(url: string): RepositoryProvider {
   throw new Error(`No provider found for URL/path: ${url}`);
 }
 
-export { GitHubProvider, AzureDevOpsProvider, LocalProvider };
+export { GithubProvider, AzureDevOpsProvider, LocalProvider };
