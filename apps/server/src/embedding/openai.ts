@@ -17,6 +17,17 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
     this.dimensions = 1536;
   }
 
+  async health(): Promise<boolean> {
+    try {
+      const { default: OpenAI } = await import("openai");
+      const client = new OpenAI({ apiKey: this.apiKey });
+      await client.models.list();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async embed(texts: string[]): Promise<number[][]> {
     const { default: OpenAI } = await import("openai");
     const client = new OpenAI({ apiKey: this.apiKey });
