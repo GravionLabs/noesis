@@ -21,6 +21,7 @@ import { LlmsTxtCrawlImporter } from "./importers/llmstxt-crawl.js";
 import { CrawlerImporter } from "./importers/crawler.js";
 import { GithubImporter } from "./importers/github.js";
 import { AzureDevopsImporter } from "./importers/azure-devops.js";
+import { UrlListImporter } from "./importers/url-list.js";
 import { AzureDevOpsProvider } from "./crawler/providers/azure-devops-provider.js";
 import { GithubProvider } from "./crawler/providers/github-provider.js";
 
@@ -65,6 +66,7 @@ export function buildContainer() {
         provider: (container.cradle as any).githubProvider,
       }))
       .singleton(),
+    urlListImporter: asClass(UrlListImporter).singleton(),
     azureDevopsImporter: asClass(AzureDevopsImporter)
       .inject(() => ({
         provider: (container.cradle as any).azureDevOpsProvider,
@@ -82,6 +84,7 @@ export function buildContainer() {
         c.llmstxtCrawlImporter,
         c.crawlerImporter,
         c.githubImporter,
+        c.urlListImporter,
         c.azureDevopsImporter,
       ],
     })).singleton(),
