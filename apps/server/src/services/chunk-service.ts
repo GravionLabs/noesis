@@ -91,6 +91,32 @@ export class ChunkService {
       .orderBy(chunks.chunkIndex);
   }
 
+  async listDocsBySourceId(sourceId: string) {
+    const r = await this.database.db.execute<{
+      id: string;
+      url: string;
+      title: string | null;
+      chunkCount: number;
+    }>(sql`
+      SELECT
+        d.id,
+        d.url,
+        d.title,
+        COUNT(c.id)::int AS "chunkCount"
+      FROM ${docs} d
+      LEFT JOIN ${chunks} c ON c.doc_id = d.id
+      WHERE d.source_id = ${sourceId}
+      GROUP BY d.id, d.url, d.title
+      ORDER BY d.url
+    `);
+    return r.rows as {
+      id: string;
+      url: string;
+      title: string | null;
+      chunkCount: number;
+    }[];
+  }
+
   async getChunksBySourceId(sourceId: string) {
     return this.database.db
       .select()

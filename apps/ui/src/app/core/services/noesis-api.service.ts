@@ -5,6 +5,7 @@ import type { Source, SourceStats, CreateSourceDto, UpdateSourceDto } from '../m
 import type { Job } from '../models/job.model';
 import type { SearchResult, SearchParams } from '../models/search.model';
 import type { ChunkDetail } from '../models/chunk.model';
+import type { SourceDoc, DocChunk } from '../models/doc.model';
 import type { AggregateStats, HealthInfo } from '../models/stats.model';
 import { SettingsService } from './settings.service';
 
@@ -77,6 +78,14 @@ export class NoesisApiService {
 
   getHealth(): Observable<HealthInfo> {
     return this.http.get<HealthInfo>(this.api('/healthz/ready'));
+  }
+
+  getSourceDocs(id: string): Observable<SourceDoc[]> {
+    return this.http.get<SourceDoc[]>(this.api(`/api/sources/${id}/docs`));
+  }
+
+  getDocChunks(id: string): Observable<DocChunk[]> {
+    return this.http.get<DocChunk[]>(this.api(`/api/docs/${id}/chunks`));
   }
 
   getChunk(id: string): Observable<ChunkDetail> {
