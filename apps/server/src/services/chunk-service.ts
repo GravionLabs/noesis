@@ -11,7 +11,7 @@
  *   getChunkWithSource() — JOIN across chunks/docs/sources by chunk UUID
  *   purgeNoisyChunks()   — predicate-based bulk delete (see isLinkListChunk in chunk-utils.ts)
  */
-import { eq, desc, inArray, and, sql } from "drizzle-orm";
+import { eq, desc, inArray, sql } from "drizzle-orm";
 import { chunks, docs, sources } from "../db/schema.js";
 import type { Database } from "../db/database.js";
 import { isLinkListChunk } from "../importers/chunk-utils.js";
@@ -115,6 +115,19 @@ export class ChunkService {
       title: string | null;
       chunkCount: number;
     }[];
+  }
+
+  async getDocHashes(sourceId: string): Promise<Map<string, string>> {
+    const rows = await this.database.db
+      .select({ url: docs.url, contentHash: docs.contentHash })
+      .from(docs)
+      .where(eq(docs.sourceId, sourceId));
+
+    const map = new Map<string, string>();
+    for (const row of rows) {
+      if (row.contentHash) map.set(row.url, row.contentHash);
+    }
+    return map;
   }
 
   async getChunksBySourceId(sourceId: string) {

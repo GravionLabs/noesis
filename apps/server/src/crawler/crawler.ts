@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import TurndownService from "turndown";
 import { chromium, type Browser } from "playwright";
+import { createHash } from "node:crypto";
 import { chunkMarkdown } from "../importers/chunk-utils.js";
 
 const td = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
@@ -32,6 +33,8 @@ export interface CrawlConfig {
   allowedPathPrefixes?: string[];
   excludePathPrefixes?: string[];
   crawlDelayMs?: number;
+  incremental?: boolean;
+  knownHashes?: Map<string, string>;
 }
 
 interface NormalizedCrawlConfig {
@@ -51,6 +54,8 @@ interface NormalizedCrawlConfig {
   allowedPathPrefixes: string[];
   excludePathPrefixes: string[];
   crawlDelayMs: number;
+  incremental: boolean;
+  knownHashes: Map<string, string>;
 }
 
 interface CrawlTarget {
@@ -64,6 +69,7 @@ interface CrawlPageResult {
   pageUrl: string;
   canonicalUrl?: string;
   droppedCount: number;
+  skipped: boolean;
 }
 
 export type StoppedReason = "maxChunks" | "maxBytes" | "maxPages" | undefined;
@@ -80,6 +86,10 @@ export interface CrawlResult {
   droppedCount: number;
   /** Number of pages that failed all retries and were excluded from results. */
   failedCount: number;
+  /** Number of pages skipped during incremental crawl because their content
+   * hash matched an already-indexed doc — no chunking or link discovery
+   * was performed for those pages. */
+  skippedCount: number;
   /** The reason the crawl stopped, if limited by a budget cap. */
   stoppedReason: StoppedReason;
 }
@@ -101,6 +111,8 @@ const DEFAULT_CONFIG: NormalizedCrawlConfig = {
   allowedPathPrefixes: [],
   excludePathPrefixes: [],
   crawlDelayMs: 0,
+  incremental: false,
+  knownHashes: new Map(),
 };
 
 export async function crawlUrl(
@@ -128,6 +140,8 @@ export function normalizeCrawlConfig(config: CrawlConfig = {}): NormalizedCrawlC
     allowedPathPrefixes: [...(config.allowedPathPrefixes ?? DEFAULT_CONFIG.allowedPathPrefixes)].filter(Boolean),
     excludePathPrefixes: [...(config.excludePathPrefixes ?? DEFAULT_CONFIG.excludePathPrefixes)].filter(Boolean),
     crawlDelayMs: config.crawlDelayMs ?? DEFAULT_CONFIG.crawlDelayMs,
+    incremental: config.incremental ?? DEFAULT_CONFIG.incremental,
+    knownHashes: config.knownHashes ?? DEFAULT_CONFIG.knownHashes,
   };
 }
 
@@ -144,6 +158,7 @@ async function crawlDocs(startUrl: string, config: CrawlConfig = {}): Promise<Cr
     const seenHashes = new Set<string>();
     let docCount = 0;
     let totalDropped = 0;
+    let skippedCount = 0;
 
     if (options.includeSitemap) {
       for (const sitemapUrl of await discoverSitemapUrls(start, options.pageTimeoutMs)) {
@@ -186,6 +201,11 @@ async function crawlDocs(startUrl: string, config: CrawlConfig = {}): Promise<Cr
       const pageResult = await crawlPageWithRetry(browser, url, options, seenHashes);
       if (!pageResult) {
         failedCount++;
+        return;
+      }
+
+      if (pageResult.skipped) {
+        skippedCount++;
         return;
       }
 
@@ -245,7 +265,7 @@ async function crawlDocs(startUrl: string, config: CrawlConfig = {}): Promise<Cr
       }
     }
 
-    return { chunks, docCount, droppedCount: totalDropped, failedCount, stoppedReason };
+    return { chunks, docCount, droppedCount: totalDropped, failedCount, skippedCount, stoppedReason };
   } finally {
     await browser.close();
   }
@@ -292,6 +312,14 @@ export async function crawlPage(
     const html = await page.content();
     const pageUrl = normalizeUrl(page.url());
 
+    if (options.incremental && options.knownHashes.size > 0) {
+      const htmlHash = createHash("md5").update(html).digest("hex");
+      const knownHash = options.knownHashes.get(pageUrl);
+      if (knownHash && htmlHash === knownHash) {
+        return { chunks: [], discoveredLinks: [], pageUrl, canonicalUrl: undefined, droppedCount: 0, skipped: true };
+      }
+    }
+
     let canonicalUrl: string | undefined;
     const $ = cheerio.load(html);
     const canonicalHref = $('link[rel="canonical"]').first().attr("href");
@@ -308,7 +336,7 @@ export async function crawlPage(
     const { chunks, droppedCount } = extractChunks(html, effectiveUrl, seenHashes);
     const discoveredLinks = extractInternalLinks(html, pageUrl, options);
 
-    return { chunks, discoveredLinks, pageUrl, canonicalUrl, droppedCount };
+    return { chunks, discoveredLinks, pageUrl, canonicalUrl, droppedCount, skipped: false };
   } finally {
     await page.close();
   }
