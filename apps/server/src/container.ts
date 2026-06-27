@@ -22,6 +22,7 @@ import { CrawlerImporter } from "./importers/crawler.js";
 import { GithubImporter } from "./importers/github.js";
 import { AzureDevopsImporter } from "./importers/azure-devops.js";
 import { UrlListImporter } from "./importers/url-list.js";
+import { LocalFilesystemImporter } from "./importers/local-filesystem.js";
 import { AzureDevOpsProvider } from "./crawler/providers/azure-devops-provider.js";
 import { GithubProvider } from "./crawler/providers/github-provider.js";
 
@@ -67,6 +68,7 @@ export function buildContainer() {
       }))
       .singleton(),
     urlListImporter: asClass(UrlListImporter).singleton(),
+    localFilesystemImporter: asClass(LocalFilesystemImporter).singleton(),
     azureDevopsImporter: asClass(AzureDevopsImporter)
       .inject(() => ({
         provider: (container.cradle as any).azureDevOpsProvider,
@@ -85,6 +87,7 @@ export function buildContainer() {
         c.crawlerImporter,
         c.githubImporter,
         c.urlListImporter,
+        c.localFilesystemImporter,
         c.azureDevopsImporter,
       ],
     })).singleton(),
