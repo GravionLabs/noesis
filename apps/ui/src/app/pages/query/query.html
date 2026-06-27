@@ -61,7 +61,14 @@
         @for (result of results(); track result.chunkId) {
           <p-card>
             <div class="flex items-center justify-between mb-2">
-              <helix-badge [label]="result.sourceName" severity="info" />
+              <div class="flex items-center gap-2">
+                <p-checkbox
+                  [binary]="true"
+                  [ngModel]="isSelected(result.chunkId)"
+                  (ngModelChange)="toggleSelect(result.chunkId)"
+                />
+                <helix-badge [label]="result.sourceName" severity="info" />
+              </div>
               <span class="text-sm text-muted-color">{{ scorePercent(result.score) }}% match</span>
             </div>
 
@@ -90,6 +97,29 @@
             </div>
           </p-card>
         }
+      @if (selectedCount() > 0) {
+        <div class="sticky bottom-0 bg-surface-0 border-t p-3 flex items-center justify-between gap-3">
+          <span class="text-sm text-muted-color">
+            {{ selectedCount() }} selected · ~{{ estimatedTokens() }} tokens
+          </span>
+          <div class="flex gap-2">
+            <p-button
+              label="Clear"
+              severity="secondary"
+              size="small"
+              (onClick)="clearSelection()"
+            />
+            <p-button
+              label="Copy Context"
+              icon="pi pi-copy"
+              severity="info"
+              size="small"
+              [loading]="contextLoading()"
+              (onClick)="copyContext()"
+            />
+          </div>
+        </div>
+      }
       </div>
     } @else {
       <helix-empty title="Search the knowledge base" description="Enter a query above and press Search." />

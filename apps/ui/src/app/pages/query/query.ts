@@ -4,6 +4,7 @@ import { HelixBadge, HelixEmpty } from '@gravionlabs/helix';
 import { MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { Card } from 'primeng/card';
+import { Checkbox } from 'primeng/checkbox';
 import { Dialog } from 'primeng/dialog';
 import { InputNumber } from 'primeng/inputnumber';
 import { Message } from 'primeng/message';
@@ -26,6 +27,7 @@ const PREVIEW_LENGTH = 400;
     HelixEmpty,
     Button,
     Card,
+    Checkbox,
     Dialog,
     InputNumber,
     Message,
@@ -58,6 +60,96 @@ export class Query {
   protected readonly loadingFullChunk = signal(false);
   protected readonly fullChunk = signal<ChunkDetail | undefined>(undefined);
 
+  protected readonly selectedChunkIds = signal<Set<string>>(new Set());
+  protected readonly contextLoading = signal(false);
+
+  protected readonly selectedCount = computed(() => this.selectedChunkIds().size);
+
+  protected readonly estimatedTokens = computed(() => {
+    const ids = this.selectedChunkIds();
+    const results = this.results();
+    let totalChars = 0;
+    for (const r of results) {
+      if (ids.has(r.chunkId)) {
+        totalChars += r.content.length;
+      }
+    }
+    return Math.round(totalChars / 4);
+  });
+
+  protected toggleSelect(chunkId: string): void {
+    const next = new Set(this.selectedChunkIds());
+    if (next.has(chunkId)) {
+      next.delete(chunkId);
+    } else {
+      next.add(chunkId);
+    }
+    this.selectedChunkIds.set(next);
+  }
+
+  protected isSelected(chunkId: string): boolean {
+    return this.selectedChunkIds().has(chunkId);
+  }
+
+  protected clearSelection(): void {
+    this.selectedChunkIds.set(new Set());
+  }
+
+  protected copyContext(): void {
+    const ids = [...this.selectedChunkIds()];
+    if (ids.length === 0) return;
+
+    this.contextLoading.set(true);
+    const results = this.results();
+    const fetch$ = ids.map((id) => {
+      const result = results.find((r) => r.chunkId === id)!;
+      return this.api.getChunk(id);
+    });
+
+    let combined = '';
+    let completed = 0;
+    for (const id of ids) {
+      const result = results.find((r) => r.chunkId === id)!;
+      this.api.getChunk(id).subscribe({
+        next: (detail) => {
+          if (combined.length > 0) combined += '\n\n';
+          combined += `--- Source: ${detail.source.name} | ${detail.doc.title ?? detail.doc.url} ---\n${detail.content}`;
+          completed++;
+          if (completed === ids.length) {
+            this.contextLoading.set(false);
+            this.copyText(combined);
+          }
+        },
+        error: () => {
+          completed++;
+          if (completed === ids.length) {
+            this.contextLoading.set(false);
+            this.copyText(combined);
+          }
+        },
+      });
+    }
+  }
+
+  private copyText(text: string): void {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(
+        () => this.onContextCopySuccess(),
+        () => this.copyFallback(text),
+      );
+    } else {
+      this.copyFallback(text);
+    }
+  }
+
+  private onContextCopySuccess(): void {
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Context copied!',
+      detail: 'Selected chunks copied to clipboard',
+    });
+  }
+
   constructor() {
     this.sourcesStore.loadSources();
   }
@@ -68,6 +160,7 @@ export class Query {
 
     this.loading.set(true);
     this.error.set(null);
+    this.selectedChunkIds.set(new Set());
     this.api.search({ q, source: this.sourceFilter(), limit: this.limit() }).subscribe({
       next: (results) => {
         this.results.set(results);
