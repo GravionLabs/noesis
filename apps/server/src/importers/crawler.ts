@@ -19,11 +19,18 @@ export class CrawlerImporter implements Importer {
     if (result.chunks.length === 0) return { docCount: 0, chunkCount: 0 };
 
     const saved = await this.chunkService.saveChunks(result.chunks, source.id);
+    const chunksDropped: { reason: string; count: number }[] = [];
+
+    if (result.droppedCount > 0) {
+      chunksDropped.push({ reason: "link_list_and_dedup", count: result.droppedCount });
+    }
+    if (result.stoppedReason) {
+      chunksDropped.push({ reason: result.stoppedReason, count: 1 });
+    }
+
     return {
       ...saved,
-      ...(result.droppedCount > 0
-        ? { chunksDropped: [{ reason: "link_list_and_dedup", count: result.droppedCount }] }
-        : {}),
+      ...(chunksDropped.length > 0 ? { chunksDropped } : {}),
     };
   }
 }

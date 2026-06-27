@@ -19,6 +19,12 @@ export interface CrawlChunk {
 export interface CrawlConfig {
   maxDepth?: number;
   maxPages?: number;
+  concurrency?: number;
+  maxPageRetries?: number;
+  maxChunks?: number;
+  maxBytes?: number;
+  respectRobots?: boolean;
+  obeyCrawlDelay?: boolean;
   includeSitemap?: boolean;
   pageTimeoutMs?: number;
   sameOriginOnly?: boolean;
@@ -31,6 +37,13 @@ export interface CrawlConfig {
 interface NormalizedCrawlConfig {
   maxDepth: number;
   maxPages: number;
+  concurrency: number;
+  maxPageRetries: number;
+  maxChunks: number | undefined;
+  maxBytes: number | undefined;
+  respectRobots: boolean;
+  obeyCrawlDelay: boolean;
+  robotsRules: RobotsRules | null;
   includeSitemap: boolean;
   pageTimeoutMs: number;
   sameOriginOnly: boolean;
@@ -53,6 +66,8 @@ interface CrawlPageResult {
   droppedCount: number;
 }
 
+export type StoppedReason = "maxChunks" | "maxBytes" | "maxPages" | undefined;
+
 export interface CrawlResult {
   chunks: CrawlChunk[];
   /** Internal/diagnostic page counter. The user-visible docCount comes from
@@ -63,11 +78,22 @@ export interface CrawlResult {
   /** Total number of chunks dropped by all filters (link-list, pagination,
    * cross-page dedup) during this crawl. */
   droppedCount: number;
+  /** Number of pages that failed all retries and were excluded from results. */
+  failedCount: number;
+  /** The reason the crawl stopped, if limited by a budget cap. */
+  stoppedReason: StoppedReason;
 }
 
 const DEFAULT_CONFIG: NormalizedCrawlConfig = {
   maxDepth: 2,
   maxPages: 100,
+  concurrency: 4,
+  maxPageRetries: 2,
+  maxChunks: undefined,
+  maxBytes: undefined,
+  respectRobots: true,
+  obeyCrawlDelay: true,
+  robotsRules: null,
   includeSitemap: true,
   pageTimeoutMs: 30_000,
   sameOriginOnly: true,
@@ -88,6 +114,13 @@ export function normalizeCrawlConfig(config: CrawlConfig = {}): NormalizedCrawlC
   return {
     maxDepth: config.maxDepth ?? DEFAULT_CONFIG.maxDepth,
     maxPages: config.maxPages ?? DEFAULT_CONFIG.maxPages,
+    concurrency: Math.max(1, config.concurrency ?? DEFAULT_CONFIG.concurrency),
+    maxPageRetries: Math.max(0, config.maxPageRetries ?? DEFAULT_CONFIG.maxPageRetries),
+    maxChunks: config.maxChunks,
+    maxBytes: config.maxBytes,
+    respectRobots: config.respectRobots ?? DEFAULT_CONFIG.respectRobots,
+    obeyCrawlDelay: config.obeyCrawlDelay ?? DEFAULT_CONFIG.obeyCrawlDelay,
+    robotsRules: null,
     includeSitemap: config.includeSitemap ?? DEFAULT_CONFIG.includeSitemap,
     pageTimeoutMs: config.pageTimeoutMs ?? DEFAULT_CONFIG.pageTimeoutMs,
     sameOriginOnly: config.sameOriginOnly ?? DEFAULT_CONFIG.sameOriginOnly,
@@ -118,48 +151,133 @@ async function crawlDocs(startUrl: string, config: CrawlConfig = {}): Promise<Cr
       }
     }
 
-    while (queue.length > 0 && visited.size < options.maxPages) {
-      const target = queue.shift();
-      if (!target) continue;
+    if (options.respectRobots) {
+      const origin = new URL(start).origin;
+      const robotsTxt = await fetchText(new URL("/robots.txt", origin).toString(), options.pageTimeoutMs);
+      if (robotsTxt) {
+        options.robotsRules = parseRobots(robotsTxt, "NoesisBot");
 
-      const normalizedTarget = normalizeUrl(target.url);
-      queued.delete(normalizedTarget);
-
-      if (visited.has(normalizedTarget)) continue;
-
-      visited.add(normalizedTarget);
-
-      try {
-        const pageResult = await crawlPage(browser, target.url, options, seenHashes);
-        chunks.push(...pageResult.chunks);
-        totalDropped += pageResult.droppedCount;
-        docCount += 1;
-
-        if (pageResult.canonicalUrl) {
-          visited.add(pageResult.canonicalUrl);
+        if (options.obeyCrawlDelay && options.robotsRules.crawlDelay !== null && !config.crawlDelayMs) {
+          options.crawlDelayMs = options.robotsRules.crawlDelay * 1000;
         }
-
-        if (target.depth < options.maxDepth) {
-          for (const link of pageResult.discoveredLinks) {
-            enqueue(queue, queued, link, target.depth + 1, options.maxDepth);
-          }
-        }
-
-        if (options.crawlDelayMs > 0 && queue.length > 0) {
-          await new Promise((resolve) => setTimeout(resolve, options.crawlDelayMs));
-        }
-      } catch (error) {
-        console.warn(`Failed to crawl ${target.url}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
-    return { chunks, docCount, droppedCount: totalDropped };
+    const inFlight = new Set<Promise<void>>();
+    let failedCount = 0;
+    let totalChunks = 0;
+    let totalBytes = 0;
+    let stoppedReason: StoppedReason = undefined;
+
+    async function processTarget(url: string, depth: number): Promise<void> {
+      if (stoppedReason) return;
+
+      const normalizedTarget = normalizeUrl(url);
+      queued.delete(normalizedTarget);
+      if (visited.has(normalizedTarget)) return;
+      visited.add(normalizedTarget);
+
+      if (visited.size > options.maxPages) {
+        stoppedReason = "maxPages";
+        failedCount++;
+        return;
+      }
+
+      const pageResult = await crawlPageWithRetry(browser, url, options, seenHashes);
+      if (!pageResult) {
+        failedCount++;
+        return;
+      }
+
+      if (pageResult.chunks.length === 0) {
+        totalDropped += pageResult.droppedCount;
+        docCount += 1;
+        return;
+      }
+
+      chunks.push(...pageResult.chunks);
+      totalDropped += pageResult.droppedCount;
+      docCount += 1;
+      totalChunks += pageResult.chunks.length;
+      totalBytes += pageResult.chunks.reduce((sum, c) => sum + c.content.length, 0);
+
+      if (options.maxChunks !== undefined && totalChunks >= options.maxChunks) {
+        stoppedReason = "maxChunks";
+        return;
+      }
+      if (options.maxBytes !== undefined && totalBytes >= options.maxBytes) {
+        stoppedReason = "maxBytes";
+        return;
+      }
+
+      if (pageResult.canonicalUrl) {
+        visited.add(pageResult.canonicalUrl);
+      }
+
+      if (depth < options.maxDepth) {
+        for (const link of pageResult.discoveredLinks) {
+          enqueue(queue, queued, link, depth + 1, options.maxDepth);
+        }
+      }
+
+      if (options.crawlDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, options.crawlDelayMs));
+      }
+    }
+
+    for (let i = 0; i < options.concurrency && i < options.maxPages && queue.length > 0; i++) {
+      const target = queue.shift()!;
+      const p = processTarget(target.url, target.depth);
+      inFlight.add(p);
+      p.then(() => inFlight.delete(p));
+    }
+
+    while (inFlight.size > 0) {
+      if (visited.size >= options.maxPages) {
+        await Promise.race(inFlight);
+      } else if (inFlight.size < options.concurrency && queue.length > 0) {
+        const target = queue.shift()!;
+        const p = processTarget(target.url, target.depth);
+        inFlight.add(p);
+        p.then(() => inFlight.delete(p));
+      } else {
+        await Promise.race(inFlight);
+      }
+    }
+
+    return { chunks, docCount, droppedCount: totalDropped, failedCount, stoppedReason };
   } finally {
     await browser.close();
   }
 }
 
-async function crawlPage(
+/**
+ * Calls `crawlPage` with retry and linear backoff.
+ * Returns the page result on success, or `null` if all retries fail.
+ */
+async function crawlPageWithRetry(
+  browser: Browser,
+  url: string,
+  options: NormalizedCrawlConfig,
+  seenHashes: Set<string>,
+): Promise<CrawlPageResult | null> {
+  for (let attempt = 1; attempt <= options.maxPageRetries; attempt++) {
+    try {
+      return await crawlPage(browser, url, options, seenHashes);
+    } catch (error) {
+      if (attempt < options.maxPageRetries) {
+        const delayMs = 500 * attempt;
+        console.warn(`Retry ${attempt}/${options.maxPageRetries} for ${url} after ${delayMs}ms: ${error instanceof Error ? error.message : String(error)}`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      } else {
+        console.warn(`Failed to crawl ${url} after ${options.maxPageRetries} retries: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  }
+  return null;
+}
+
+export async function crawlPage(
   browser: Browser,
   url: string,
   options: NormalizedCrawlConfig,
@@ -361,6 +479,103 @@ function isAllowedUrl(candidateUrl: string, baseUrl: URL, options: NormalizedCra
   if (options.allowedHosts.length > 0 && !options.allowedHosts.includes(candidate.host)) return false;
   if (options.allowedPathPrefixes.length > 0 && !options.allowedPathPrefixes.some((prefix) => candidate.pathname.startsWith(prefix))) return false;
   if (options.excludePathPrefixes.some((prefix) => candidate.pathname.startsWith(prefix))) return false;
+
+  if (options.respectRobots && options.robotsRules && candidate.origin === baseUrl.origin) {
+    if (!isPathAllowedByRobots(candidate.pathname, options.robotsRules)) return false;
+  }
+
+  return true;
+}
+
+export interface RobotsRules {
+  disallow: string[];
+  allow: string[];
+  crawlDelay: number | null;
+}
+
+/**
+ * Parses robots.txt content for a given User-Agent.
+ * Uses the most-specific matching user-agent group (exact match > wildcard).
+ * For Allow/Disallow, the longest matching path wins.
+ */
+export function parseRobots(robotsTxt: string, userAgent: string): RobotsRules {
+  const result: RobotsRules = { disallow: [], allow: [], crawlDelay: null };
+  let currentAgent: string | null = null;
+  let matched = false;
+  let foundExactMatch = false;
+
+  const specificAgent = userAgent.toLowerCase();
+  const lines = robotsTxt.split("\n");
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+
+    const uaMatch = line.match(/^user-agent:\s*(.+)$/i);
+    if (uaMatch) {
+      currentAgent = uaMatch[1].trim().toLowerCase();
+      // Once we've matched a specific agent, ignore subsequent groups
+      if (foundExactMatch) {
+        matched = false;
+      } else if (currentAgent === specificAgent) {
+        foundExactMatch = true;
+        matched = true;
+        result.disallow = [];
+        result.allow = [];
+        result.crawlDelay = null;
+      } else {
+        matched = currentAgent === "*" && !foundExactMatch;
+      }
+      continue;
+    }
+
+    if (!matched || !currentAgent) continue;
+
+    const disallowMatch = line.match(/^disallow:\s*(.*)$/i);
+    if (disallowMatch) {
+      const path = disallowMatch[1].trim();
+      if (path) result.disallow.push(path);
+      continue;
+    }
+
+    const allowMatch = line.match(/^allow:\s*(.*)$/i);
+    if (allowMatch) {
+      const path = allowMatch[1].trim();
+      if (path) result.allow.push(path);
+      continue;
+    }
+
+    const crawlDelayMatch = line.match(/^crawl-delay:\s*(\d+\.?\d*)$/i);
+    if (crawlDelayMatch && result.crawlDelay === null) {
+      const delay = Number.parseFloat(crawlDelayMatch[1]);
+      if (!Number.isNaN(delay) && delay > 0) {
+        result.crawlDelay = Math.ceil(delay);
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Checks if a path is allowed by robots.txt rules.
+ * Longest-matching path wins. Allow overrides Disallow for same-length paths.
+ */
+export function isPathAllowedByRobots(path: string, rules: RobotsRules): boolean {
+  const matchingDisallow = rules.disallow
+    .filter((d) => path.startsWith(d))
+    .sort((a, b) => b.length - a.length);
+
+  const matchingAllow = rules.allow
+    .filter((a) => path.startsWith(a))
+    .sort((a, b) => b.length - a.length);
+
+  const longestDisallow = matchingDisallow[0] ?? "";
+  const longestAllow = matchingAllow[0] ?? "";
+
+  if (longestAllow.length > longestDisallow.length) return true;
+  if (longestDisallow.length > longestAllow.length) return false;
+  if (longestDisallow) return false;
 
   return true;
 }
