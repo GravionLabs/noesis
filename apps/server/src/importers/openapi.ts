@@ -1,3 +1,4 @@
+import yaml from "js-yaml";
 import type { CrawlChunkData } from "../services/chunk-service.js";
 import { ChunkService } from "../services/chunk-service.js";
 import type { Importer, ImportResult } from "./registry.js";
@@ -16,6 +17,18 @@ interface OpenApiOperation {
   tags?: string[];
 }
 
+function isYamlUrl(url: string): boolean {
+  return /\.ya?ml$/i.test(url);
+}
+
+async function parseSpec(res: Response, url: string): Promise<OpenApiSpec> {
+  if (isYamlUrl(url)) {
+    const text = await res.text();
+    return yaml.load(text) as OpenApiSpec;
+  }
+  return res.json() as Promise<OpenApiSpec>;
+}
+
 export class OpenApiImporter implements Importer {
   readonly type = "openapi";
   private chunkService: ChunkService;
@@ -27,7 +40,7 @@ export class OpenApiImporter implements Importer {
   async import(source: Source): Promise<ImportResult> {
     const res = await fetchOrThrow(source.url);
 
-    const spec: OpenApiSpec = await res.json();
+    const spec = await parseSpec(res, source.url);
     const apiTitle = spec.info?.title ?? source.name;
     const docUrl = source.url;
 
