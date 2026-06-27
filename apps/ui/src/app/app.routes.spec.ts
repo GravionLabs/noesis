@@ -13,6 +13,7 @@ import { HelixEmpty, helixBreadcrumbsFromRoutes } from '@gravionlabs/helix';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { routes } from './app.routes';
 import { Dashboard } from './pages/dashboard/dashboard';
+import { Settings } from './pages/settings/settings';
 import { SourcesList } from './pages/sources/sources-list';
 import { SourceDetail } from './pages/sources/source-detail';
 import { JobsList } from './pages/jobs/jobs-list';
@@ -107,10 +108,19 @@ describe('routes / breadcrumbs', () => {
     ]);
   });
 
-  it('/settings shows no breadcrumb trail (single segment)', async () => {
+  it('/settings activates Settings component', async () => {
     const harness = await RouterTestingHarness.create('/settings');
-    expect(activatedComponent(harness, HelixEmpty)).toBeTruthy();
-    expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual(['Settings']);
+    httpTesting.expectOne('/healthz/ready').flush({
+      status: 'ok',
+      provider: 'local',
+      model: 'Xenova/bge-base-en-v1.5',
+      dimensions: 768,
+      schedulerRunning: true,
+      pendingJobs: 0,
+      totalSources: 0,
+    });
+    expect(activatedComponent(harness, Settings)).toBeTruthy();
+    expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual([]);
   });
 
   it('/sources activates SourcesList with "Knowledge Base > Sources"', async () => {

@@ -1,0 +1,107 @@
+<div
+  class="grid grid-rows-[auto_1fr] gap-4 p-4"
+  style="height: calc(100vh - var(--helix-topbar-height) - var(--helix-status-bar-height) - (var(--helix-layout-gap) * 2))"
+>
+  <p-toolbar>
+    <ng-template #start>
+      <b>Settings</b>
+    </ng-template>
+  </p-toolbar>
+
+  <div class="overflow-auto min-h-0 flex flex-col gap-4">
+
+    <!-- API Configuration -->
+    <p-card header="API Configuration">
+      <div class="flex flex-col gap-4">
+        <div class="flex flex-col gap-1">
+          <label for="apiKey" class="font-medium text-sm">API Key</label>
+          <div class="flex items-center gap-2">
+            <input
+              id="apiKey"
+              pInputText
+              [type]="apiKeyVisible() ? 'text' : 'password'"
+              [ngModel]="apiKeyValue()"
+              (ngModelChange)="apiKeyValue.set($event)"
+              placeholder="Enter API key..."
+              class="flex-1"
+            />
+            <p-button
+              [icon]="apiKeyVisible() ? 'pi pi-eye-slash' : 'pi pi-eye'"
+              severity="secondary"
+              text
+              (onClick)="toggleApiKeyVisibility()"
+              pTooltip="Toggle visibility"
+            />
+            <p-button label="Save" icon="pi pi-check" (onClick)="saveApiKey()" />
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label for="baseUrl" class="font-medium text-sm">Server URL</label>
+          <div class="flex items-center gap-2">
+            <input
+              id="baseUrl"
+              pInputText
+              type="text"
+              [ngModel]="baseUrlValue()"
+              (ngModelChange)="baseUrlValue.set($event)"
+              placeholder="http://localhost:5000"
+              class="flex-1"
+            />
+            <p-button label="Save" icon="pi pi-check" (onClick)="saveBaseUrl()" />
+          </div>
+        </div>
+      </div>
+    </p-card>
+
+    <!-- Server Health -->
+    <p-card header="Server Health">
+      @if (healthLoading()) {
+        <div class="flex flex-col gap-3">
+          <p-skeleton height="1.5rem" />
+          <p-skeleton height="1.5rem" />
+          <p-skeleton height="1.5rem" />
+          <p-skeleton height="1.5rem" />
+        </div>
+      } @else if (healthError()) {
+        <p-message severity="error" text="Unable to reach the server. Check your Server URL and API key." />
+      } @else if (health(); as h) {
+        <div class="flex flex-col gap-3">
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-muted-color">Embedding provider</span>
+            <span class="font-medium text-sm">{{ h.provider }}</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-muted-color">Embedding model</span>
+            <span class="font-medium text-sm">{{ h.model }}</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-muted-color">Scheduler</span>
+            @if (h.schedulerRunning) {
+              <p-tag severity="success" value="Running" icon="pi pi-check-circle" />
+            } @else {
+              <p-tag severity="danger" value="Stopped" icon="pi pi-times-circle" />
+            }
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-muted-color">Pending jobs</span>
+            <span class="font-medium text-sm">{{ h.pendingJobs }}</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-muted-color">Total sources</span>
+            <span class="font-medium text-sm">{{ h.totalSources }}</span>
+          </div>
+          <div class="flex justify-end">
+            <p-button label="Refresh" icon="pi pi-refresh" severity="secondary" text (onClick)="loadHealth()" />
+          </div>
+        </div>
+      }
+    </p-card>
+
+    <!-- Theme -->
+    <p-card header="Theme">
+      <helix-configurator />
+    </p-card>
+
+  </div>
+</div>
