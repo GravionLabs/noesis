@@ -3,6 +3,7 @@ import cron from "node-cron";
 
 const mockRunImport = vi.fn().mockResolvedValue({ id: "job-1" });
 const mockListSources = vi.fn();
+const mockTryAcquire = vi.fn();
 
 import { Scheduler } from "../../src/pipeline/scheduler.js";
 
@@ -18,6 +19,7 @@ function createScheduler() {
   return new Scheduler({
     jobRunner: { runImport: mockRunImport } as any,
     sourceService: { listSources: mockListSources } as any,
+    lock: { tryAcquire: mockTryAcquire } as any,
     logger: {
       child: () => ({
         info: vi.fn(),
@@ -47,6 +49,26 @@ describe("Scheduler", () => {
     it("returns false for invalid cron expressions", () => {
       vi.spyOn(cron, "validate").mockReturnValue(false);
       expect(scheduler.isValidCron("invalid")).toBe(false);
+    });
+  });
+
+  describe("isLeader", () => {
+    it("returns false initially", () => {
+      expect(scheduler.isLeader()).toBe(false);
+    });
+
+    it("returns true after refresh acquires the lock", async () => {
+      mockTryAcquire.mockResolvedValue(true);
+      mockListSources.mockResolvedValue([]);
+      await scheduler.refreshSchedules();
+      expect(scheduler.isLeader()).toBe(true);
+    });
+
+    it("returns false when lock acquisition fails", async () => {
+      mockTryAcquire.mockResolvedValue(false);
+      mockListSources.mockResolvedValue([]);
+      await scheduler.refreshSchedules();
+      expect(scheduler.isLeader()).toBe(false);
     });
   });
 
@@ -125,7 +147,8 @@ describe("Scheduler", () => {
       scheduler = createScheduler();
     });
 
-    it("schedules all sources with a valid cron expression", async () => {
+    it("schedules all sources when leader", async () => {
+      mockTryAcquire.mockResolvedValue(true);
       const task = makeTask();
       vi.spyOn(cron, "validate").mockReturnValue(true);
       const scheduleSpy = vi.spyOn(cron, "schedule").mockReturnValue(task);
@@ -143,7 +166,44 @@ describe("Scheduler", () => {
       expect(scheduleSpy).toHaveBeenCalledWith("0 0 * * *", expect.any(Function));
     });
 
+    it("does not schedule any tasks when not leader", async () => {
+      mockTryAcquire.mockResolvedValue(false);
+      const scheduleSpy = vi.spyOn(cron, "schedule");
+
+      mockListSources.mockResolvedValue([
+        { id: "src-1", schedule: "0 */6 * * *" },
+      ]);
+
+      await scheduler.refreshSchedules();
+
+      expect(scheduleSpy).not.toHaveBeenCalled();
+    });
+
+    it("stops existing tasks when leadership is lost", async () => {
+      mockTryAcquire.mockResolvedValue(true);
+      const task = makeTask();
+      vi.spyOn(cron, "validate").mockReturnValue(true);
+      vi.spyOn(cron, "schedule").mockReturnValue(task);
+
+      mockListSources.mockResolvedValue([
+        { id: "src-1", schedule: "0 */6 * * *" },
+      ]);
+
+      await scheduler.refreshSchedules();
+
+      expect((scheduler as any).scheduledTasks.size).toBe(1);
+
+      // Now lose leadership
+      mockTryAcquire.mockResolvedValue(false);
+
+      await scheduler.refreshSchedules();
+
+      expect((scheduler as any).scheduledTasks.size).toBe(0);
+      expect(task.stop).toHaveBeenCalled();
+    });
+
     it("unschedules sources whose schedule was removed", async () => {
+      mockTryAcquire.mockResolvedValue(true);
       const task1 = makeTask();
       const task2 = makeTask();
       vi.spyOn(cron, "validate").mockReturnValue(true);

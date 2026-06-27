@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import type { JobRunner } from "./job-runner.js";
 import type { SourceService } from "../services/source-service.js";
+import type { PostgresLock } from "../db/lock.js";
 import { logger as _logger } from "../logger.js";
 
 export interface SourceSchedule {
@@ -11,22 +12,31 @@ export interface SourceSchedule {
 export class Scheduler {
   private jobRunner: JobRunner;
   private sourceService: SourceService;
+  private lock: PostgresLock;
   private log: ReturnType<typeof _logger.child>;
   private scheduledTasks = new Map<string, cron.ScheduledTask>();
   private intervalHandle: ReturnType<typeof setInterval> | null = null;
+  private leader = false;
 
   constructor({
     jobRunner,
     sourceService,
+    lock,
     logger,
   }: {
     jobRunner: JobRunner;
     sourceService: SourceService;
+    lock: PostgresLock;
     logger: typeof _logger;
   }) {
     this.jobRunner = jobRunner;
     this.sourceService = sourceService;
+    this.lock = lock;
     this.log = logger.child({ module: "scheduler" });
+  }
+
+  isLeader(): boolean {
+    return this.leader;
   }
 
   isValidCron(expr: string): boolean {
@@ -61,7 +71,25 @@ export class Scheduler {
     this.log.info({ sourceId: source.id, schedule: source.schedule }, "Source scheduled with cron");
   }
 
+  private clearAllTasks(): void {
+    for (const [id, task] of this.scheduledTasks) {
+      task.stop();
+      this.log.debug({ sourceId: id }, "Scheduler cron task stopped (standby mode)");
+    }
+    this.scheduledTasks.clear();
+  }
+
   async refreshSchedules(): Promise<void> {
+    this.leader = await this.lock.tryAcquire();
+
+    if (!this.leader) {
+      if (this.scheduledTasks.size > 0) {
+        this.log.info("This instance is not the scheduler leader, stopping cron tasks");
+        this.clearAllTasks();
+      }
+      return;
+    }
+
     const allSources = await this.sourceService.listSources();
 
     const activeIds = new Set<string>();

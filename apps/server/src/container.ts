@@ -2,6 +2,7 @@ import { createContainer, asClass, asValue, asFunction } from "awilix";
 import { config } from "./config/index.js";
 import { logger } from "./logger.js";
 import { Database } from "./db/database.js";
+import { PostgresLock } from "./db/lock.js";
 import { SourceService } from "./services/source-service.js";
 import { JobService } from "./services/job-service.js";
 import { ChunkService } from "./services/chunk-service.js";
@@ -36,6 +37,7 @@ export function buildContainer() {
 
   container.register({
     database: asClass(Database).singleton(),
+    lock: asClass(PostgresLock).singleton(),
   });
 
   container.register({
