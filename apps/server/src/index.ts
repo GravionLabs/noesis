@@ -20,7 +20,7 @@ import { createRequireApiKey } from "./middleware/auth.js";
 
 const container = buildContainer();
 const cradle = container.cradle as any;
-const { config, database, scheduler, mcpHandler } = cradle;
+const { config, database, scheduler, lock, mcpHandler } = cradle;
 const logger = cradle.logger;
 const requireApiKey = createRequireApiKey({ config });
 
@@ -159,15 +159,52 @@ async function main() {
   logger.info({ port: config.PORT }, "Noesis server listening");
 
   // ---- Graceful shutdown ----
-  const shutdown = async () => {
-    logger.info("Shutdown signal received, shutting down gracefully");
-    await Promise.all([...mcpTransports.values()].map((transport) => transport.close()));
-    await database.end();
+  const SHUTDOWN_TIMEOUT_MS = 30_000;
+
+  let shuttingDown = false;
+
+  const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.info({ signal }, "Shutdown signal received, shutting down gracefully");
+
+    const forceExit = setTimeout(() => {
+      logger.error("Shutdown timed out, forcing exit");
+      process.exit(1);
+    }, SHUTDOWN_TIMEOUT_MS);
+
+    forceExit.unref();
+
+    try {
+      // Stop accepting new requests
+      await app.close();
+      logger.info("HTTP server closed");
+
+      // Stop the scheduler, release leader lock
+      scheduler.stopScheduler();
+      await lock.release();
+      logger.info("Scheduler stopped and lock released");
+
+      // Close MCP transports
+      await Promise.all([...mcpTransports.values()].map((transport) => transport.close()));
+      logger.info("MCP transports closed");
+    } catch (err) {
+      logger.error({ err }, "Error during graceful shutdown");
+    }
+
+    try {
+      await database.end();
+      logger.info("Database pool closed");
+    } catch (err) {
+      logger.error({ err }, "Error closing database pool");
+    }
+
+    clearTimeout(forceExit);
     process.exit(0);
   };
 
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
 }
 
 main().catch((err) => {
