@@ -1,16 +1,12 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Toolbar } from 'primeng/toolbar';
 import { Card } from 'primeng/card';
 import { InputText } from 'primeng/inputtext';
 import { Button } from 'primeng/button';
-import { Skeleton } from 'primeng/skeleton';
-import { Message } from 'primeng/message';
-import { Tag } from 'primeng/tag';
 import { HelixConfigurator } from '@gravionlabs/helix';
 import { SettingsService } from '../../core/services/settings.service';
-import { NoesisApiService } from '../../core/services/noesis-api.service';
-import type { HealthInfo } from '../../core/models/stats.model';
+import { ServerHealthSection } from './server-health-section';
 
 @Component({
   selector: 'app-settings',
@@ -22,42 +18,16 @@ import type { HealthInfo } from '../../core/models/stats.model';
     Card,
     InputText,
     Button,
-    Skeleton,
-    Message,
-    Tag,
     HelixConfigurator,
+    ServerHealthSection,
   ],
 })
-export class Settings implements OnInit {
+export class Settings {
   protected readonly settingsService = inject(SettingsService);
-  private readonly api = inject(NoesisApiService);
 
   protected apiKeyValue = signal(this.settingsService.apiKey());
   protected baseUrlValue = signal(this.settingsService.baseUrl());
   protected apiKeyVisible = signal(false);
-
-  protected health = signal<HealthInfo | null>(null);
-  protected healthLoading = signal(true);
-  protected healthError = signal(false);
-
-  ngOnInit(): void {
-    this.loadHealth();
-  }
-
-  protected loadHealth(): void {
-    this.healthLoading.set(true);
-    this.healthError.set(false);
-    this.api.getHealth().subscribe({
-      next: (info) => {
-        this.health.set(info);
-        this.healthLoading.set(false);
-      },
-      error: () => {
-        this.healthError.set(true);
-        this.healthLoading.set(false);
-      },
-    });
-  }
 
   protected saveApiKey(): void {
     this.settingsService.saveApiKey(this.apiKeyValue());
