@@ -54,49 +54,7 @@
       </div>
     </p-card>
 
-    <!-- Server Health -->
-    <p-card header="Server Health">
-      @if (healthLoading()) {
-        <div class="flex flex-col gap-3">
-          <p-skeleton height="1.5rem" />
-          <p-skeleton height="1.5rem" />
-          <p-skeleton height="1.5rem" />
-          <p-skeleton height="1.5rem" />
-        </div>
-      } @else if (healthError()) {
-        <p-message severity="error" text="Unable to reach the server. Check your Server URL and API key." />
-      } @else if (health(); as h) {
-        <div class="flex flex-col gap-3">
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-muted-color">Embedding provider</span>
-            <span class="font-medium text-sm">{{ h.provider }}</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-muted-color">Embedding model</span>
-            <span class="font-medium text-sm">{{ h.model }}</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-muted-color">Scheduler</span>
-            @if (h.schedulerRunning) {
-              <p-tag severity="success" value="Running" icon="pi pi-check-circle" />
-            } @else {
-              <p-tag severity="danger" value="Stopped" icon="pi pi-times-circle" />
-            }
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-muted-color">Pending jobs</span>
-            <span class="font-medium text-sm">{{ h.pendingJobs }}</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-muted-color">Total sources</span>
-            <span class="font-medium text-sm">{{ h.totalSources }}</span>
-          </div>
-          <div class="flex justify-end">
-            <p-button label="Refresh" icon="pi pi-refresh" severity="secondary" text (onClick)="loadHealth()" />
-          </div>
-        </div>
-      }
-    </p-card>
+    <app-server-health-section />
 
     <!-- Theme -->
     <p-card header="Theme">
