@@ -16,6 +16,7 @@ import { registerJobRoutes } from "./routes/jobs.js";
 import { registerInternalRoutes } from "./routes/internal.js";
 import { registerStatsRoutes } from "./routes/stats.js";
 import { registerSearchRoutes } from "./routes/search.js";
+import { registerChunkRoutes } from "./routes/chunks.js";
 import { createRequireApiKey } from "./middleware/auth.js";
 
 const container = buildContainer();
@@ -73,6 +74,7 @@ async function main() {
   registerInternalRoutes(app, cradle);
   registerStatsRoutes(app, cradle);
   registerSearchRoutes(app, cradle);
+  registerChunkRoutes(app, cradle);
 
   // ---- Static UI serving ----
   if (config.SERVE_UI) {

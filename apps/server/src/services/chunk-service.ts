@@ -36,6 +36,7 @@ export interface ChunkWithSource {
   docTitle: string | null;
   sourceId: string;
   sourceName: string;
+  sourceType: string;
 }
 
 export class ChunkService {
@@ -57,6 +58,7 @@ export class ChunkService {
         docTitle: docs.title,
         sourceId: chunks.sourceId,
         sourceName: sources.name,
+        sourceType: sources.importerType,
       })
       .from(chunks)
       .innerJoin(docs, eq(docs.id, chunks.docId))
@@ -77,6 +79,7 @@ export class ChunkService {
       docTitle: r.docTitle ?? null,
       sourceId: r.sourceId!,
       sourceName: r.sourceName,
+      sourceType: r.sourceType,
     };
   }
 

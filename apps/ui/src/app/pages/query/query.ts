@@ -10,6 +10,7 @@ import { Message } from 'primeng/message';
 import { ProgressSpinner } from 'primeng/progressspinner';
 import { Select } from 'primeng/select';
 import { Textarea } from 'primeng/textarea';
+import type { ChunkDetail } from '../../core/models/chunk.model';
 import type { SearchResult } from '../../core/models/search.model';
 import { NoesisApiService } from '../../core/services/noesis-api.service';
 import { SourcesStore } from '../../core/stores/sources.store';
@@ -54,7 +55,8 @@ export class Query {
   protected readonly hasSearched = signal(false);
   protected readonly expanded = signal<Set<string>>(new Set());
 
-  protected readonly fullChunk = signal<SearchResult | undefined>(undefined);
+  protected readonly loadingFullChunk = signal(false);
+  protected readonly fullChunk = signal<ChunkDetail | undefined>(undefined);
 
   constructor() {
     this.sourcesStore.loadSources();
@@ -107,7 +109,16 @@ export class Query {
   }
 
   protected viewFullChunk(result: SearchResult): void {
-    this.fullChunk.set(result);
+    this.loadingFullChunk.set(true);
+    this.api.getChunk(result.chunkId).subscribe({
+      next: (detail) => {
+        this.fullChunk.set(detail);
+        this.loadingFullChunk.set(false);
+      },
+      error: () => {
+        this.loadingFullChunk.set(false);
+      },
+    });
   }
 
   protected closeFullChunk(): void {

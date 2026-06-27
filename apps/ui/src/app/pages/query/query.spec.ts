@@ -7,6 +7,7 @@ import {
 import { provideRouter } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { Query } from './query';
+import type { ChunkDetail } from '../../core/models/chunk.model';
 import type { SearchResult } from '../../core/models/search.model';
 import type { Source } from '../../core/models/source.model';
 
@@ -19,6 +20,16 @@ const SOURCE: Source = {
   config: null,
   schedule: null,
   lastImportedAt: null,
+};
+
+const CHUNK_DETAIL: ChunkDetail = {
+  id: 'c1',
+  content: 'a'.repeat(500),
+  heading: 'Intro',
+  headingPath: ['Intro'],
+  chunkIndex: 0,
+  doc: { url: 'https://example.com/start', title: 'Getting Started' },
+  source: { id: 's1', name: 'Docs', type: 'llmstxt' },
 };
 
 const RESULT: SearchResult = {
@@ -138,14 +149,32 @@ describe('Query', () => {
     );
   });
 
-  it('opens and closes the full chunk dialog', () => {
+  it('opens and closes the full chunk dialog with detail from API', () => {
     const fixture = createComponent();
     const component = fixture.componentInstance;
 
     component['viewFullChunk'](RESULT);
-    expect(component['fullChunk']()).toEqual(RESULT);
+    const req = httpTesting.expectOne('/api/chunks/c1');
+    expect(req.request.method).toBe('GET');
+    req.flush(CHUNK_DETAIL);
+    fixture.detectChanges();
+
+    expect(component['fullChunk']()).toEqual(CHUNK_DETAIL);
 
     component['closeFullChunk']();
     expect(component['fullChunk']()).toBeUndefined();
+  });
+
+  it('handles getChunk API error gracefully', () => {
+    const fixture = createComponent();
+    const component = fixture.componentInstance;
+
+    component['viewFullChunk'](RESULT);
+    const req = httpTesting.expectOne('/api/chunks/c1');
+    req.flush({ error: 'boom' }, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    expect(component['fullChunk']()).toBeUndefined();
+    expect(component['loadingFullChunk']()).toBe(false);
   });
 });

@@ -105,18 +105,28 @@
   header="Full Chunk"
 >
   @if (fullChunk(); as chunk) {
-    <div class="flex flex-col gap-2">
-      <div><span class="font-semibold">Source:</span> {{ chunk.sourceName }}</div>
-      <div><span class="font-semibold">Doc title:</span> {{ chunk.docTitle ?? '—' }}</div>
-      <div>
-        <span class="font-semibold">URL:</span>
-        <a [href]="chunk.docUrl" target="_blank" rel="noopener">{{ chunk.docUrl }}</a>
+    @if (loadingFullChunk()) {
+      <div class="flex items-center justify-center p-4">
+        <p-progressspinner />
       </div>
-      @if (chunk.heading) {
-        <div><span class="font-semibold">Heading:</span> {{ chunk.heading }}</div>
-      }
-      <pre class="whitespace-pre-wrap bg-surface-100 p-3 rounded-border max-h-96 overflow-auto">{{ chunk.content }}</pre>
-    </div>
+    } @else {
+      <div class="flex flex-col gap-2">
+        <div><span class="font-semibold">Source:</span> {{ chunk.source.name }} ({{ chunk.source.type }})</div>
+        <div><span class="font-semibold">Doc title:</span> {{ chunk.doc.title ?? '—' }}</div>
+        <div>
+          <span class="font-semibold">URL:</span>
+          <a [href]="chunk.doc.url" target="_blank" rel="noopener">{{ chunk.doc.url }}</a>
+        </div>
+        @if (chunk.heading) {
+          <div><span class="font-semibold">Heading:</span> {{ chunk.heading }}</div>
+        }
+        @if (chunk.headingPath.length > 0) {
+          <div><span class="font-semibold">Path:</span> {{ chunk.headingPath.join(' > ') }}</div>
+        }
+        <div><span class="font-semibold">Chunk:</span> {{ chunk.chunkIndex + 1 }}</div>
+        <pre class="whitespace-pre-wrap bg-surface-100 p-3 rounded-border max-h-96 overflow-auto">{{ chunk.content }}</pre>
+      </div>
+    }
   }
 
   <ng-template #footer>
