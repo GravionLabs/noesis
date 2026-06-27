@@ -6,6 +6,7 @@ import { SourceDetail } from './pages/sources/source-detail';
 import { SourcesList } from './pages/sources/sources-list';
 import { JobDetail } from './pages/jobs/job-detail';
 import { JobsList } from './pages/jobs/jobs-list';
+import { Browse } from './pages/browse/browse';
 import { Query } from './pages/query/query';
 import { Settings } from './pages/settings/settings';
 
@@ -28,6 +29,7 @@ export const routes: Routes = [
         data: { breadcrumb: 'Knowledge Base' },
         children: [
           { path: 'query', component: Query, data: { breadcrumb: 'Query' } },
+          { path: 'browse', component: Browse, data: { breadcrumb: 'Browse' } },
           {
             path: 'jobs',
             data: { breadcrumb: 'Jobs' },

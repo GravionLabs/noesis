@@ -34,6 +34,12 @@ export const NOESIS_MENU_MODEL: HelixRouteMenuItem[] = [
         routerLink: ['/query'],
       },
       {
+        label: 'Browse',
+        icon: 'pi pi-fw pi-sitemap',
+        path: 'browse',
+        routerLink: ['/browse'],
+      },
+      {
         label: 'Jobs',
         icon: 'pi pi-fw pi-sync',
         path: 'jobs',

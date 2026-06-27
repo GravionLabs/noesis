@@ -36,6 +36,7 @@ export interface ChunkWithSource {
   docTitle: string | null;
   sourceId: string;
   sourceName: string;
+  sourceType: string;
 }
 
 export class ChunkService {
@@ -57,6 +58,7 @@ export class ChunkService {
         docTitle: docs.title,
         sourceId: chunks.sourceId,
         sourceName: sources.name,
+        sourceType: sources.importerType,
       })
       .from(chunks)
       .innerJoin(docs, eq(docs.id, chunks.docId))
@@ -77,6 +79,7 @@ export class ChunkService {
       docTitle: r.docTitle ?? null,
       sourceId: r.sourceId!,
       sourceName: r.sourceName,
+      sourceType: r.sourceType,
     };
   }
 
@@ -86,6 +89,32 @@ export class ChunkService {
       .from(chunks)
       .where(eq(chunks.docId, docId))
       .orderBy(chunks.chunkIndex);
+  }
+
+  async listDocsBySourceId(sourceId: string) {
+    const r = await this.database.db.execute<{
+      id: string;
+      url: string;
+      title: string | null;
+      chunkCount: number;
+    }>(sql`
+      SELECT
+        d.id,
+        d.url,
+        d.title,
+        COUNT(c.id)::int AS "chunkCount"
+      FROM ${docs} d
+      LEFT JOIN ${chunks} c ON c.doc_id = d.id
+      WHERE d.source_id = ${sourceId}
+      GROUP BY d.id, d.url, d.title
+      ORDER BY d.url
+    `);
+    return r.rows as {
+      id: string;
+      url: string;
+      title: string | null;
+      chunkCount: number;
+    }[];
   }
 
   async getChunksBySourceId(sourceId: string) {
