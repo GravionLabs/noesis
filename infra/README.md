@@ -1,6 +1,6 @@
 # Noesis – Infra
 
-Local infrastructure for development: Postgres with pgvector, RabbitMQ, Seq, Vector, crawler, embedder, EF Core migrator, and MCP Inspector.
+Local infrastructure for development: Postgres with pgvector, Seq, and the Noesis server.
 
 ---
 
@@ -27,37 +27,28 @@ docker compose -f infra/docker-compose.yml up -d
 ```
 
 This starts:
-- **Postgres** (with pgvector) — waits for healthy before migrator runs
-- **RabbitMQ** — with management UI
-- **Seq** — central log store for all container stdout/stderr
-- **Vector** — Docker log collector that forwards container logs to Seq
-- **ef-migrate** — runs EF Core migrations then exits
-- **crawler** — Playwright-based crawler service
-- **embedder** — embedding service
-- **mcp-inspector** — web UI for testing MCP endpoints
+- **Postgres** (with pgvector) — database on port 5442
+- **Seq** — central log store on port 5341 (API) / 5380 (UI)
+- **Server** — Fastify + MCP + Playwright crawler + embedding on port 5000
 
 ### Build images
 
+Only the `server` service has a buildable Docker image. Other services use prebuilt images.
+
 ```bash
-# Default: rebuild only ef-migrate
+# Build the server image
 ./infra/build.sh
 
-# Rebuild all app images (ef-migrate, crawler, embedder)
-./infra/build.sh --all
-
 # Optional: disable Docker cache
-./infra/build.sh --all --no-cache
+./infra/build.sh --no-cache
 ```
 
 ```powershell
-# Default: rebuild only ef-migrate
+# Build the server image
 ./infra/build.ps1
 
-# Rebuild all app images
-./infra/build.ps1 -All
-
 # Optional: disable Docker cache
-./infra/build.ps1 -All -NoCache
+./infra/build.ps1 -NoCache
 ```
 
 ### Stop & clean up
@@ -74,65 +65,28 @@ docker compose -f infra/docker-compose.yml down -v       # remove volumes
 | Service | Container Port | Host Port | Notes |
 |---|---|---|---|
 | Postgres | 5432 | **5442** | `noesis` DB, user `noesis` / `noesis_dev` |
-| RabbitMQ AMQP | 5672 | **5682** | Used by Wolverine |
-| RabbitMQ Management | 15672 | **15682** | Web UI: http://localhost:15682 (guest/guest) |
-| Seq | 80 | **5341** | Web UI + ingestion: http://localhost:5341 (`admin` / `seq-dev-password`, API key `seq-dev-api-key`) |
-| Crawler | 3001 | **3001** | Node.js crawler API |
-| Embedder | 8000 | **8000** | Python embedder API |
-| UI (Angular) | 80 | **4200** | Built Angular app served via nginx |
-| MCP Inspector (UI) | 6274 | **6274** | UI: http://localhost:6274 |
-| MCP Inspector (Proxy) | 6277 | **6277** | Internal proxy/API used by the UI |
+| Postgres (test) | 5432 | **5443** | Test DB `noesis_test` (profile: `test`) |
+| Seq | 5341, 80 | **5341**, **5380** | Web UI + ingestion: http://localhost:5380 |
+| Server | 5000 | **5000** | Fastify server — MCP, REST, crawler, embedding |
 
 ---
 
-## MCP Inspector
+## Server Environment Variables
 
-After `docker compose -f infra/docker-compose.yml up -d`, open:
+The `server` container supports these environment variables:
 
-`http://localhost:6274`
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | `postgres://noesis:noesis_dev@postgres:5432/noesis` | Postgres connection string |
+| `EMBEDDING_PROVIDER` | `local` | `local`, `ollama`, or `openai` |
+| `EMBEDDING_MODEL` | `Xenova/bge-base-en-v1.5` | Embedding model name |
+| `LOG_SINK` | `stdout` | `stdout`, `seq`, or `ecs` |
+| `SEQ_URL` | `http://seq:5341` | Seq ingestion URL (used when `LOG_SINK=seq`) |
+| `LOG_LEVEL` | `info` | `trace`, `debug`, `info`, `warn`, `error`, `fatal` |
 
-The Inspector service is preconfigured to connect via HTTP transport to:
-
-`http://host.docker.internal:5000/mcp`
-
-> `localhost` inside the `mcp-inspector` container points to the container itself, not your host machine.  
-> Use `host.docker.internal` to reach a locally running Noesis server.
-
-Override the target MCP endpoint when starting compose:
-
-```bash
-MCP_SERVER_URL=http://host.docker.internal:5000/mcp docker compose -f infra/docker-compose.yml up -d
-```
-
-> The compose setup currently disables Inspector auth (`DANGEROUSLY_OMIT_AUTH=true`) for local development convenience.
-> The current Inspector image uses Node 22 because `@modelcontextprotocol/inspector@0.21.2` requires Node `>=22.7.5`.
-> For **Direct + HTTP** in Inspector, the Noesis server must allow the UI origin via CORS (default: `http://localhost:6274`, `http://127.0.0.1:6274` in `server/src/Gravion.Noesis.Server/appsettings.json` under `Mcp:InspectorAllowedOrigins`).
+Additional variables (`GITHUB_TOKEN`, `AZURE_DEVOPS_TOKEN`, `OPENAI_API_KEY`, `OLLAMA_URL`, etc.) can be set to enable specific importers or embedding providers. See [`apps/server/.env.example`](../apps/server/.env.example) for the full list.
 
 ---
-
-## Connection Strings
-
-### .NET Server (`appsettings.Development.json`)
-
-```json
-{
-  "ConnectionStrings": {
-    "noesis": "Host=localhost;Port=5442;Database=noesis;Username=noesis;Password=noesis_dev"
-  }
-}
-```
-
-### Node.js Crawler (`.env`)
-
-```env
-DATABASE_URL=postgres://noesis:noesis_dev@localhost:5442/noesis
-```
-
-### Python Embedder (`.env`)
-
-```env
-DATABASE_URL=postgres://noesis:noesis_dev@localhost:5442/noesis
-```
 
 ### GitHub Packages
 
@@ -157,4 +111,4 @@ docker compose -f infra/docker-compose.yml down -v
 docker compose -f infra/docker-compose.yml up -d
 ```
 
-Vector forwards logs to Seq at `http://seq:80/api/events/raw` with the `X-Seq-ApiKey: seq-dev-api-key` header.
+Vector is not included in the local compose setup. Seq receives logs directly from the server via the pino-seq transport when `LOG_SINK=seq`.

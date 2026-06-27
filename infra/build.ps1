@@ -1,20 +1,22 @@
 [CmdletBinding()]
 param(
-    [switch]$EfMigrate,
-    [switch]$All,
     [switch]$NoCache,
     [switch]$Help
 )
 
 $ErrorActionPreference = 'Stop'
 
+# The only buildable service in docker-compose.yml is `server`.
+# Other services (postgres, seq) use prebuilt images.
+$services = @('server')
+
 function Show-Usage {
     @'
-Usage: ./infra/build.ps1 [-EfMigrate | -All] [-NoCache] [-Help]
+Usage: ./infra/build.ps1 [-NoCache] [-Help]
+
+Builds the `server` Docker image from infra/docker-compose.yml.
 
 Options:
-  -EfMigrate  Build only ef-migrate image (default)
-  -All        Build ef-migrate, crawler, and embedder images
   -NoCache    Build images without Docker layer cache
   -Help       Show this help text
 '@ | Write-Host
@@ -23,10 +25,6 @@ Options:
 if ($Help.IsPresent) {
     Show-Usage
     exit 0
-}
-
-if ($EfMigrate.IsPresent -and $All.IsPresent) {
-    throw 'Use either -EfMigrate or -All, not both.'
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -39,11 +37,6 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
 & docker compose version | Out-Null
 if ($LASTEXITCODE -ne 0) {
     throw 'docker compose is not available. Install Docker Compose plugin.'
-}
-
-$services = @('ef-migrate')
-if ($All.IsPresent) {
-    $services += @('crawler', 'embedder')
 }
 
 $args = @('compose', '-f', $composeFile, 'build')
