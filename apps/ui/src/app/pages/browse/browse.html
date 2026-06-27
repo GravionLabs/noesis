@@ -8,6 +8,7 @@
     <p-select
       [options]="sourceOptions()"
       optionLabel="label"
+      optionValue="value"
       [ngModel]="selectedSource()"
       (ngModelChange)="onSourceChange($event)"
       placeholder="Select a source"
