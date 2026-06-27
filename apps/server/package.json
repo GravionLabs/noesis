@@ -42,9 +42,11 @@
     "awilix": "^13.0.5",
     "playwright": "^1.52.0",
     "turndown": "^7.2.0",
+    "js-yaml": "^4.1.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.15.18",
     "@types/node-cron": "^3.0.11",
     "@types/pg": "^8.11.11",

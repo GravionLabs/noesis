@@ -21,7 +21,10 @@ import { LlmsTxtCrawlImporter } from "./importers/llmstxt-crawl.js";
 import { CrawlerImporter } from "./importers/crawler.js";
 import { GithubImporter } from "./importers/github.js";
 import { AzureDevopsImporter } from "./importers/azure-devops.js";
+import { UrlListImporter } from "./importers/url-list.js";
+import { LocalFilesystemImporter } from "./importers/local-filesystem.js";
 import { AzureDevOpsProvider } from "./crawler/providers/azure-devops-provider.js";
+import { GithubProvider } from "./crawler/providers/github-provider.js";
 
 export function buildContainer() {
   const container = createContainer({ injectionMode: "PROXY" });
@@ -49,6 +52,7 @@ export function buildContainer() {
 
   container.register({
     azureDevOpsProvider: asClass(AzureDevOpsProvider).singleton(),
+    githubProvider: asClass(GithubProvider).singleton(),
   });
 
   container.register({
@@ -58,7 +62,13 @@ export function buildContainer() {
     openApiImporter: asClass(OpenApiImporter).singleton(),
     llmstxtCrawlImporter: asClass(LlmsTxtCrawlImporter).singleton(),
     crawlerImporter: asClass(CrawlerImporter).singleton(),
-    githubImporter: asClass(GithubImporter).singleton(),
+    githubImporter: asClass(GithubImporter)
+      .inject(() => ({
+        provider: (container.cradle as any).githubProvider,
+      }))
+      .singleton(),
+    urlListImporter: asClass(UrlListImporter).singleton(),
+    localFilesystemImporter: asClass(LocalFilesystemImporter).singleton(),
     azureDevopsImporter: asClass(AzureDevopsImporter)
       .inject(() => ({
         provider: (container.cradle as any).azureDevOpsProvider,
@@ -76,6 +86,8 @@ export function buildContainer() {
         c.llmstxtCrawlImporter,
         c.crawlerImporter,
         c.githubImporter,
+        c.urlListImporter,
+        c.localFilesystemImporter,
         c.azureDevopsImporter,
       ],
     })).singleton(),
