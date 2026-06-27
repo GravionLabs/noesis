@@ -3,16 +3,19 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
-BUILD_TARGET="ef-migrate"
 NO_CACHE=false
+
+# The only buildable service in docker-compose.yml is `server`.
+# Other services (postgres, seq) use prebuilt images.
+SERVICES=(server)
 
 usage() {
   cat <<'USAGE'
-Usage: ./infra/build.sh [--ef-migrate | --all] [--no-cache] [--help]
+Usage: ./infra/build.sh [--no-cache] [--help]
+
+Builds the `server` Docker image from infra/docker-compose.yml.
 
 Options:
-  --ef-migrate  Build only ef-migrate image (default)
-  --all         Build ef-migrate, crawler, and embedder images
   --no-cache    Build images without Docker layer cache
   --help        Show this help text
 USAGE
@@ -20,12 +23,6 @@ USAGE
 
 for arg in "$@"; do
   case "$arg" in
-    --ef-migrate)
-      BUILD_TARGET="ef-migrate"
-      ;;
-    --all)
-      BUILD_TARGET="all"
-      ;;
     --no-cache)
       NO_CACHE=true
       ;;
@@ -54,11 +51,6 @@ fi
 BUILD_ARGS=()
 if [[ "$NO_CACHE" == "true" ]]; then
   BUILD_ARGS+=(--no-cache)
-fi
-
-SERVICES=(ef-migrate)
-if [[ "$BUILD_TARGET" == "all" ]]; then
-  SERVICES+=(crawler embedder)
 fi
 
 echo "Building Docker images from $COMPOSE_FILE ..."

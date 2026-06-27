@@ -4,7 +4,7 @@ Self-hosted documentation context engine — crawl, embed, and query your docs v
 Index any documentation source into Postgres + pgvector and expose it as MCP tools
 for use in GitHub Copilot CLI, VS Code, and any MCP-compatible client.
 
-**Stack:** TypeScript (Fastify) · Node.js Playwright Crawler · Postgres + pgvector
+**Stack:** TypeScript (Fastify) · Playwright (embedded) · Postgres + pgvector
 
 Canonical behavior, contracts, and workflows live in [`specs/`](specs/).
 
@@ -15,22 +15,19 @@ Canonical behavior, contracts, and workflows live in [`specs/`](specs/).
 ```mermaid
 graph TD
     Client["MCP Client / IDE"]
-    Server["TypeScript Server (Fastify + MCP + REST API)"]
-    Crawler["Node.js Crawler (Playwright)"]
+    Server["TypeScript Server (Fastify + MCP + REST API)\nPlaywright Crawler (embedded)\nEmbedding (local/ollama/openai)"]
     DB["Postgres + pgvector"]
 
     Client -- "MCP tools" --> Server
     Client -- "REST API" --> Server
-    Server -- "POST /jobs/crawl" --> Crawler
-    Crawler -- "write chunks" --> DB
     Server -- "read/write" --> DB
 ```
 
 ```
 noesis/
-├── src/       TypeScript server — MCP, REST API, import pipeline, embedding
-├── crawler/   Node.js/TypeScript — Playwright crawler
-└── infra/     Docker Compose
+├── apps/server/src/   TypeScript server — MCP, REST API, crawler, embedding
+├── apps/ui/           Angular web UI
+└── infra/             Docker Compose
 ```
 
 ---
@@ -50,9 +47,8 @@ docker compose -f infra/docker-compose.yml up -d
 
 This starts:
 - **Postgres + pgvector** on port `5442`
-- **RabbitMQ** (optional, profile `all`) on port `5682`
-- **Crawler** (Playwright) on port `3001`
-- **Server** (Fastify + MCP + embedding) on port `5000`
+- **Seq** on port `5341` (API) / `5380` (UI)
+- **Server** (Fastify + MCP + Playwright crawler + embedding) on port `5000`
 
 ### Local development
 
@@ -71,10 +67,9 @@ pnpm dev
 
 1. **Register source** — `POST /api/sources` with name, URL, and importer type
 2. **Trigger import** — `POST /api/sources/{id}/import`
-3. In-process importers (llmstxt, npm-readme, openapi, github) fetch + chunk + store
-4. Crawler-based importers (crawler, llmstxt-crawl) delegate to Playwright
-5. Embeddings generated automatically (local ONNX, Ollama, or OpenAI)
-6. Job marked done, source ready for search
+3. Importers fetch + chunk + store in Postgres (some use embedded Playwright for crawling)
+4. Embeddings generated automatically (local ONNX, Ollama, or OpenAI)
+5. Job marked done, source ready for search
 
 ### Importer Types
 
