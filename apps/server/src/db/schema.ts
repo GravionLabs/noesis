@@ -134,7 +134,6 @@ export const jobs = pgTable(
     maxRetries: integer("max_retries").notNull().default(3),
     durationMs: integer("duration_ms"),
     result: text("result"),
-    logs: text("logs"),
     cancelRequestedAt: timestamp("cancel_requested_at", {
       withTimezone: true,
       mode: "date",
@@ -148,6 +147,25 @@ export const jobs = pgTable(
   (table) => [
     index("ix_jobs_source_id").on(table.sourceId),
     index("ix_jobs_status").on(table.status),
+  ],
+);
+
+export const jobLogs = pgTable(
+  "job_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    message: text("message").notNull(),
+    level: text("level").notNull().default("info"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("ix_job_logs_job_id").on(table.jobId),
+    index("ix_job_logs_created_at").on(table.createdAt),
   ],
 );
 

@@ -1,8 +1,11 @@
 export type JobStatus = 'pending' | 'running' | 'done' | 'failed' | 'cancelled';
 
 export interface JobLogEntry {
-  t: string;
-  m: string;
+  id: string;
+  jobId: string;
+  message: string;
+  level: string;
+  createdAt: string;
 }
 
 export interface Job {
@@ -14,7 +17,6 @@ export interface Job {
   retryCount: number;
   maxRetries: number;
   durationMs: number | null;
-  logs: string | null;
   startedAt: string | null;
   finishedAt: string | null;
   createdAt: string;

@@ -17,9 +17,14 @@ export class LlmsTxtCrawlImporter implements Importer {
     this.chunkService = chunkService;
   }
 
-  async import(source: Source, signal?: AbortSignal): Promise<ImportResult> {
+  async import(
+    source: Source,
+    signal?: AbortSignal,
+    onLog?: (message: string, level?: string) => void,
+  ): Promise<ImportResult> {
     if (signal?.aborted) return { docCount: 0, chunkCount: 0 };
 
+    onLog?.(`Fetching llms.txt from ${source.url}`);
     const res = await fetchOrThrow(source.url);
 
     const content = await res.text();
@@ -28,6 +33,7 @@ export class LlmsTxtCrawlImporter implements Importer {
     const { crawlConfig, includeOptional } = parsedConfig;
     const urls = extractUrls(metadata, includeOptional);
 
+    onLog?.(`Found ${urls.length} URLs in llms.txt`);
     if (urls.length === 0) return { docCount: 0, chunkCount: 0 };
 
     let totalDocCount = 0;
@@ -39,6 +45,7 @@ export class LlmsTxtCrawlImporter implements Importer {
       const batch = urls.slice(i, i + CONCURRENCY);
 
       if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        onLog?.(`Aborting: ${MAX_CONSECUTIVE_FAILURES} consecutive failures reached`, "error");
         chunksDropped.push({ reason: "too_many_consecutive_failures", count: urls.length - i });
         break;
       }
@@ -65,25 +72,30 @@ export class LlmsTxtCrawlImporter implements Importer {
           batchFailedCount++;
           consecutiveFailures++;
           const msg = result.reason instanceof Error ? result.reason.message : String(result.reason);
-          console.warn(`llmstxt-crawl: URL crawl failed: ${msg}`);
+          onLog?.(`Crawl failed: ${msg}`, "warn");
         }
       }
 
       if (batchFailedCount === batch.length) {
+        onLog?.(`All ${batch.length} URLs in batch failed`, "warn");
         chunksDropped.push({ reason: "crawl_error", count: batch.length });
       }
 
       if (batchChunks.length > 0) {
+        onLog?.(`Saving ${batchChunks.length} chunks from ${batch.length} URLs`);
         const saved = await this.chunkService.saveChunks(batchChunks, source.id);
         totalDocCount += saved.docCount;
         totalChunkCount += saved.chunkCount;
+        onLog?.(`Progress: ${totalDocCount} docs, ${totalChunkCount} chunks so far`);
       }
     }
 
     if (signal?.aborted) {
+      onLog?.("Job cancelled during crawl", "warn");
       chunksDropped.push({ reason: "cancelled", count: urls.length });
     }
 
+    onLog?.(`Import complete: ${totalDocCount} docs, ${totalChunkCount} chunks`);
     return {
       docCount: totalDocCount,
       chunkCount: totalChunkCount,

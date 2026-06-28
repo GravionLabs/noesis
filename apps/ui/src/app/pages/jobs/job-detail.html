@@ -1,4 +1,4 @@
-@if (job(); as job) {
+@if (liveJob(); as job) {
   <div class="flex flex-col gap-4 p-4">
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2">
@@ -38,15 +38,11 @@
       <p-message severity="error">{{ job.error }}</p-message>
     }
 
-    @if (parsedLogs().length > 0) {
-      <p-card header="Logs">
-        <div class="flex flex-col gap-1 max-h-64 overflow-auto">
-          @for (entry of parsedLogs(); track entry.t) {
-            <div class="text-xs font-mono">{{ entry.t | datetime }} {{ entry.m }}</div>
-          }
-        </div>
-      </p-card>
-    }
+    <p-card header="Logs">
+      <div class="max-h-64 overflow-auto" #logContainer>
+        <app-job-logs [jobId]="job.id" [autoPoll]="job.status === 'running'" />
+      </div>
+    </p-card>
 
     <a routerLink="/jobs">&larr; Back to Jobs</a>
   </div>

@@ -21,7 +21,11 @@ export class AzureDevopsImporter implements Importer {
     this.provider = provider;
   }
 
-  async import(source: Source, _signal?: AbortSignal): Promise<ImportResult> {
+  async import(
+    source: Source,
+    _signal?: AbortSignal,
+    onLog?: (message: string, level?: string) => void,
+  ): Promise<ImportResult> {
     if (!this.provider.canHandle(source.url)) {
       throw new Error("Azure DevOps importer requires a dev.azure.com URL");
     }

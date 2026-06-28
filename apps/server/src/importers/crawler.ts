@@ -11,7 +11,11 @@ export class CrawlerImporter implements Importer {
     this.chunkService = chunkService;
   }
 
-  async import(source: Source, signal?: AbortSignal): Promise<ImportResult> {
+  async import(
+    source: Source,
+    signal?: AbortSignal,
+    onLog?: (message: string, level?: string) => void,
+  ): Promise<ImportResult> {
     const sourceConfig = source.config ? JSON.parse(source.config) : {};
     const crawlConfig = normalizeCrawlConfig(sourceConfig);
 

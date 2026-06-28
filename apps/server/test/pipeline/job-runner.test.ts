@@ -14,6 +14,7 @@ const mockGetImporter = vi.fn();
 const mockUpdateJobStatus = vi.fn();
 const mockEmbed = vi.fn();
 const mockCancelJob = vi.fn();
+const mockAppendLog = vi.fn();
 
 import { JobRunner } from "../../src/pipeline/job-runner.js";
 
@@ -59,6 +60,7 @@ describe("runImport", () => {
     mockGetImporter.mockReturnValue(null);
     mockUpdateJobStatus.mockResolvedValue(undefined);
     mockCancelJob.mockResolvedValue(undefined);
+    mockAppendLog.mockResolvedValue(undefined);
     mockGetJob.mockImplementation((id: string) => Promise.resolve({ id, status: "done" }));
     mockUpdateJobStatus.mockImplementation(async (_id: string, status: string) => {
       mockGetJob.mockImplementation((id: string) => Promise.resolve({ id, status }));
@@ -78,6 +80,7 @@ describe("runImport", () => {
         completeJob: mockCompleteJob,
         failJob: mockFailJob,
         cancelJob: mockCancelJob,
+        appendLog: mockAppendLog,
       } as any,
       importerRegistry: {
         getImporter: mockGetImporter,
@@ -217,11 +220,12 @@ describe("runImport", () => {
     mockGetSource.mockResolvedValue(sourceFixture);
     mockCreateJob.mockResolvedValue({ id: "job-cancel-1" });
     mockUpdateJobStatus.mockResolvedValue(undefined);
+    mockAppendLog.mockResolvedValue(undefined);
 
-    const abortSpy = vi.fn();
+    let capturedSignal: AbortSignal | null = null;
     const mockImporter = {
       import: vi.fn().mockImplementation(async (_source: any, signal: AbortSignal) => {
-        signal.addEventListener("abort", abortSpy);
+        capturedSignal = signal;
         await new Promise((resolve) => setTimeout(resolve, 10000));
         if (signal.aborted) throw new Error("Job cancelled during execution");
         return { chunkCount: 0 };
@@ -231,7 +235,12 @@ describe("runImport", () => {
 
     const promise = runner.runImport("src-1");
 
-    await vi.advanceTimersByTimeAsync(100);
+    // Let microtasks resolve so executeImport reaches importer.import()
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(capturedSignal).not.toBeNull();
+    const abortSpy = vi.fn();
+    capturedSignal!.addEventListener("abort", abortSpy);
 
     await runner.cancelJob("job-cancel-1");
 

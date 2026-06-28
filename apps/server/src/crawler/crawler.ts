@@ -97,8 +97,8 @@ export interface CrawlResult {
 }
 
 const DEFAULT_CONFIG: NormalizedCrawlConfig = {
-  maxDepth: 2,
-  maxPages: 100,
+  maxDepth: 5,
+  maxPages: 200,
   concurrency: 4,
   maxPageRetries: 2,
   maxChunks: undefined,

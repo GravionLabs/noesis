@@ -55,6 +55,9 @@ describe('JobDetail', () => {
     httpTesting.expectOne('/api/jobs/j1').flush(FAILED_JOB);
     httpTesting.expectOne('/api/sources').flush([]);
     fixture.detectChanges();
+    // JobLogsComponent fetches logs on init
+    httpTesting.expectOne('/api/jobs/j1/logs').flush([]);
+    fixture.detectChanges();
     return fixture;
   }
 
@@ -68,7 +71,7 @@ describe('JobDetail', () => {
     expect(fixture.componentInstance['sourceName']('s1')).toBe('s1');
   });
 
-  it('retryJob retries and navigates to /jobs on success', () => {
+  it('retryJob retries and navigates to job detail on success', () => {
     const fixture = createComponent();
     const router = TestBed.inject(Router);
     const navigateSpy = vi.spyOn(router, 'navigate');
@@ -79,6 +82,6 @@ describe('JobDetail', () => {
     expect(req.request.method).toBe('POST');
     req.flush({ jobId: 'j2', status: 'accepted' });
 
-    expect(navigateSpy).toHaveBeenCalledWith(['/jobs']);
+    expect(navigateSpy).toHaveBeenCalledWith(['/jobs', 'j2']);
   });
 });

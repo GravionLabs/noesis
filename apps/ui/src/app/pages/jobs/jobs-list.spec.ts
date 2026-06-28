@@ -143,7 +143,7 @@ describe('JobsList', () => {
 
     // Simulate the SSE stream pushing a status update for j1
     const updatedJob = { id: 'j1', status: 'done' };
-    FakeEventSource.instances[0].fire('message', updatedJob);
+    FakeEventSource.instances[0].fire('job', updatedJob);
     fixture.detectChanges();
 
     expect(store.jobs().find((j) => j.id === 'j1')?.status).toBe('done');

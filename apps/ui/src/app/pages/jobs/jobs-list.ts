@@ -30,8 +30,15 @@ export class JobsList implements OnDestroy {
 
   protected readonly filteredJobs = computed(() => {
     const filter = this.statusFilter();
+    const tick = this.store.tick();
     const jobs = this.store.jobs();
-    return filter === 'all' ? jobs : jobs.filter((job) => job.status === filter);
+    const withLiveDuration = jobs.map((j) => {
+      if (j.status === 'running' && j.startedAt) {
+        return { ...j, durationMs: tick - new Date(j.startedAt).getTime() };
+      }
+      return j;
+    });
+    return filter === 'all' ? withLiveDuration : withLiveDuration.filter((job) => job.status === filter);
   });
 
   protected sourceName(sourceId: string): string {
@@ -42,10 +49,12 @@ export class JobsList implements OnDestroy {
     this.store.loadJobs();
     this.sourcesStore.loadSources();
     this.store.connectSse();
+    this.store.startTick();
   }
 
   ngOnDestroy(): void {
     this.store.disconnectSse();
+    this.store.stopTick();
   }
 
   protected setFilter(filter: StatusFilter): void {

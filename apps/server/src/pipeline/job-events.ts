@@ -8,8 +8,15 @@ export interface JobStatusEvent {
   error?: string;
 }
 
+export interface JobLogEvent {
+  jobId: string;
+  message: string;
+  level: string;
+  timestamp: string;
+}
+
 /**
- * Singleton in-process event emitter for job status changes.
+ * Singleton in-process event emitter for job status changes and log entries.
  *
  * NOTE: This only works for a single server instance. In a horizontally
  * scaled deployment, a shared pub/sub mechanism (e.g. Redis Pub/Sub or

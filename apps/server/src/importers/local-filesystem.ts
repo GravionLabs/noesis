@@ -21,7 +21,11 @@ export class LocalFilesystemImporter implements Importer {
     this.chunkService = chunkService;
   }
 
-  async import(source: Source, _signal?: AbortSignal): Promise<ImportResult> {
+  async import(
+    source: Source,
+    _signal?: AbortSignal,
+    onLog?: (message: string, level?: string) => void,
+  ): Promise<ImportResult> {
     const basePath = path.resolve(parseFileUrl(source.url));
 
     let totalDocs = 0;

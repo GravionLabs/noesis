@@ -20,7 +20,11 @@ export class NpmReadmeImporter implements Importer {
     this.chunkService = chunkService;
   }
 
-  async import(source: Source, _signal?: AbortSignal): Promise<ImportResult> {
+  async import(
+    source: Source,
+    _signal?: AbortSignal,
+    onLog?: (message: string, level?: string) => void,
+  ): Promise<ImportResult> {
     const match = source.url.match(/npmjs\.com\/package\/(@?[^/]+(?:\/[^/]+)?)/);
     if (!match) throw new Error(`Invalid npm URL: ${source.url}`);
 

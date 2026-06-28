@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import type { Observable } from 'rxjs';
 import type { Source, SourceStats, CreateSourceDto, UpdateSourceDto } from '../models/source.model';
 import type { Job } from '../models/job.model';
+import type { JobLogEntry } from '../models/job.model';
 import type { SearchResult, SearchParams } from '../models/search.model';
 import type { ChunkDetail } from '../models/chunk.model';
 import type { SourceDoc, DocChunk } from '../models/doc.model';
@@ -70,6 +71,10 @@ export class NoesisApiService {
       this.api(`/api/jobs/${id}/cancel`),
       {},
     );
+  }
+
+  getJobLogs(id: string): Observable<JobLogEntry[]> {
+    return this.http.get<JobLogEntry[]>(this.api(`/api/jobs/${id}/logs`));
   }
 
   search(params: SearchParams): Observable<SearchResult[]> {

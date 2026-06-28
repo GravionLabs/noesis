@@ -58,7 +58,11 @@ export class LlmsMetaTxtImporter implements Importer {
     this.sourceService = sourceService;
   }
 
-  async import(source: Source, _signal?: AbortSignal): Promise<ImportResult> {
+  async import(
+    source: Source,
+    _signal?: AbortSignal,
+    onLog?: (message: string, level?: string) => void,
+  ): Promise<ImportResult> {
     const res = await fetchOrThrow(source.url);
 
     const text = await res.text();

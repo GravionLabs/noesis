@@ -82,7 +82,13 @@ export class JobRunner {
       const importer = this.importerRegistry.getImporter(source.importerType);
       if (!importer) throw new Error(`Unknown importer type: ${source.importerType}`);
 
-      const result = await importer.import(source, abortController.signal);
+      const onLog = async (message: string, level = "info") => {
+        await this.jobService.appendLog(jobId, message, level);
+        jobEvents.emit("job_log", { jobId, message, level, timestamp: new Date().toISOString() });
+      };
+
+      await onLog(`Starting import with type: ${source.importerType}`);
+      const result = await importer.import(source, abortController.signal, onLog);
 
       if (abortController.signal.aborted) {
         throw new Error("Job cancelled during execution");
