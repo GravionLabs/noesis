@@ -1,7 +1,7 @@
 /**
  * JobService — import job lifecycle management.
  *
- * Tables (owned): jobs
+ * Tables (owned): jobs, job_logs
  *
  * DB access: Drizzle ORM for all CRUD; db.execute(sql``) for getAvgImportDuration
  *   (needs ROUND(AVG(...))::int which has no Drizzle aggregate helper).
@@ -12,10 +12,20 @@
  *   getRunningJob()      — used by job-runner to prevent duplicate concurrent imports
  *   getPendingJobCount() — used by StatsService
  *   getAvgImportDuration() — used by StatsService
+ *   appendLog()          — inserts a log entry for a job
+ *   getJobLogs()         — retrieves recent log entries for a job
  */
 import { eq, desc, and, count, sql } from "drizzle-orm";
-import { jobs } from "../db/schema.js";
+import { jobs, jobLogs } from "../db/schema.js";
 import type { Database } from "../db/database.js";
+
+export interface JobLogEntry {
+  id: string;
+  jobId: string;
+  message: string;
+  level: string;
+  createdAt: string;
+}
 
 export class JobService {
   private database: Database;
@@ -63,7 +73,7 @@ export class JobService {
     const now = new Date();
     const update: Record<string, unknown> = { status };
     if (status === "running") update.startedAt = now;
-    if (["done", "failed"].includes(status)) update.finishedAt = now;
+    if (["done", "failed", "cancelled"].includes(status)) update.finishedAt = now;
     if (error) update.error = error;
     await this.database.db.update(jobs).set(update).where(eq(jobs.id, id));
   }
@@ -75,6 +85,37 @@ export class JobService {
       .where(and(eq(jobs.sourceId, sourceId), eq(jobs.status, "running")))
       .limit(1);
     return rows[0] ?? null;
+  }
+
+  async appendLog(jobId: string, message: string, level = "info") {
+    const [entry] = await this.database.db.insert(jobLogs).values({
+      jobId,
+      message,
+      level,
+    }).returning();
+    return entry;
+  }
+
+  async getJobLogs(jobId: string, limit = 200) {
+    const rows = await this.database.db
+      .select()
+      .from(jobLogs)
+      .where(eq(jobLogs.jobId, jobId))
+      .orderBy(desc(jobLogs.createdAt))
+      .limit(limit);
+    return rows.reverse();
+  }
+
+  async cancelJob(jobId: string) {
+    const now = new Date();
+    await this.database.db
+      .update(jobs)
+      .set({
+        status: "cancelled",
+        finishedAt: now,
+        error: "Job cancelled by user",
+      })
+      .where(and(eq(jobs.id, jobId), eq(jobs.status, "running")));
   }
 
   async completeJob(id: string, durationMs: number, result?: string) {
@@ -100,6 +141,14 @@ export class JobService {
         retryCount,
       })
       .where(eq(jobs.id, id));
+  }
+
+  async deleteJob(id: string) {
+    const rows = await this.database.db
+      .delete(jobs)
+      .where(eq(jobs.id, id))
+      .returning();
+    return rows[0] ?? null;
   }
 
   async getPendingJobCount() {

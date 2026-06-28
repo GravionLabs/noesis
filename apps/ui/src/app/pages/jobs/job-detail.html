@@ -1,14 +1,26 @@
-@if (job(); as job) {
-  <div class="flex flex-col gap-4 p-4">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <h1 class="text-lg font-semibold">Job {{ job.id.slice(0, 8) }}</h1>
-        <app-job-status-badge [status]="job.status" />
+@if (liveJob(); as job) {
+  <div
+    class="flex flex-col gap-4 p-4"
+    style="height: calc(100vh - var(--helix-topbar-height) - var(--helix-status-bar-height) - (var(--helix-layout-gap) * 2));"
+  >
+    <a routerLink="/jobs" class="shrink-0">&larr; Back to Jobs</a>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-lg font-semibold leading-none">Job {{ job.id.slice(0, 8) }}</span>
+          <app-job-status-badge [status]="job.status" />
+        </div>
+        <div class="flex gap-2">
+          @if (job.status === 'running') {
+            <p-button label="Cancel" icon="pi pi-times" severity="danger" (onClick)="cancelJob()" />
+          }
+          @if (job.status === 'failed') {
+            <p-button label="Retry" icon="pi pi-refresh" (onClick)="retryJob()" />
+          }
+          @if (job.status !== 'running' && job.status !== 'pending') {
+            <p-button label="Delete" icon="pi pi-trash" severity="danger" (onClick)="confirmDelete()" />
+          }
+        </div>
       </div>
-      @if (job.status === 'failed') {
-        <p-button label="Retry" icon="pi pi-refresh" (onClick)="retryJob()" />
-      }
-    </div>
 
     <p-card>
       <div class="flex flex-col gap-1">
@@ -33,6 +45,8 @@
       <p-message severity="error">{{ job.error }}</p-message>
     }
 
-    <a routerLink="/jobs">&larr; Back to Jobs</a>
+    <p-card header="Logs" [style]="{ flex: '1', minHeight: '0', display: 'flex', flexDirection: 'column' }">
+      <app-job-logs [jobId]="job.id" />
+    </p-card>
   </div>
 }

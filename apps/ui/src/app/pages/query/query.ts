@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { HelixBadge, HelixEmpty } from '@gravionlabs/helix';
+import { HelixBadge, HelixEmpty, HelixSelect } from '@gravionlabs/helix';
 import { MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { Card } from 'primeng/card';
@@ -9,7 +9,6 @@ import { Dialog } from 'primeng/dialog';
 import { InputNumber } from 'primeng/inputnumber';
 import { Message } from 'primeng/message';
 import { ProgressSpinner } from 'primeng/progressspinner';
-import { Select } from 'primeng/select';
 import { Textarea } from 'primeng/textarea';
 import type { ChunkDetail } from '../../core/models/chunk.model';
 import type { SearchResult } from '../../core/models/search.model';
@@ -25,6 +24,7 @@ const PREVIEW_LENGTH = 400;
     FormsModule,
     HelixBadge,
     HelixEmpty,
+    HelixSelect,
     Button,
     Card,
     Checkbox,
@@ -32,7 +32,6 @@ const PREVIEW_LENGTH = 400;
     InputNumber,
     Message,
     ProgressSpinner,
-    Select,
     Textarea,
   ],
   templateUrl: './query.html',

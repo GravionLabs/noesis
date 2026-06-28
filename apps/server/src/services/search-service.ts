@@ -1,14 +1,3 @@
-/**
- * SearchService — full-text and vector similarity search.
- *
- * Tables (read): chunks, docs, sources, embeddings
- * DB access: db.execute(sql``) tagged template — Postgres-specific operators
- *   (to_tsvector/ts_rank/@@ for FTS; <=> cosine distance for pgvector) have
- *   no Drizzle ORM equivalent and require raw SQL. The sql`` tagged template
- *   provides parameter safety and keeps table references in sync with schema.
- * Fallback: searchDocs() tries vector search first; falls back to FTS if the
- *   embedding provider fails or returns no vector.
- */
 import { sql } from "drizzle-orm";
 import { chunks, docs, sources, embeddings } from "../db/schema.js";
 import type { Database } from "../db/database.js";
@@ -35,6 +24,14 @@ interface SearchResultRow extends Record<string, unknown> {
   score: number;
 }
 
+interface VectorSearchResultRow extends SearchResultRow {
+  vector: number[];
+}
+
+interface SearchResultWithVector extends SearchResult {
+  vector: number[];
+}
+
 function mapRow(r: SearchResultRow): SearchResult {
   return {
     chunkId: r.chunk_id,
@@ -45,6 +42,23 @@ function mapRow(r: SearchResultRow): SearchResult {
     sourceName: r.source_name,
     score: r.score,
   };
+}
+
+const RRF_K = 60;
+const MMR_LAMBDA = 0.7;
+const HYBRID_FETCH_MULTIPLIER = 3;
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0;
+  let magA = 0;
+  let magB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    magA += a[i] * a[i];
+    magB += b[i] * b[i];
+  }
+  const denom = Math.sqrt(magA) * Math.sqrt(magB);
+  return denom === 0 ? 0 : dot / denom;
 }
 
 export class SearchService {
@@ -93,10 +107,19 @@ export class SearchService {
     limit = 10,
     sourceName?: string,
   ): Promise<SearchResult[]> {
+    const results = await this.searchByVectorInternal(vector, limit, sourceName);
+    return results.map(({ vector: _v, ...rest }) => rest);
+  }
+
+  private async searchByVectorInternal(
+    vector: number[],
+    limit = 10,
+    sourceName?: string,
+  ): Promise<SearchResultWithVector[]> {
     const dims = vector.length;
     const vectorLit = `[${vector.join(",")}]`;
 
-    const result = await this.database.db.execute<SearchResultRow>(sql`
+    const result = await this.database.db.execute<VectorSearchResultRow>(sql`
       SELECT
         c.id          AS chunk_id,
         c.content,
@@ -104,7 +127,8 @@ export class SearchService {
         d.url         AS doc_url,
         d.title       AS doc_title,
         s.name        AS source_name,
-        1 - (e.vector <=> ${vectorLit}::vector) AS score
+        1 - (e.vector <=> ${vectorLit}::vector) AS score,
+        e.vector
       FROM ${embeddings} e
       JOIN ${chunks} c ON c.id = e.chunk_id
       JOIN ${docs} d ON d.id = c.doc_id
@@ -114,7 +138,10 @@ export class SearchService {
       ORDER BY e.vector <=> ${vectorLit}::vector
       LIMIT ${limit}
     `);
-    return (result.rows as SearchResultRow[]).map(mapRow);
+    return (result.rows as VectorSearchResultRow[]).map((r) => ({
+      ...mapRow(r),
+      vector: r.vector,
+    }));
   }
 
   async searchDocs(
@@ -126,11 +153,125 @@ export class SearchService {
       const provider: EmbeddingProvider = this.embeddingService.getProvider();
       const vector = await provider.embed([queryText]);
       if (vector[0]?.length) {
-        return this.searchByVector(vector[0], limit, sourceName);
+        return this.hybridSearch(vector[0], queryText, limit, sourceName);
       }
     } catch {
     }
 
     return this.searchByText(queryText, limit, sourceName);
+  }
+
+  private async hybridSearch(
+    queryVector: number[],
+    queryText: string,
+    limit: number,
+    sourceName?: string,
+  ): Promise<SearchResult[]> {
+    const fetchLimit = Math.max(limit, Math.ceil(limit * HYBRID_FETCH_MULTIPLIER));
+
+    const [vectorResults, textResults] = await Promise.all([
+      this.searchByVectorInternal(queryVector, fetchLimit, sourceName),
+      this.searchByText(queryText, fetchLimit, sourceName),
+    ]);
+
+    const vectorMap = new Map(vectorResults.map((r) => [r.chunkId, r.vector]));
+
+    const merged = this.rrfMerge(
+      vectorResults.map(({ vector: _v, ...rest }) => rest),
+      textResults,
+    );
+
+    return this.mmrDiversity(merged, limit, vectorMap);
+  }
+
+  private rrfMerge(
+    vectorResults: SearchResult[],
+    textResults: SearchResult[],
+  ): SearchResult[] {
+    const scores = new Map<
+      string,
+      { result: SearchResult; rankV: number | null; rankT: number | null }
+    >();
+
+    for (let i = 0; i < vectorResults.length; i++) {
+      scores.set(vectorResults[i].chunkId, {
+        result: vectorResults[i],
+        rankV: i,
+        rankT: null,
+      });
+    }
+
+    for (let i = 0; i < textResults.length; i++) {
+      const r = textResults[i];
+      const existing = scores.get(r.chunkId);
+      if (existing) {
+        existing.rankT = i;
+      } else {
+        scores.set(r.chunkId, { result: r, rankV: null, rankT: i });
+      }
+    }
+
+    const entries = Array.from(scores.values());
+    for (const entry of entries) {
+      let rrfScore = 0;
+      if (entry.rankV !== null) {
+        rrfScore += 1 / (RRF_K + entry.rankV + 1);
+      }
+      if (entry.rankT !== null) {
+        rrfScore += 1 / (RRF_K + entry.rankT + 1);
+      }
+      entry.result.score = rrfScore;
+    }
+
+    entries.sort((a, b) => b.result.score - a.result.score);
+    return entries.map((e) => e.result);
+  }
+
+  private mmrDiversity(
+    results: SearchResult[],
+    limit: number,
+    vectorMap: Map<string, number[]>,
+  ): SearchResult[] {
+    if (results.length === 0 || limit === 0) return [];
+
+    const maxScore = results[0].score || 1;
+    const selected: SearchResult[] = [];
+    const candidates: { result: SearchResult; normRelevance: number }[] =
+      results.map((r) => ({
+        result: r,
+        normRelevance: r.score / maxScore,
+      }));
+
+    while (selected.length < limit && candidates.length > 0) {
+      let bestIdx = -1;
+      let bestMMR = -Infinity;
+
+      for (let i = 0; i < candidates.length; i++) {
+        const { result, normRelevance } = candidates[i];
+
+        let maxSim = 0;
+        const candVec = vectorMap.get(result.chunkId);
+        if (candVec) {
+          for (const sel of selected) {
+            const selVec = vectorMap.get(sel.chunkId);
+            if (selVec) {
+              maxSim = Math.max(maxSim, cosineSimilarity(candVec, selVec));
+            }
+          }
+        }
+
+        const mmr = MMR_LAMBDA * normRelevance - (1 - MMR_LAMBDA) * maxSim;
+        if (mmr > bestMMR) {
+          bestMMR = mmr;
+          bestIdx = i;
+        }
+      }
+
+      if (bestIdx === -1) break;
+      selected.push(candidates[bestIdx].result);
+      candidates.splice(bestIdx, 1);
+    }
+
+    return selected;
   }
 }

@@ -7,18 +7,21 @@ import {
   patchState,
 } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { pipe, switchMap, tap, catchError, of } from 'rxjs';
+import { pipe, switchMap, tap, catchError, of, interval, Subject, takeUntil } from 'rxjs';
 import type { Job } from '../models/job.model';
+import type { JobLogEntry } from '../models/job.model';
 import { NoesisApiService } from '../services/noesis-api.service';
 
 interface JobsState {
   jobs: Job[];
   loading: boolean;
+  tick: number;
 }
 
 const initialState: JobsState = {
   jobs: [],
   loading: false,
+  tick: Date.now(),
 };
 
 export const JobsStore = signalStore(
@@ -32,7 +35,9 @@ export const JobsStore = signalStore(
       state.jobs().some((j) => j.status === 'running' || j.status === 'pending'),
   })),
   withMethods((_store, api = inject(NoesisApiService)) => {
+    const logReceived = new Subject<JobLogEntry>();
     let eventSource: EventSource | null = null;
+    let tickInterval: ReturnType<typeof setInterval> | null = null;
 
     const loadJobs = rxMethod<void>(
       pipe(
@@ -49,21 +54,37 @@ export const JobsStore = signalStore(
       ),
     );
 
+    function startTick(): void {
+      if (tickInterval) return;
+      tickInterval = setInterval(() => {
+        patchState(_store, { tick: Date.now() });
+      }, 1000);
+    }
+
+    function stopTick(): void {
+      if (tickInterval) {
+        clearInterval(tickInterval);
+        tickInterval = null;
+      }
+    }
+
     return {
       loadJobs,
+      startTick,
+      stopTick,
       retryJob(id: string): void {
         api.retryJob(id).subscribe({ next: () => loadJobs() });
       },
-      /**
-       * Opens an SSE connection to /api/jobs/stream. Each incoming event
-       * updates the matching job in state by id, so consumers always see the
-       * latest status without polling. Relies on EventSource's built-in
-       * reconnect logic. Call loadJobs() first for the initial snapshot.
-       */
+      cancelJob(id: string): void {
+        api.cancelJob(id).subscribe({ next: () => loadJobs() });
+      },
+      deleteJob(id: string): void {
+        api.deleteJob(id).subscribe({ next: () => loadJobs() });
+      },
       connectSse(): void {
-        disconnectSseImpl();
+        if (eventSource) return;
         eventSource = new EventSource(api.getJobStreamUrl());
-        eventSource.addEventListener('message', (e: MessageEvent) => {
+        eventSource.addEventListener('job', (e: MessageEvent) => {
           try {
             const updated: Partial<Job> & { id: string } = JSON.parse(e.data);
             patchState(_store, (state) => ({
@@ -73,11 +94,20 @@ export const JobsStore = signalStore(
             // ignore malformed frames
           }
         });
+        eventSource.addEventListener('log', (e: MessageEvent) => {
+          try {
+            const entry: JobLogEntry = JSON.parse(e.data);
+            logReceived.next(entry);
+          } catch {
+            // ignore malformed frames
+          }
+        });
         eventSource.addEventListener('error', () => {
-          // EventSource reconnects automatically; no action needed here.
+          // EventSource reconnects automatically
         });
       },
       disconnectSse: disconnectSseImpl,
+      logEvents: () => logReceived.asObservable(),
     };
 
     function disconnectSseImpl() {

@@ -54,9 +54,9 @@ export class SourceDetail implements OnInit {
 
   protected importNow(): void {
     this.api.triggerImport(this.sourceId).subscribe({
-      next: () => {
+      next: (res) => {
         this.messageService.add({ severity: 'success', summary: 'Import started' });
-        this.router.navigate(['/jobs']);
+        this.router.navigate(['/jobs', res.jobId]);
       },
       error: (err: Error) => {
         this.messageService.add({ severity: 'error', summary: 'Import failed', detail: err.message });

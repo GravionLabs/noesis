@@ -116,6 +116,6 @@ describe('SourceDetail', () => {
     const req = httpTesting.expectOne('/api/sources/s1/import');
     req.flush({ jobId: 'j3', status: 'accepted' });
 
-    expect(navigateSpy).toHaveBeenCalledWith(['/jobs']);
+    expect(navigateSpy).toHaveBeenCalledWith(['/jobs', 'j3']);
   });
 });

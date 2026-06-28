@@ -1,15 +1,16 @@
 import type { FastifyInstance } from "fastify";
 import type { JobService } from "../services/job-service.js";
 import type { ImportService } from "../services/import-service.js";
-import { jobEvents, type JobStatusEvent } from "../pipeline/job-events.js";
+import type { JobRunner } from "../pipeline/job-runner.js";
+import { jobEvents, type JobStatusEvent, type JobLogEvent } from "../pipeline/job-events.js";
 
 const SSE_HEARTBEAT_MS = 15_000;
 
 export function registerJobRoutes(
   app: FastifyInstance,
-  deps: { jobService: JobService; importService: ImportService },
+  deps: { jobService: JobService; importService: ImportService; jobRunner: JobRunner },
 ) {
-  const { jobService, importService } = deps;
+  const { jobService, importService, jobRunner } = deps;
 
   app.get("/api/jobs", async (_req, reply) => {
     const jobs = await jobService.listJobs();
@@ -29,14 +30,7 @@ export function registerJobRoutes(
   });
 
   /**
-   * GET /api/jobs/stream — Server-Sent Events stream for real-time job status.
-   *
-   * Intentionally unauthenticated: all other /api/jobs* routes are also open,
-   * and browser-native EventSource cannot set custom headers (X-Api-Key), so
-   * adding requireApiKey here would require a query-param key workaround.
-   *
-   * Scope note: the in-process EventEmitter only works for a single server
-   * instance. Horizontal scaling would require a shared pub/sub layer.
+   * GET /api/jobs/stream — Server-Sent Events stream for real-time job status and logs.
    */
   app.get("/api/jobs/stream", async (req, reply) => {
     const raw = reply.raw;
@@ -44,25 +38,30 @@ export function registerJobRoutes(
     raw.setHeader("Content-Type", "text/event-stream");
     raw.setHeader("Cache-Control", "no-cache");
     raw.setHeader("Connection", "keep-alive");
-    raw.setHeader("X-Accel-Buffering", "no"); // disable Nginx buffering
+    raw.setHeader("X-Accel-Buffering", "no");
     raw.flushHeaders();
 
-    const send = (event: JobStatusEvent) => {
-      raw.write(`data: ${JSON.stringify(event)}\n\n`);
+    const sendJob = (event: JobStatusEvent) => {
+      raw.write(`event: job\ndata: ${JSON.stringify(event)}\n\n`);
+    };
+
+    const sendLog = (event: JobLogEvent) => {
+      raw.write(`event: log\ndata: ${JSON.stringify(event)}\n\n`);
     };
 
     const heartbeat = setInterval(() => {
       raw.write(`:ping\n\n`);
     }, SSE_HEARTBEAT_MS);
 
-    jobEvents.on("job", send);
+    jobEvents.on("job", sendJob);
+    jobEvents.on("job_log", sendLog);
 
     req.raw.on("close", () => {
       clearInterval(heartbeat);
-      jobEvents.off("job", send);
+      jobEvents.off("job", sendJob);
+      jobEvents.off("job_log", sendLog);
     });
 
-    // Keep the request open — do not call reply.send()
     await new Promise<void>((resolve) => req.raw.on("close", resolve));
   });
 
@@ -96,6 +95,42 @@ export function registerJobRoutes(
         finishedAt: job.finishedAt,
         createdAt: job.createdAt,
       };
+    },
+  );
+
+  app.get<{ Params: { id: string } }>(
+    "/api/jobs/:id/logs",
+    async (req, reply) => {
+      const job = await jobService.getJob(req.params.id);
+      if (!job) return reply.code(404).send({ error: "Job not found" });
+      const logs = await jobService.getJobLogs(req.params.id);
+      return logs;
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/api/jobs/:id/cancel",
+    async (req, reply) => {
+      const job = await jobService.getJob(req.params.id);
+      if (!job) return reply.code(404).send({ error: "Job not found" });
+      if (job.status !== "running") return reply.code(400).send({ error: "Only running jobs can be cancelled" });
+
+      await jobRunner.cancelJob(req.params.id);
+      return reply.code(202).send({ jobId: job.id, status: "cancelled" });
+    },
+  );
+
+  app.delete<{ Params: { id: string } }>(
+    "/api/jobs/:id",
+    async (req, reply) => {
+      const job = await jobService.getJob(req.params.id);
+      if (!job) return reply.code(404).send({ error: "Job not found" });
+      if (job.status === "running") {
+        return reply.code(400).send({ error: "Cancel the job first before deleting" });
+      }
+
+      await jobService.deleteJob(req.params.id);
+      return reply.code(204).send();
     },
   );
 

@@ -66,7 +66,6 @@ export function isLinkListChunk(text: string): boolean {
   if (totalLines === 0) return false;
   return linkLines / totalLines > LINK_LIST_RATIO;
 }
-
 export function chunkMarkdown(text: string): ChunkMarkdownResult {
   const chunks: RawChunk[] = [];
   const headingPath: string[] = [];
@@ -75,6 +74,7 @@ export function chunkMarkdown(text: string): ChunkMarkdownResult {
   let chunkIndex = 0;
   let droppedCount = 0;
   let inFencedCode = false;
+  let lastFlushLevel = 0;
 
   const flush = () => {
     const trimmed = buffer.trim();
@@ -100,16 +100,23 @@ export function chunkMarkdown(text: string): ChunkMarkdownResult {
 
     const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
     if (headingMatch) {
-      flush();
       const level = headingMatch[1].length;
-      currentHeading = headingMatch[2];
+      const newHeading = headingMatch[2];
+
+      if (buffer.trim().length > 0 && level <= lastFlushLevel) {
+        flush();
+      }
+      lastFlushLevel = level;
+
+      currentHeading = newHeading;
       headingPath.splice(level - 1);
       headingPath[level - 1] = currentHeading;
-    } else {
-      buffer += line + "\n";
-      if (buffer.length >= MAX_CHARS) flush();
     }
+
+    buffer += line + "\n";
+    if (buffer.length >= MAX_CHARS) flush();
   }
+
   flush();
 
   return { chunks, droppedCount };

@@ -1,4 +1,12 @@
-export type JobStatus = 'pending' | 'running' | 'done' | 'failed';
+export type JobStatus = 'pending' | 'running' | 'done' | 'failed' | 'cancelled';
+
+export interface JobLogEntry {
+  id: string;
+  jobId: string;
+  message: string;
+  level: string;
+  createdAt: string;
+}
 
 export interface Job {
   id: string;

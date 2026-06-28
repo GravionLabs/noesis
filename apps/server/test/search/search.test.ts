@@ -110,7 +110,7 @@ describe("SearchService", () => {
   });
 
   describe("searchDocs", () => {
-    it("uses vector search when embedder is available", async () => {
+    it("runs hybrid vector + text search when embedder is available", async () => {
       mockGetProvider.mockReturnValue({
         embed: async (_texts: string[]) => [Array(768).fill(0.1)],
         model: "test-model",
@@ -121,7 +121,8 @@ describe("SearchService", () => {
       const results = await service.searchDocs("dependency injection", 5);
 
       expect(results).toHaveLength(2);
-      expect(mockExecute).toHaveBeenCalledTimes(1);
+      // Hybrid search fires both vector and FTS queries in parallel
+      expect(mockExecute).toHaveBeenCalledTimes(2);
     });
 
     it("falls back to text search when embedder fails", async () => {

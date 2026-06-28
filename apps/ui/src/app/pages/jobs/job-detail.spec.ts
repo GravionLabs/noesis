@@ -6,9 +6,18 @@ import {
 } from '@angular/common/http/testing';
 import { ActivatedRoute, provideRouter, Router } from '@angular/router';
 import { convertToParamMap } from '@angular/router';
-import { MessageService } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { JobDetail } from './job-detail';
+import { JobsStore } from '../../core/stores/jobs.store';
 import type { Job } from '../../core/models/job.model';
+
+/** Minimal EventSource stub — jsdom does not provide EventSource. */
+class FakeEventSource {
+  readonly url: string;
+  constructor(url: string) { this.url = url; }
+  addEventListener() { /* noop */ }
+  close() { /* noop */ }
+}
 
 const FAILED_JOB: Job = {
   id: 'j1',
@@ -28,6 +37,8 @@ describe('JobDetail', () => {
   let httpTesting: HttpTestingController;
 
   beforeEach(async () => {
+    vi.stubGlobal('EventSource', FakeEventSource);
+
     await TestBed.configureTestingModule({
       imports: [JobDetail],
       providers: [
@@ -35,6 +46,7 @@ describe('JobDetail', () => {
         provideHttpClientTesting(),
         provideRouter([]),
         MessageService,
+        ConfirmationService,
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap({ id: 'j1' }) } },
@@ -46,21 +58,26 @@ describe('JobDetail', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     httpTesting.verify();
   });
 
   function createComponent() {
     const fixture = TestBed.createComponent(JobDetail);
     fixture.detectChanges();
-    httpTesting.expectOne('/api/jobs/j1').flush(FAILED_JOB);
+    // JobsStore.loadJobs() → listJobs
+    httpTesting.expectOne('/api/jobs').flush([FAILED_JOB]);
     httpTesting.expectOne('/api/sources').flush([]);
+    fixture.detectChanges();
+    // JobLogsComponent fetches logs on init
+    httpTesting.expectOne('/api/jobs/j1/logs').flush([]);
     fixture.detectChanges();
     return fixture;
   }
 
   it('loads the job', () => {
     const fixture = createComponent();
-    expect(fixture.componentInstance['job']()).toEqual(FAILED_JOB);
+    expect(fixture.componentInstance['liveJob']()).toEqual(FAILED_JOB);
   });
 
   it('resolves the source name, falling back to the id when unknown', () => {
@@ -68,7 +85,7 @@ describe('JobDetail', () => {
     expect(fixture.componentInstance['sourceName']('s1')).toBe('s1');
   });
 
-  it('retryJob retries and navigates to /jobs on success', () => {
+  it('retryJob retries and navigates to job detail on success', () => {
     const fixture = createComponent();
     const router = TestBed.inject(Router);
     const navigateSpy = vi.spyOn(router, 'navigate');
@@ -78,6 +95,28 @@ describe('JobDetail', () => {
     const req = httpTesting.expectOne('/api/jobs/j1/retry');
     expect(req.request.method).toBe('POST');
     req.flush({ jobId: 'j2', status: 'accepted' });
+
+    expect(navigateSpy).toHaveBeenCalledWith(['/jobs', 'j2']);
+  });
+
+  it('confirmDelete shows a confirmation dialog then deletes and navigates to /jobs', () => {
+    const fixture = createComponent();
+    const component = fixture.componentInstance;
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigate');
+    const confirmationService = TestBed.inject(ConfirmationService);
+    const confirmSpy = vi.spyOn(confirmationService, 'confirm');
+
+    component['confirmDelete']();
+
+    expect(confirmSpy).toHaveBeenCalledOnce();
+    const config = confirmSpy.mock.calls[0][0];
+
+    // Accept the confirmation
+    config.accept?.();
+    const req = httpTesting.expectOne('/api/jobs/j1');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null, { status: 204, statusText: 'No Content' });
 
     expect(navigateSpy).toHaveBeenCalledWith(['/jobs']);
   });

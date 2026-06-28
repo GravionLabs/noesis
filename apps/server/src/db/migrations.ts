@@ -106,6 +106,22 @@ END $$;
 
 const DROP_IMPORT_JOB_STATES = `DROP TABLE IF EXISTS import_job_states CASCADE`;
 
+const DROP_OLD_LOGS_COLUMN = `
+ALTER TABLE jobs DROP COLUMN IF EXISTS logs;
+`;
+
+const CREATE_JOB_LOGS = `
+CREATE TABLE IF NOT EXISTS job_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id uuid NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  message text NOT NULL,
+  level text NOT NULL DEFAULT 'info',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_job_logs_job_id ON job_logs (job_id);
+CREATE INDEX IF NOT EXISTS ix_job_logs_created_at ON job_logs (created_at);
+`;
+
 export async function runMigrations(pool: pg.Pool): Promise<void> {
   console.log("Running migrations...");
 
@@ -138,6 +154,12 @@ export async function runMigrations(pool: pg.Pool): Promise<void> {
 
   await pool.query(ADD_CASCADE_FK_CONSTRAINTS);
   console.log("  ✓ jobs + chunks (ON DELETE CASCADE FK constraints added)");
+
+  await pool.query(DROP_OLD_LOGS_COLUMN);
+  console.log("  ✓ jobs (dropped legacy logs column)");
+
+  await pool.query(CREATE_JOB_LOGS);
+  console.log("  ✓ job_logs");
 
   console.log("\nAll migrations complete.");
 }

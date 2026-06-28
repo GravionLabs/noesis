@@ -146,3 +146,22 @@ export const jobs = pgTable(
   ],
 );
 
+export const jobLogs = pgTable(
+  "job_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    message: text("message").notNull(),
+    level: text("level").notNull().default("info"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("ix_job_logs_job_id").on(table.jobId),
+    index("ix_job_logs_created_at").on(table.createdAt),
+  ],
+);
+
