@@ -80,10 +80,6 @@ export class JobRunner {
       await this.jobService.updateJobStatus(jobId, "running");
       jobEvents.emit("job", { id: jobId, sourceId, status: "running" });
 
-      if (await this.jobService.isCancelRequested(jobId)) {
-        throw new Error("Job cancelled before execution");
-      }
-
       const importer = this.importerRegistry.getImporter(source.importerType);
       if (!importer) throw new Error(`Unknown importer type: ${source.importerType}`);
 

@@ -1,7 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-const jobStatusStore = new Map<string, string>();
-
 const mockGetSource = vi.fn();
 const mockUpdateLastImported = vi.fn();
 const mockCreateJob = vi.fn();
@@ -9,7 +7,6 @@ const mockGetJob = vi.fn();
 const mockCompleteJob = vi.fn();
 const mockFailJob = vi.fn();
 const mockGetRunningJob = vi.fn();
-const mockIsCancelRequested = vi.fn();
 const mockGetImporter = vi.fn();
 const mockUpdateJobStatus = vi.fn();
 const mockEmbed = vi.fn();
@@ -56,7 +53,6 @@ describe("runImport", () => {
     vi.clearAllMocks();
     vi.useFakeTimers({ toFake: ["setTimeout"] });
     mockGetRunningJob.mockResolvedValue(null);
-    mockIsCancelRequested.mockResolvedValue(false);
     mockGetImporter.mockReturnValue(null);
     mockUpdateJobStatus.mockResolvedValue(undefined);
     mockCancelJob.mockResolvedValue(undefined);
@@ -75,7 +71,6 @@ describe("runImport", () => {
         createJob: mockCreateJob,
         getJob: mockGetJob,
         getRunningJob: mockGetRunningJob,
-        isCancelRequested: mockIsCancelRequested,
         updateJobStatus: mockUpdateJobStatus,
         completeJob: mockCompleteJob,
         failJob: mockFailJob,

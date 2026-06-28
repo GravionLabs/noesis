@@ -106,13 +106,6 @@ export class JobService {
     return rows.reverse();
   }
 
-  async requestCancel(jobId: string) {
-    await this.database.db
-      .update(jobs)
-      .set({ cancelRequestedAt: new Date() })
-      .where(eq(jobs.id, jobId));
-  }
-
   async cancelJob(jobId: string) {
     const now = new Date();
     await this.database.db
@@ -123,15 +116,6 @@ export class JobService {
         error: "Job cancelled by user",
       })
       .where(and(eq(jobs.id, jobId), eq(jobs.status, "running")));
-  }
-
-  async isCancelRequested(jobId: string): Promise<boolean> {
-    const rows = await this.database.db
-      .select({ cancelRequestedAt: jobs.cancelRequestedAt })
-      .from(jobs)
-      .where(eq(jobs.id, jobId))
-      .limit(1);
-    return rows[0]?.cancelRequestedAt !== null && rows[0]?.cancelRequestedAt !== undefined;
   }
 
   async completeJob(id: string, durationMs: number, result?: string) {

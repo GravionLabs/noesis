@@ -106,10 +106,6 @@ END $$;
 
 const DROP_IMPORT_JOB_STATES = `DROP TABLE IF EXISTS import_job_states CASCADE`;
 
-const ADD_CANCEL_COLUMN = `
-ALTER TABLE jobs ADD COLUMN IF NOT EXISTS cancel_requested_at timestamptz;
-`;
-
 const DROP_OLD_LOGS_COLUMN = `
 ALTER TABLE jobs DROP COLUMN IF EXISTS logs;
 `;
@@ -158,9 +154,6 @@ export async function runMigrations(pool: pg.Pool): Promise<void> {
 
   await pool.query(ADD_CASCADE_FK_CONSTRAINTS);
   console.log("  ✓ jobs + chunks (ON DELETE CASCADE FK constraints added)");
-
-  await pool.query(ADD_CANCEL_COLUMN);
-  console.log("  ✓ jobs (cancel_requested_at column added)");
 
   await pool.query(DROP_OLD_LOGS_COLUMN);
   console.log("  ✓ jobs (dropped legacy logs column)");

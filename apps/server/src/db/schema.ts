@@ -134,10 +134,6 @@ export const jobs = pgTable(
     maxRetries: integer("max_retries").notNull().default(3),
     durationMs: integer("duration_ms"),
     result: text("result"),
-    cancelRequestedAt: timestamp("cancel_requested_at", {
-      withTimezone: true,
-      mode: "date",
-    }),
     startedAt: timestamp("started_at", { withTimezone: true, mode: "date" }),
     finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
