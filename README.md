@@ -174,6 +174,19 @@ curl -H 'x-api-key: <your-key>' http://localhost:5000/api/sources
 
 ---
 
+## Angular UI
+
+Noesis ships with an Angular 21 web UI built with `@gravionlabs/helix` and PrimeNG.
+
+```bash
+pnpm --filter ui dev   # dev server on port 4200, proxies /api/* to the server
+```
+
+See [docs/ui.md](docs/ui.md) for full setup, page reference, and build instructions.
+When using Docker Compose the UI is served by the Fastify server on port `5000` alongside the API.
+
+---
+
 ## License
 
 [MIT](LICENSE)
