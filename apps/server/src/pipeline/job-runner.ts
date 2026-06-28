@@ -83,8 +83,16 @@ export class JobRunner {
       if (!importer) throw new Error(`Unknown importer type: ${source.importerType}`);
 
       const onLog = async (message: string, level = "info") => {
-        await this.jobService.appendLog(jobId, message, level);
-        jobEvents.emit("job_log", { jobId, message, level, timestamp: new Date().toISOString() });
+        const entry = await this.jobService.appendLog(jobId, message, level);
+        if (entry) {
+          jobEvents.emit("job_log", {
+            id: entry.id,
+            jobId,
+            message,
+            level,
+            createdAt: entry.createdAt.toISOString(),
+          });
+        }
       };
 
       await onLog(`Starting import with type: ${source.importerType}`);

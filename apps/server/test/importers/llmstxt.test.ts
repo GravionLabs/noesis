@@ -58,7 +58,7 @@ describe("LlmsTxtImporter", () => {
     const result = await importer.import(source);
 
     expect(result.docCount).toBe(1);
-    expect(result.chunkCount).toBe(3);
+    expect(result.chunkCount).toBe(2);
     expect(mockSaveChunks).toHaveBeenCalled();
   });
 

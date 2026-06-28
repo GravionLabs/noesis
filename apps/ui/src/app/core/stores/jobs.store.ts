@@ -9,6 +9,7 @@ import {
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { pipe, switchMap, tap, catchError, of, interval, Subject, takeUntil } from 'rxjs';
 import type { Job } from '../models/job.model';
+import type { JobLogEntry } from '../models/job.model';
 import { NoesisApiService } from '../services/noesis-api.service';
 
 interface JobsState {
@@ -34,6 +35,7 @@ export const JobsStore = signalStore(
       state.jobs().some((j) => j.status === 'running' || j.status === 'pending'),
   })),
   withMethods((_store, api = inject(NoesisApiService)) => {
+    const logReceived = new Subject<JobLogEntry>();
     let eventSource: EventSource | null = null;
     let tickInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -76,8 +78,11 @@ export const JobsStore = signalStore(
       cancelJob(id: string): void {
         api.cancelJob(id).subscribe({ next: () => loadJobs() });
       },
+      deleteJob(id: string): void {
+        api.deleteJob(id).subscribe({ next: () => loadJobs() });
+      },
       connectSse(): void {
-        disconnectSseImpl();
+        if (eventSource) return;
         eventSource = new EventSource(api.getJobStreamUrl());
         eventSource.addEventListener('job', (e: MessageEvent) => {
           try {
@@ -89,11 +94,20 @@ export const JobsStore = signalStore(
             // ignore malformed frames
           }
         });
+        eventSource.addEventListener('log', (e: MessageEvent) => {
+          try {
+            const entry: JobLogEntry = JSON.parse(e.data);
+            logReceived.next(entry);
+          } catch {
+            // ignore malformed frames
+          }
+        });
         eventSource.addEventListener('error', () => {
           // EventSource reconnects automatically
         });
       },
       disconnectSse: disconnectSseImpl,
+      logEvents: () => logReceived.asObservable(),
     };
 
     function disconnectSseImpl() {

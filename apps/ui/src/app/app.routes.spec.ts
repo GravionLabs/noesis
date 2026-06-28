@@ -86,7 +86,7 @@ describe('routes / breadcrumbs', () => {
 
   it('/jobs/:id activates JobDetail with "Knowledge Base > Jobs > Details"', async () => {
     const harness = await RouterTestingHarness.create('/jobs/j1');
-    httpTesting.expectOne('/api/jobs/j1').flush({
+    httpTesting.expectOne('/api/jobs').flush([{
       id: 'j1',
       sourceId: null,
       type: 'import',
@@ -98,7 +98,7 @@ describe('routes / breadcrumbs', () => {
       startedAt: null,
       finishedAt: null,
       createdAt: '2026-01-01T00:00:00Z',
-    });
+    }]);
 
     expect(activatedComponent(harness, JobDetail)).toBeTruthy();
     expect(breadcrumbLabelsFor(TestBed.inject(ActivatedRoute))).toEqual([

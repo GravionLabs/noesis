@@ -120,6 +120,20 @@ export function registerJobRoutes(
     },
   );
 
+  app.delete<{ Params: { id: string } }>(
+    "/api/jobs/:id",
+    async (req, reply) => {
+      const job = await jobService.getJob(req.params.id);
+      if (!job) return reply.code(404).send({ error: "Job not found" });
+      if (job.status === "running") {
+        return reply.code(400).send({ error: "Cancel the job first before deleting" });
+      }
+
+      await jobService.deleteJob(req.params.id);
+      return reply.code(204).send();
+    },
+  );
+
   app.post<{ Params: { id: string } }>(
     "/api/jobs/:id/retry",
     async (req, reply) => {

@@ -88,11 +88,12 @@ export class JobService {
   }
 
   async appendLog(jobId: string, message: string, level = "info") {
-    await this.database.db.insert(jobLogs).values({
+    const [entry] = await this.database.db.insert(jobLogs).values({
       jobId,
       message,
       level,
-    });
+    }).returning();
+    return entry;
   }
 
   async getJobLogs(jobId: string, limit = 200) {
@@ -156,6 +157,14 @@ export class JobService {
         retryCount,
       })
       .where(eq(jobs.id, id));
+  }
+
+  async deleteJob(id: string) {
+    const rows = await this.database.db
+      .delete(jobs)
+      .where(eq(jobs.id, id))
+      .returning();
+    return rows[0] ?? null;
   }
 
   async getPendingJobCount() {

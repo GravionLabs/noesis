@@ -41,13 +41,21 @@ export class LlmsTxtCrawlImporter implements Importer {
     const chunksDropped: { reason: string; count: number }[] = [];
     let consecutiveFailures = 0;
 
+    const totalBatches = Math.ceil(urls.length / CONCURRENCY);
+
     for (let i = 0; i < urls.length && !signal?.aborted; i += CONCURRENCY) {
+      const batchNum = Math.floor(i / CONCURRENCY) + 1;
       const batch = urls.slice(i, i + CONCURRENCY);
 
       if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
         onLog?.(`Aborting: ${MAX_CONSECUTIVE_FAILURES} consecutive failures reached`, "error");
         chunksDropped.push({ reason: "too_many_consecutive_failures", count: urls.length - i });
         break;
+      }
+
+      onLog?.(`Batch [${batchNum}/${totalBatches}]: crawling ${batch.length} URLs`);
+      for (const url of batch) {
+        onLog?.(`  Crawling ${url}`);
       }
 
       const results = await Promise.allSettled(
@@ -64,15 +72,18 @@ export class LlmsTxtCrawlImporter implements Importer {
       }> = [];
 
       let batchFailedCount = 0;
-      for (const result of results) {
+      for (const [idx, result] of results.entries()) {
+        const url = batch[idx];
         if (result.status === "fulfilled") {
+          const chunkCount = result.value.chunks.length;
+          onLog?.(`  \u2713 ${url} (${chunkCount} chunks)`);
           batchChunks.push(...result.value.chunks);
           consecutiveFailures = 0;
         } else {
           batchFailedCount++;
           consecutiveFailures++;
           const msg = result.reason instanceof Error ? result.reason.message : String(result.reason);
-          onLog?.(`Crawl failed: ${msg}`, "warn");
+          onLog?.(`  \u2717 ${url} failed: ${msg}`, "warn");
         }
       }
 
@@ -104,16 +115,19 @@ export class LlmsTxtCrawlImporter implements Importer {
   }
 
   private parseConfig(configStr: string | null): { crawlConfig: CrawlConfig; includeOptional: boolean } {
-    if (!configStr) return { crawlConfig: {}, includeOptional: false };
+    if (!configStr) return { crawlConfig: { maxDepth: 0 }, includeOptional: false };
     try {
       const parsed = JSON.parse(configStr);
       const { includeOptional, ...crawlConfig } = parsed;
+      if (crawlConfig.maxDepth === undefined) {
+        crawlConfig.maxDepth = 0;
+      }
       return {
         crawlConfig,
         includeOptional: includeOptional ?? false,
       };
     } catch {
-      return { crawlConfig: {}, includeOptional: false };
+      return { crawlConfig: { maxDepth: 0 }, includeOptional: false };
     }
   }
 }

@@ -66,6 +66,10 @@ export class NoesisApiService {
     );
   }
 
+  deleteJob(id: string): Observable<void> {
+    return this.http.delete<void>(this.api(`/api/jobs/${id}`));
+  }
+
   cancelJob(id: string): Observable<{ jobId: string; status: string }> {
     return this.http.post<{ jobId: string; status: string }>(
       this.api(`/api/jobs/${id}/cancel`),

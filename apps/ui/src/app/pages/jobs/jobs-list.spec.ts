@@ -5,7 +5,7 @@ import {
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { MessageService } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { JobsList } from './jobs-list';
 import { JobsStore } from '../../core/stores/jobs.store';
 import type { Job } from '../../core/models/job.model';
@@ -73,6 +73,7 @@ describe('JobsList', () => {
         provideHttpClientTesting(),
         provideRouter([]),
         MessageService,
+        ConfirmationService,
       ],
     }).compileComponents();
 
@@ -169,6 +170,25 @@ describe('JobsList', () => {
     expect(retrySpy).toHaveBeenCalledWith('j2');
     const req = httpTesting.expectOne('/api/jobs/j2/retry');
     req.flush({ jobId: 'j3', status: 'accepted' });
+    httpTesting.expectOne('/api/jobs').flush([]);
+  });
+
+  it('confirmDelete shows a confirmation dialog then deletes', () => {
+    const fixture = createComponent([FAILED_JOB]);
+    const component = fixture.componentInstance;
+    const confirmationService = TestBed.inject(ConfirmationService);
+    const confirmSpy = vi.spyOn(confirmationService, 'confirm');
+
+    component['confirmDelete'](FAILED_JOB);
+
+    expect(confirmSpy).toHaveBeenCalledOnce();
+    const config = confirmSpy.mock.calls[0][0];
+
+    // Accept the confirmation
+    config.accept?.();
+    const req = httpTesting.expectOne('/api/jobs/j2');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null, { status: 204, statusText: 'No Content' });
     httpTesting.expectOne('/api/jobs').flush([]);
   });
 });
