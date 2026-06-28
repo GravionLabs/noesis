@@ -129,7 +129,7 @@ export class JobRunner {
       const message = err instanceof Error ? err.message : String(err);
       const durationMs = Date.now() - startedAt;
 
-      if (abortController.signal.aborted || message.includes("cancelled")) {
+      if (abortController.signal.aborted) {
         await this.jobService.updateJobStatus(jobId, "cancelled", message);
         jobEvents.emit("job", { id: jobId, sourceId, status: "cancelled", error: message });
         this.log.info({ jobId, sourceId, durationMs }, "Import job cancelled");
