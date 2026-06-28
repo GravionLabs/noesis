@@ -43,7 +43,8 @@ export class LlmsTxtCrawlImporter implements Importer {
 
     const totalBatches = Math.ceil(urls.length / CONCURRENCY);
 
-    for (let i = 0; i < urls.length && !signal?.aborted; i += CONCURRENCY) {
+    let i = 0;
+    for (; i < urls.length && !signal?.aborted; i += CONCURRENCY) {
       const batchNum = Math.floor(i / CONCURRENCY) + 1;
       const batch = urls.slice(i, i + CONCURRENCY);
 
@@ -103,7 +104,7 @@ export class LlmsTxtCrawlImporter implements Importer {
 
     if (signal?.aborted) {
       onLog?.("Job cancelled during crawl", "warn");
-      chunksDropped.push({ reason: "cancelled", count: urls.length });
+      chunksDropped.push({ reason: "cancelled", count: urls.length - i });
     }
 
     onLog?.(`Import complete: ${totalDocCount} docs, ${totalChunkCount} chunks`);
