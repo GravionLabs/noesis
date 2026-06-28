@@ -83,20 +83,23 @@ export class JobRunner {
       const importer = this.importerRegistry.getImporter(source.importerType);
       if (!importer) throw new Error(`Unknown importer type: ${source.importerType}`);
 
-      const onLog = async (message: string, level = "info") => {
-        const entry = await this.jobService.appendLog(jobId, message, level);
-        if (entry) {
-          jobEvents.emit("job_log", {
-            id: entry.id,
-            jobId,
-            message,
-            level,
-            createdAt: entry.createdAt.toISOString(),
-          });
-        }
+      const onLog = (message: string, level = "info") => {
+        this.jobService.appendLog(jobId, message, level).then((entry) => {
+          if (entry) {
+            jobEvents.emit("job_log", {
+              id: entry.id,
+              jobId,
+              message,
+              level,
+              createdAt: entry.createdAt.toISOString(),
+            });
+          }
+        }).catch((err: unknown) => {
+          this.log.warn({ jobId, message, err }, "Failed to persist job log entry");
+        });
       };
 
-      await onLog(`Starting import with type: ${source.importerType}`);
+      onLog(`Starting import with type: ${source.importerType}`);
       const result = await importer.import(source, abortController.signal, onLog);
 
       if (abortController.signal.aborted) {
