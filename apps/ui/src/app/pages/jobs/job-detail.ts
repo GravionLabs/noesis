@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
@@ -28,7 +28,7 @@ import { JobLogsComponent } from '../../shared/components/job-logs/job-logs';
     }
   `],
 })
-export class JobDetail implements OnInit {
+export class JobDetail implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(NoesisApiService);
@@ -58,6 +58,11 @@ export class JobDetail implements OnInit {
     this.jobsStore.connectSse();
     this.jobsStore.startTick();
     this.jobsStore.loadJobs();
+  }
+
+  ngOnDestroy(): void {
+    this.jobsStore.stopTick();
+    this.jobsStore.disconnectSse();
   }
 
   protected retryJob(): void {
