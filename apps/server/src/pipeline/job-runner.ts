@@ -41,10 +41,15 @@ export class JobRunner {
   async cancelJob(jobId: string): Promise<void> {
     const controller = this.abortControllers.get(jobId);
     if (controller) {
+      // In-flight job: abort and let executeImport's catch block handle the DB
+      // write and SSE emit (it has access to the real sourceId).
       controller.abort();
+      return;
     }
+    // Fallback: job exists in DB but has no in-flight controller.
+    const job = await this.jobService.getJob(jobId);
     await this.jobService.cancelJob(jobId);
-    jobEvents.emit("job", { id: jobId, sourceId: null, status: "cancelled" });
+    jobEvents.emit("job", { id: jobId, sourceId: job?.sourceId ?? null, status: "cancelled" });
   }
 
   async runImport(sourceId: string) {
