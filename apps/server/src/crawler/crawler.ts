@@ -35,6 +35,7 @@ export interface CrawlConfig {
   crawlDelayMs?: number;
   incremental?: boolean;
   knownHashes?: Map<string, string>;
+  signal?: AbortSignal;
 }
 
 interface NormalizedCrawlConfig {
@@ -56,6 +57,7 @@ interface NormalizedCrawlConfig {
   crawlDelayMs: number;
   incremental: boolean;
   knownHashes: Map<string, string>;
+  signal: AbortSignal | undefined;
 }
 
 interface CrawlTarget {
@@ -72,7 +74,7 @@ interface CrawlPageResult {
   skipped: boolean;
 }
 
-export type StoppedReason = "maxChunks" | "maxBytes" | "maxPages" | undefined;
+export type StoppedReason = "maxChunks" | "maxBytes" | "maxPages" | "cancelled" | undefined;
 
 export interface CrawlResult {
   chunks: CrawlChunk[];
@@ -113,6 +115,7 @@ const DEFAULT_CONFIG: NormalizedCrawlConfig = {
   crawlDelayMs: 0,
   incremental: false,
   knownHashes: new Map(),
+  signal: undefined,
 };
 
 export async function crawlUrl(
@@ -142,6 +145,7 @@ export function normalizeCrawlConfig(config: CrawlConfig = {}): NormalizedCrawlC
     crawlDelayMs: config.crawlDelayMs ?? DEFAULT_CONFIG.crawlDelayMs,
     incremental: config.incremental ?? DEFAULT_CONFIG.incremental,
     knownHashes: config.knownHashes ?? DEFAULT_CONFIG.knownHashes,
+    signal: config.signal,
   };
 }
 
@@ -253,7 +257,11 @@ async function crawlDocs(startUrl: string, config: CrawlConfig = {}): Promise<Cr
     }
 
     while (inFlight.size > 0) {
-      if (visited.size >= options.maxPages) {
+      if (options.signal?.aborted) {
+        stoppedReason = "cancelled";
+        await Promise.race(inFlight);
+      } else if (visited.size >= options.maxPages) {
+        stoppedReason = "maxPages";
         await Promise.race(inFlight);
       } else if (inFlight.size < options.concurrency && queue.length > 0) {
         const target = queue.shift()!;

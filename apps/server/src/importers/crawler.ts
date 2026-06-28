@@ -11,7 +11,7 @@ export class CrawlerImporter implements Importer {
     this.chunkService = chunkService;
   }
 
-  async import(source: Source): Promise<ImportResult> {
+  async import(source: Source, signal?: AbortSignal): Promise<ImportResult> {
     const sourceConfig = source.config ? JSON.parse(source.config) : {};
     const crawlConfig = normalizeCrawlConfig(sourceConfig);
 
@@ -19,7 +19,9 @@ export class CrawlerImporter implements Importer {
       crawlConfig.knownHashes = await this.chunkService.getDocHashes(source.id);
     }
 
-    const result = await crawlUrl(source.url, crawlConfig);
+    if (signal?.aborted) return { docCount: 0, chunkCount: 0 };
+
+    const result = await crawlUrl(source.url, { ...crawlConfig, signal });
     if (result.chunks.length === 0) return { docCount: 0, chunkCount: 0 };
 
     const saved = await this.chunkService.saveChunks(result.chunks, source.id);

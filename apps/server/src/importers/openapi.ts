@@ -145,7 +145,7 @@ export class OpenApiImporter implements Importer {
     this.chunkService = chunkService;
   }
 
-  async import(source: Source): Promise<ImportResult> {
+  async import(source: Source, _signal?: AbortSignal): Promise<ImportResult> {
     const res = await fetchOrThrow(source.url);
     const spec = await parseSpec(res, source.url);
     const apiTitle = spec.info?.title ?? source.name;

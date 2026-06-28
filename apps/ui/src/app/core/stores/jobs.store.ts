@@ -54,6 +54,9 @@ export const JobsStore = signalStore(
       retryJob(id: string): void {
         api.retryJob(id).subscribe({ next: () => loadJobs() });
       },
+      cancelJob(id: string): void {
+        api.cancelJob(id).subscribe({ next: () => loadJobs() });
+      },
       /**
        * Opens an SSE connection to /api/jobs/stream. Each incoming event
        * updates the matching job in state by id, so consumers always see the

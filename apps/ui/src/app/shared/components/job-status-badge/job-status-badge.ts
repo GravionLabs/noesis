@@ -26,6 +26,7 @@ import type { JobStatus } from '../../../core/models/job.model';
     .badge-running { background: #dbeafe; color: #1e40af; }
     .badge-done { background: #d1fae5; color: #065f46; }
     .badge-failed { background: #fee2e2; color: #991b1b; }
+    .badge-cancelled { background: #f3e8ff; color: #6b21a8; }
     .icon { font-size: 0.875rem; display: inline-block; }
     .icon.spin { animation: spin 1s linear infinite; }
     @keyframes spin {
@@ -44,6 +45,7 @@ export class JobStatusBadgeComponent {
       case 'running': return '\u27F3';
       case 'done': return '\u2713';
       case 'failed': return '\u2717';
+      case 'cancelled': return '\u2716';
     }
   }
 }

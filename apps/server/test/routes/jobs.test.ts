@@ -4,6 +4,7 @@ import Fastify from "fastify";
 const mockListJobs = vi.fn();
 const mockGetJob = vi.fn();
 const mockTriggerImport = vi.fn();
+const mockCancelJob = vi.fn();
 
 import { registerJobRoutes } from "../../src/routes/jobs.js";
 
@@ -28,6 +29,7 @@ describe("Job routes", () => {
     registerJobRoutes(app, {
       jobService: { listJobs: mockListJobs, getJob: mockGetJob } as any,
       importService: { triggerImport: mockTriggerImport } as any,
+      jobRunner: { cancelJob: mockCancelJob } as any,
     });
     return app;
   };
@@ -104,6 +106,37 @@ describe("Job routes", () => {
       expect(res.statusCode).toBe(200);
       const body = JSON.parse(res.body);
       expect(body.chunksDropped).toBeUndefined();
+    });
+  });
+
+  describe("POST /api/jobs/:id/cancel", () => {
+    it("returns 202 and cancels a running job", async () => {
+      mockGetJob.mockResolvedValue({ ...jobFixture, status: "running" });
+      mockCancelJob.mockResolvedValue(undefined);
+
+      const app = await buildApp();
+      const res = await app.inject({ method: "POST", url: "/api/jobs/00000000-0000-0000-0000-000000000001/cancel" });
+
+      expect(res.statusCode).toBe(202);
+      expect(mockCancelJob).toHaveBeenCalledWith("00000000-0000-0000-0000-000000000001");
+    });
+
+    it("returns 404 when job not found", async () => {
+      mockGetJob.mockResolvedValue(null);
+
+      const app = await buildApp();
+      const res = await app.inject({ method: "POST", url: "/api/jobs/00000000-0000-0000-0000-000000000099/cancel" });
+
+      expect(res.statusCode).toBe(404);
+    });
+
+    it("returns 400 when job is not running", async () => {
+      mockGetJob.mockResolvedValue({ ...jobFixture, status: "done" });
+
+      const app = await buildApp();
+      const res = await app.inject({ method: "POST", url: "/api/jobs/00000000-0000-0000-0000-000000000001/cancel" });
+
+      expect(res.statusCode).toBe(400);
     });
   });
 

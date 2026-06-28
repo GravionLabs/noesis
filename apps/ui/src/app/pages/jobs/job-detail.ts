@@ -1,10 +1,10 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { Card } from 'primeng/card';
 import { Message } from 'primeng/message';
-import type { Job } from '../../core/models/job.model';
+import type { Job, JobLogEntry } from '../../core/models/job.model';
 import { NoesisApiService } from '../../core/services/noesis-api.service';
 import { SourcesStore } from '../../core/stores/sources.store';
 import { DurationPipe } from '../../shared/pipes/duration.pipe';
@@ -25,6 +25,16 @@ export class JobDetail implements OnInit {
   protected readonly sourcesStore = inject(SourcesStore);
 
   protected readonly job = signal<Job | undefined>(undefined);
+
+  protected readonly parsedLogs = computed(() => {
+    const j = this.job();
+    if (!j?.logs) return [];
+    try {
+      return j.logs.split('\n').filter(Boolean).map((line) => JSON.parse(line) as JobLogEntry);
+    } catch {
+      return [];
+    }
+  });
 
   protected readonly jobId = this.route.snapshot.paramMap.get('id') ?? '';
 
@@ -49,6 +59,18 @@ export class JobDetail implements OnInit {
       },
       error: (err: Error) => {
         this.messageService.add({ severity: 'error', summary: 'Retry failed', detail: err.message });
+      },
+    });
+  }
+
+  protected cancelJob(): void {
+    this.api.cancelJob(this.jobId).subscribe({
+      next: () => {
+        this.messageService.add({ severity: 'info', summary: 'Cancel requested' });
+        this.load();
+      },
+      error: (err: Error) => {
+        this.messageService.add({ severity: 'error', summary: 'Cancel failed', detail: err.message });
       },
     });
   }

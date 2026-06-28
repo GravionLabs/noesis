@@ -3,7 +3,7 @@ import { EventEmitter } from "node:events";
 export interface JobStatusEvent {
   id: string;
   sourceId: string | null;
-  status: "running" | "done" | "failed";
+  status: "running" | "done" | "failed" | "cancelled";
   durationMs?: number;
   error?: string;
 }

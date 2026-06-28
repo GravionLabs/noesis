@@ -15,7 +15,7 @@ export class UrlListImporter implements Importer {
     this.chunkService = chunkService;
   }
 
-  async import(source: Source): Promise<ImportResult> {
+  async import(source: Source, _signal?: AbortSignal): Promise<ImportResult> {
     const res = await fetchOrThrow(source.url);
     const text = await res.text();
 

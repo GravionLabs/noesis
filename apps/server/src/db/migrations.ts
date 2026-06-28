@@ -106,6 +106,11 @@ END $$;
 
 const DROP_IMPORT_JOB_STATES = `DROP TABLE IF EXISTS import_job_states CASCADE`;
 
+const ADD_JOB_LOGS_AND_CANCEL_COLUMNS = `
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS logs text;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS cancel_requested_at timestamptz;
+`;
+
 export async function runMigrations(pool: pg.Pool): Promise<void> {
   console.log("Running migrations...");
 
@@ -138,6 +143,9 @@ export async function runMigrations(pool: pg.Pool): Promise<void> {
 
   await pool.query(ADD_CASCADE_FK_CONSTRAINTS);
   console.log("  ✓ jobs + chunks (ON DELETE CASCADE FK constraints added)");
+
+  await pool.query(ADD_JOB_LOGS_AND_CANCEL_COLUMNS);
+  console.log("  ✓ jobs (logs + cancel_requested_at columns added)");
 
   console.log("\nAll migrations complete.");
 }

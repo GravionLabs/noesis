@@ -65,6 +65,13 @@ export class NoesisApiService {
     );
   }
 
+  cancelJob(id: string): Observable<{ jobId: string; status: string }> {
+    return this.http.post<{ jobId: string; status: string }>(
+      this.api(`/api/jobs/${id}/cancel`),
+      {},
+    );
+  }
+
   search(params: SearchParams): Observable<SearchResult[]> {
     const query = new URLSearchParams({ q: params.q });
     if (params.source) query.set('source', params.source);

@@ -1,15 +1,16 @@
 import type { FastifyInstance } from "fastify";
 import type { JobService } from "../services/job-service.js";
 import type { ImportService } from "../services/import-service.js";
+import type { JobRunner } from "../pipeline/job-runner.js";
 import { jobEvents, type JobStatusEvent } from "../pipeline/job-events.js";
 
 const SSE_HEARTBEAT_MS = 15_000;
 
 export function registerJobRoutes(
   app: FastifyInstance,
-  deps: { jobService: JobService; importService: ImportService },
+  deps: { jobService: JobService; importService: ImportService; jobRunner: JobRunner },
 ) {
-  const { jobService, importService } = deps;
+  const { jobService, importService, jobRunner } = deps;
 
   app.get("/api/jobs", async (_req, reply) => {
     const jobs = await jobService.listJobs();
@@ -91,11 +92,24 @@ export function registerJobRoutes(
         retryCount: job.retryCount,
         maxRetries: job.maxRetries,
         durationMs: job.durationMs,
+        logs: job.logs,
         chunksDropped,
         startedAt: job.startedAt,
         finishedAt: job.finishedAt,
         createdAt: job.createdAt,
       };
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/api/jobs/:id/cancel",
+    async (req, reply) => {
+      const job = await jobService.getJob(req.params.id);
+      if (!job) return reply.code(404).send({ error: "Job not found" });
+      if (job.status !== "running") return reply.code(400).send({ error: "Only running jobs can be cancelled" });
+
+      await jobRunner.cancelJob(req.params.id);
+      return reply.code(202).send({ jobId: job.id, status: "cancelled" });
     },
   );
 

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+const jobStatusStore = new Map<string, string>();
+
 const mockGetSource = vi.fn();
 const mockUpdateLastImported = vi.fn();
 const mockCreateJob = vi.fn();
@@ -7,9 +9,11 @@ const mockGetJob = vi.fn();
 const mockCompleteJob = vi.fn();
 const mockFailJob = vi.fn();
 const mockGetRunningJob = vi.fn();
+const mockIsCancelRequested = vi.fn();
 const mockGetImporter = vi.fn();
 const mockUpdateJobStatus = vi.fn();
 const mockEmbed = vi.fn();
+const mockCancelJob = vi.fn();
 
 import { JobRunner } from "../../src/pipeline/job-runner.js";
 
@@ -51,9 +55,14 @@ describe("runImport", () => {
     vi.clearAllMocks();
     vi.useFakeTimers({ toFake: ["setTimeout"] });
     mockGetRunningJob.mockResolvedValue(null);
+    mockIsCancelRequested.mockResolvedValue(false);
     mockGetImporter.mockReturnValue(null);
     mockUpdateJobStatus.mockResolvedValue(undefined);
+    mockCancelJob.mockResolvedValue(undefined);
     mockGetJob.mockImplementation((id: string) => Promise.resolve({ id, status: "done" }));
+    mockUpdateJobStatus.mockImplementation(async (_id: string, status: string) => {
+      mockGetJob.mockImplementation((id: string) => Promise.resolve({ id, status }));
+    });
 
     runner = new JobRunner({
       sourceService: {
@@ -64,9 +73,11 @@ describe("runImport", () => {
         createJob: mockCreateJob,
         getJob: mockGetJob,
         getRunningJob: mockGetRunningJob,
+        isCancelRequested: mockIsCancelRequested,
         updateJobStatus: mockUpdateJobStatus,
         completeJob: mockCompleteJob,
         failJob: mockFailJob,
+        cancelJob: mockCancelJob,
       } as any,
       importerRegistry: {
         getImporter: mockGetImporter,
@@ -200,6 +211,36 @@ describe("runImport", () => {
     await promise;
 
     expect(mockFailJob).toHaveBeenCalledTimes(4);
+  });
+
+  it("cancels a running import when cancelJob is called", async () => {
+    mockGetSource.mockResolvedValue(sourceFixture);
+    mockCreateJob.mockResolvedValue({ id: "job-cancel-1" });
+    mockUpdateJobStatus.mockResolvedValue(undefined);
+
+    const abortSpy = vi.fn();
+    const mockImporter = {
+      import: vi.fn().mockImplementation(async (_source: any, signal: AbortSignal) => {
+        signal.addEventListener("abort", abortSpy);
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+        if (signal.aborted) throw new Error("Job cancelled during execution");
+        return { chunkCount: 0 };
+      }),
+    };
+    mockGetImporter.mockReturnValue(mockImporter);
+
+    const promise = runner.runImport("src-1");
+
+    await vi.advanceTimersByTimeAsync(100);
+
+    await runner.cancelJob("job-cancel-1");
+
+    expect(abortSpy).toHaveBeenCalled();
+
+    // Advance timers so the mocked importer's setTimeout resolves and throws
+    await vi.advanceTimersByTimeAsync(10000);
+
+    expect(mockUpdateJobStatus).toHaveBeenLastCalledWith("job-cancel-1", "cancelled", expect.any(String));
   });
 
   it("prevents overlapping imports for the same source", async () => {

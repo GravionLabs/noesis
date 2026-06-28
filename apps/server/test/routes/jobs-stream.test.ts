@@ -6,6 +6,7 @@ import { jobEvents } from "../../src/pipeline/job-events.js";
 const mockListJobs = vi.fn();
 const mockGetJob = vi.fn();
 const mockTriggerImport = vi.fn();
+const mockCancelJob = vi.fn();
 
 import { registerJobRoutes } from "../../src/routes/jobs.js";
 
@@ -18,6 +19,7 @@ describe("GET /api/jobs/stream", () => {
     registerJobRoutes(app, {
       jobService: { listJobs: mockListJobs, getJob: mockGetJob } as any,
       importService: { triggerImport: mockTriggerImport } as any,
+      jobRunner: { cancelJob: mockCancelJob } as any,
     });
     return app;
   };

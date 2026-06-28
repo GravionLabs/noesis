@@ -27,7 +27,7 @@ export class GithubImporter implements Importer {
     this.provider = provider;
   }
 
-  async import(source: Source): Promise<ImportResult> {
+  async import(source: Source, _signal?: AbortSignal): Promise<ImportResult> {
     if (!this.provider.canHandle(source.url)) {
       throw new Error("Invalid GitHub URL");
     }

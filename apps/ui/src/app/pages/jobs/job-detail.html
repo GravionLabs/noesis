@@ -5,9 +5,14 @@
         <h1 class="text-lg font-semibold">Job {{ job.id.slice(0, 8) }}</h1>
         <app-job-status-badge [status]="job.status" />
       </div>
-      @if (job.status === 'failed') {
-        <p-button label="Retry" icon="pi pi-refresh" (onClick)="retryJob()" />
-      }
+      <div class="flex gap-2">
+        @if (job.status === 'running') {
+          <p-button label="Cancel" icon="pi pi-times" severity="danger" (onClick)="cancelJob()" />
+        }
+        @if (job.status === 'failed') {
+          <p-button label="Retry" icon="pi pi-refresh" (onClick)="retryJob()" />
+        }
+      </div>
     </div>
 
     <p-card>
@@ -31,6 +36,16 @@
 
     @if (job.status === 'failed' && job.error) {
       <p-message severity="error">{{ job.error }}</p-message>
+    }
+
+    @if (parsedLogs().length > 0) {
+      <p-card header="Logs">
+        <div class="flex flex-col gap-1 max-h-64 overflow-auto">
+          @for (entry of parsedLogs(); track entry.t) {
+            <div class="text-xs font-mono">{{ entry.t | datetime }} {{ entry.m }}</div>
+          }
+        </div>
+      </p-card>
     }
 
     <a routerLink="/jobs">&larr; Back to Jobs</a>

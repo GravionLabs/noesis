@@ -14,7 +14,7 @@ export interface ImportResult {
 
 export interface Importer {
   readonly type: string;
-  import(source: Source): Promise<ImportResult>;
+  import(source: Source, signal?: AbortSignal): Promise<ImportResult>;
 }
 
 export class ImporterRegistry {

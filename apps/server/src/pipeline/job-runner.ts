@@ -13,6 +13,7 @@ export class JobRunner {
   private embeddingService: EmbeddingService;
   private config: Config;
   private log: ReturnType<typeof _logger.child>;
+  private abortControllers = new Map<string, AbortController>();
 
   constructor({
     sourceService,
@@ -37,6 +38,15 @@ export class JobRunner {
     this.log = logger.child({ module: "job-runner" });
   }
 
+  async cancelJob(jobId: string): Promise<void> {
+    const controller = this.abortControllers.get(jobId);
+    if (controller) {
+      controller.abort();
+    }
+    await this.jobService.cancelJob(jobId);
+    jobEvents.emit("job", { id: jobId, sourceId: null, status: "cancelled" });
+  }
+
   async runImport(sourceId: string) {
     const existing = await this.jobService.getRunningJob(sourceId);
     if (existing) {
@@ -58,14 +68,25 @@ export class JobRunner {
 
     this.log.info({ jobId, sourceId, importerType: source.importerType, retryCount }, "Import job started");
 
+    const abortController = new AbortController();
+    this.abortControllers.set(jobId, abortController);
+
     try {
       await this.jobService.updateJobStatus(jobId, "running");
       jobEvents.emit("job", { id: jobId, sourceId, status: "running" });
 
+      if (await this.jobService.isCancelRequested(jobId)) {
+        throw new Error("Job cancelled before execution");
+      }
+
       const importer = this.importerRegistry.getImporter(source.importerType);
       if (!importer) throw new Error(`Unknown importer type: ${source.importerType}`);
 
-      const result = await importer.import(source);
+      const result = await importer.import(source, abortController.signal);
+
+      if (abortController.signal.aborted) {
+        throw new Error("Job cancelled during execution");
+      }
 
       this.log.info(
         { jobId, sourceId, chunkCount: result.chunkCount, chunksDropped: result.chunksDropped ?? [] },
@@ -88,8 +109,17 @@ export class JobRunner {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const durationMs = Date.now() - startedAt;
-      const newRetryCount = retryCount + 1;
 
+      if (abortController.signal.aborted || message.includes("cancelled")) {
+        await this.jobService.updateJobStatus(jobId, "cancelled", message);
+        jobEvents.emit("job", { id: jobId, sourceId, status: "cancelled", error: message });
+        this.log.info({ jobId, sourceId, durationMs }, "Import job cancelled");
+        this.abortControllers.delete(jobId);
+        const final = await this.jobService.getJob(jobId);
+        return final ?? { id: jobId, status: "cancelled" };
+      }
+
+      const newRetryCount = retryCount + 1;
       this.log.error({ jobId, sourceId, err: message, retryCount: newRetryCount, maxRetries }, "Import job failed");
 
       if (newRetryCount <= maxRetries) {
@@ -98,6 +128,8 @@ export class JobRunner {
 
         await this.jobService.failJob(jobId, message, durationMs, retryCount);
         jobEvents.emit("job", { id: jobId, sourceId, status: "failed", error: message });
+
+        this.abortControllers.delete(jobId);
 
         return new Promise((resolve) => {
           setTimeout(async () => {
@@ -116,6 +148,7 @@ export class JobRunner {
       }
     }
 
+    this.abortControllers.delete(jobId);
     const final = await this.jobService.getJob(jobId);
     return final ?? { id: jobId, status: "failed" };
   }

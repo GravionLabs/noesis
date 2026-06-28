@@ -12,7 +12,7 @@ import { DurationPipe } from '../../shared/pipes/duration.pipe';
 import { DateTimePipe } from '../../shared/pipes/datetime.pipe';
 import { JobStatusBadgeComponent } from '../../shared/components/job-status-badge/job-status-badge';
 
-type StatusFilter = 'all' | JobStatus;
+type StatusFilter = 'all' | 'pending' | 'running' | 'done' | 'failed' | 'cancelled';
 
 @Component({
   selector: 'app-jobs-list',
@@ -55,5 +55,10 @@ export class JobsList implements OnDestroy {
   protected retryJob(job: Job): void {
     this.store.retryJob(job.id);
     this.messageService.add({ severity: 'success', summary: 'Retry started' });
+  }
+
+  protected cancelJob(job: Job): void {
+    this.store.cancelJob(job.id);
+    this.messageService.add({ severity: 'info', summary: 'Cancel requested' });
   }
 }
