@@ -122,7 +122,7 @@ export class JobService {
         finishedAt: now,
         error: "Job cancelled by user",
       })
-      .where(eq(jobs.id, jobId));
+      .where(and(eq(jobs.id, jobId), eq(jobs.status, "running")));
   }
 
   async isCancelRequested(jobId: string): Promise<boolean> {
