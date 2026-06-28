@@ -1,6 +1,6 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { MessageService } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { TableModule } from 'primeng/table';
 import { Button } from 'primeng/button';
 import { Toolbar } from 'primeng/toolbar';
@@ -25,6 +25,7 @@ export class JobsList implements OnDestroy {
   protected readonly store = inject(JobsStore);
   protected readonly sourcesStore = inject(SourcesStore);
   private readonly messageService = inject(MessageService);
+  private readonly confirmationService = inject(ConfirmationService);
 
   protected readonly statusFilter = signal<StatusFilter>('all');
 
@@ -69,5 +70,18 @@ export class JobsList implements OnDestroy {
   protected cancelJob(job: Job): void {
     this.store.cancelJob(job.id);
     this.messageService.add({ severity: 'info', summary: 'Cancel requested' });
+  }
+
+  protected confirmDelete(job: Job): void {
+    this.confirmationService.confirm({
+      header: 'Delete Job',
+      message: `Delete job ${job.id.slice(0, 8)}? This cannot be undone.`,
+      accept: () => this.deleteJob(job),
+    });
+  }
+
+  private deleteJob(job: Job): void {
+    this.store.deleteJob(job.id);
+    this.messageService.add({ severity: 'success', summary: 'Job deleted' });
   }
 }

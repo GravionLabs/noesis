@@ -8,6 +8,7 @@
     <p-select
       [options]="sourceOptions()"
       optionLabel="label"
+      optionValue="value"
       [ngModel]="selectedSource()"
       (ngModelChange)="onSourceChange($event)"
       placeholder="Select a source"
@@ -27,6 +28,7 @@
             type="button"
             class="flex flex-col gap-1 p-2 rounded-border text-left cursor-pointer border-none w-full"
             [class.bg-primary-100]="selectedDoc()?.id === doc.id"
+            [class.text-primary-contrast]="selectedDoc()?.id === doc.id"
             [class.hover:bg-surface-100]="selectedDoc()?.id !== doc.id"
             (click)="onDocSelect(doc)"
           >

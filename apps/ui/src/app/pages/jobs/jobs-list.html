@@ -22,16 +22,28 @@
     <p-table [value]="filteredJobs()" [loading]="store.loading()" dataKey="id">
       <ng-template pTemplate="header">
         <tr>
+          <th></th>
           <th>Status</th>
           <th>Type</th>
           <th>Source</th>
           <th>Created</th>
           <th>Duration</th>
-          <th></th>
         </tr>
       </ng-template>
       <ng-template pTemplate="body" let-job>
         <tr>
+          <td class="flex gap-2">
+            @if (job.status === 'running') {
+              <p-button icon="pi pi-times" severity="danger" text (onClick)="cancelJob(job)" pTooltip="Cancel" />
+            }
+            @if (job.status === 'failed') {
+              <p-button icon="pi pi-refresh" severity="secondary" text (onClick)="retryJob(job)" pTooltip="Retry" />
+            }
+            @if (job.status !== 'running' && job.status !== 'pending') {
+              <p-button icon="pi pi-trash" severity="danger" text (onClick)="confirmDelete(job)" pTooltip="Delete" />
+            }
+            <p-button icon="pi pi-eye" severity="secondary" text [routerLink]="['/jobs', job.id]" pTooltip="View" />
+          </td>
           <td><app-job-status-badge [status]="job.status" /></td>
           <td>{{ job.type }}</td>
           <td>
@@ -43,15 +55,6 @@
           </td>
           <td>{{ job.createdAt | datetime }}</td>
           <td>{{ job.durationMs | duration }}</td>
-          <td class="flex gap-2 justify-end">
-            @if (job.status === 'running') {
-              <p-button icon="pi pi-times" severity="danger" text (onClick)="cancelJob(job)" pTooltip="Cancel" />
-            }
-            @if (job.status === 'failed') {
-              <p-button icon="pi pi-refresh" severity="secondary" text (onClick)="retryJob(job)" pTooltip="Retry" />
-            }
-            <p-button icon="pi pi-eye" severity="secondary" text [routerLink]="['/jobs', job.id]" pTooltip="View" />
-          </td>
         </tr>
       </ng-template>
       <ng-template pTemplate="emptymessage">

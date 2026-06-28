@@ -41,10 +41,15 @@ export class JobRunner {
   async cancelJob(jobId: string): Promise<void> {
     const controller = this.abortControllers.get(jobId);
     if (controller) {
+      // In-flight job: abort and let executeImport's catch block handle the DB
+      // write and SSE emit (it has access to the real sourceId).
       controller.abort();
+      return;
     }
+    // Fallback: job exists in DB but has no in-flight controller.
+    const job = await this.jobService.getJob(jobId);
     await this.jobService.cancelJob(jobId);
-    jobEvents.emit("job", { id: jobId, sourceId: null, status: "cancelled" });
+    jobEvents.emit("job", { id: jobId, sourceId: job?.sourceId ?? null, status: "cancelled" });
   }
 
   async runImport(sourceId: string) {
@@ -75,19 +80,26 @@ export class JobRunner {
       await this.jobService.updateJobStatus(jobId, "running");
       jobEvents.emit("job", { id: jobId, sourceId, status: "running" });
 
-      if (await this.jobService.isCancelRequested(jobId)) {
-        throw new Error("Job cancelled before execution");
-      }
-
       const importer = this.importerRegistry.getImporter(source.importerType);
       if (!importer) throw new Error(`Unknown importer type: ${source.importerType}`);
 
-      const onLog = async (message: string, level = "info") => {
-        await this.jobService.appendLog(jobId, message, level);
-        jobEvents.emit("job_log", { jobId, message, level, timestamp: new Date().toISOString() });
+      const onLog = (message: string, level = "info") => {
+        this.jobService.appendLog(jobId, message, level).then((entry) => {
+          if (entry) {
+            jobEvents.emit("job_log", {
+              id: entry.id,
+              jobId,
+              message,
+              level,
+              createdAt: entry.createdAt.toISOString(),
+            });
+          }
+        }).catch((err: unknown) => {
+          this.log.warn({ jobId, message, err }, "Failed to persist job log entry");
+        });
       };
 
-      await onLog(`Starting import with type: ${source.importerType}`);
+      onLog(`Starting import with type: ${source.importerType}`);
       const result = await importer.import(source, abortController.signal, onLog);
 
       if (abortController.signal.aborted) {
@@ -116,7 +128,7 @@ export class JobRunner {
       const message = err instanceof Error ? err.message : String(err);
       const durationMs = Date.now() - startedAt;
 
-      if (abortController.signal.aborted || message.includes("cancelled")) {
+      if (abortController.signal.aborted) {
         await this.jobService.updateJobStatus(jobId, "cancelled", message);
         jobEvents.emit("job", { id: jobId, sourceId, status: "cancelled", error: message });
         this.log.info({ jobId, sourceId, durationMs }, "Import job cancelled");

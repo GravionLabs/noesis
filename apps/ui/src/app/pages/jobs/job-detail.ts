@@ -1,6 +1,6 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { MessageService } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { Card } from 'primeng/card';
 import { Message } from 'primeng/message';
@@ -18,26 +18,35 @@ import { JobLogsComponent } from '../../shared/components/job-logs/job-logs';
   standalone: true,
   imports: [RouterLink, Button, Card, Message, DurationPipe, DateTimePipe, JobStatusBadgeComponent, JobLogsComponent],
   templateUrl: './job-detail.html',
+  styles: [`
+    :host ::ng-deep .p-card-body,
+    :host ::ng-deep .p-card-content {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+  `],
 })
-export class JobDetail implements OnInit {
+export class JobDetail implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(NoesisApiService);
+  private readonly confirmationService = inject(ConfirmationService);
   private readonly messageService = inject(MessageService);
   protected readonly sourcesStore = inject(SourcesStore);
   protected readonly jobsStore = inject(JobsStore);
 
-  protected readonly job = signal<Job | undefined>(undefined);
   protected readonly jobId = this.route.snapshot.paramMap.get('id') ?? '';
 
   protected readonly liveJob = computed(() => {
-    const j = this.job();
     const tick = this.jobsStore.tick();
-    if (!j) return undefined;
-    if (j.status === 'running' && j.startedAt) {
-      return { ...j, durationMs: tick - new Date(j.startedAt).getTime() };
+    const job = this.jobsStore.jobs().find((j) => j.id === this.jobId);
+    if (!job) return undefined;
+    if (job.status === 'running' && job.startedAt) {
+      return { ...job, durationMs: tick - new Date(job.startedAt).getTime() };
     }
-    return j;
+    return job;
   });
 
   protected sourceName(sourceId: string): string {
@@ -46,12 +55,14 @@ export class JobDetail implements OnInit {
 
   ngOnInit(): void {
     this.sourcesStore.loadSources();
+    this.jobsStore.connectSse();
     this.jobsStore.startTick();
-    this.load();
+    this.jobsStore.loadJobs();
   }
 
-  private load(): void {
-    this.api.getJob(this.jobId).subscribe((job) => this.job.set(job));
+  ngOnDestroy(): void {
+    this.jobsStore.stopTick();
+    this.jobsStore.disconnectSse();
   }
 
   protected retryJob(): void {
@@ -70,10 +81,29 @@ export class JobDetail implements OnInit {
     this.api.cancelJob(this.jobId).subscribe({
       next: () => {
         this.messageService.add({ severity: 'info', summary: 'Cancel requested' });
-        this.load();
       },
       error: (err: Error) => {
         this.messageService.add({ severity: 'error', summary: 'Cancel failed', detail: err.message });
+      },
+    });
+  }
+
+  protected confirmDelete(): void {
+    this.confirmationService.confirm({
+      header: 'Delete Job',
+      message: `Delete job ${this.jobId.slice(0, 8)}? This cannot be undone.`,
+      accept: () => this.deleteJob(),
+    });
+  }
+
+  private deleteJob(): void {
+    this.api.deleteJob(this.jobId).subscribe({
+      next: () => {
+        this.messageService.add({ severity: 'success', summary: 'Job deleted' });
+        this.router.navigate(['/jobs']);
+      },
+      error: (err: Error) => {
+        this.messageService.add({ severity: 'error', summary: 'Delete failed', detail: err.message });
       },
     });
   }

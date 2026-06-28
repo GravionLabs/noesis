@@ -88,11 +88,12 @@ export class JobService {
   }
 
   async appendLog(jobId: string, message: string, level = "info") {
-    await this.database.db.insert(jobLogs).values({
+    const [entry] = await this.database.db.insert(jobLogs).values({
       jobId,
       message,
       level,
-    });
+    }).returning();
+    return entry;
   }
 
   async getJobLogs(jobId: string, limit = 200) {
@@ -105,13 +106,6 @@ export class JobService {
     return rows.reverse();
   }
 
-  async requestCancel(jobId: string) {
-    await this.database.db
-      .update(jobs)
-      .set({ cancelRequestedAt: new Date() })
-      .where(eq(jobs.id, jobId));
-  }
-
   async cancelJob(jobId: string) {
     const now = new Date();
     await this.database.db
@@ -121,16 +115,7 @@ export class JobService {
         finishedAt: now,
         error: "Job cancelled by user",
       })
-      .where(eq(jobs.id, jobId));
-  }
-
-  async isCancelRequested(jobId: string): Promise<boolean> {
-    const rows = await this.database.db
-      .select({ cancelRequestedAt: jobs.cancelRequestedAt })
-      .from(jobs)
-      .where(eq(jobs.id, jobId))
-      .limit(1);
-    return rows[0]?.cancelRequestedAt !== null && rows[0]?.cancelRequestedAt !== undefined;
+      .where(and(eq(jobs.id, jobId), eq(jobs.status, "running")));
   }
 
   async completeJob(id: string, durationMs: number, result?: string) {
@@ -156,6 +141,14 @@ export class JobService {
         retryCount,
       })
       .where(eq(jobs.id, id));
+  }
+
+  async deleteJob(id: string) {
+    const rows = await this.database.db
+      .delete(jobs)
+      .where(eq(jobs.id, id))
+      .returning();
+    return rows[0] ?? null;
   }
 
   async getPendingJobCount() {

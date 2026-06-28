@@ -9,10 +9,11 @@ export interface JobStatusEvent {
 }
 
 export interface JobLogEvent {
+  id: string;
   jobId: string;
   message: string;
   level: string;
-  timestamp: string;
+  createdAt: string;
 }
 
 /**

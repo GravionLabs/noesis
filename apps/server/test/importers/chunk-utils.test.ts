@@ -28,10 +28,14 @@ describe("chunkMarkdown", () => {
     ].join("\n");
 
     const { chunks } = chunkMarkdown(text);
-    expect(chunks.length).toBe(3);
-    expect(chunks[0].heading).toBe("Title");
-    expect(chunks[1].heading).toBe("Section 1");
-    expect(chunks[2].heading).toBe("Section 2");
+    // # Title and ## Section 1 merge (sub-heading),
+    // ## Section 2 splits on same-level heading
+    expect(chunks.length).toBe(2);
+    expect(chunks[0].heading).toBe("Section 1");
+    expect(chunks[0].content).toContain("Some introductory content");
+    expect(chunks[0].content).toContain("Content under section one");
+    expect(chunks[1].heading).toBe("Section 2");
+    expect(chunks[1].content).toContain("More content that goes well beyond");
   });
 
   it("tracks heading path", () => {
@@ -54,10 +58,13 @@ describe("chunkMarkdown", () => {
     ].join("\n");
 
     const { chunks } = chunkMarkdown(text);
-    expect(chunks[0].headingPath).toEqual(["H1"]);
-    expect(chunks[1].headingPath).toEqual(["H1", "H2"]);
-    expect(chunks[2].headingPath).toEqual(["H1", "H2", "H3"]);
-    expect(chunks[3].headingPath).toEqual(["H1", "H2b"]);
+    // H1 + H2 + H3 merge into one chunk; H2b splits on same-level heading
+    expect(chunks.length).toBe(2);
+    expect(chunks[0].headingPath).toEqual(["H1", "H2", "H3"]);
+    expect(chunks[0].content).toContain("content under H1");
+    expect(chunks[0].content).toContain("Content under H2");
+    expect(chunks[0].content).toContain("Content under H3");
+    expect(chunks[1].headingPath).toEqual(["H1", "H2b"]);
   });
 
   it("discards chunks with <= 50 chars", () => {
