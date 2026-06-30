@@ -1,19 +1,20 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
-import { TableModule } from 'primeng/table';
 import { Button } from 'primeng/button';
+import { AgGridAngular } from 'ag-grid-angular';
+import type { ColDef } from 'ag-grid-community';
 import type { Source, SourceStats } from '../../core/models/source.model';
 import { NoesisApiService } from '../../core/services/noesis-api.service';
 import { JobsStore } from '../../core/stores/jobs.store';
-import { JobStatusBadgeComponent } from '../../shared/components/job-status-badge/job-status-badge';
+import { defaultColDef, StatusBadgeRenderer, DatetimeRenderer } from '../../shared/grid';
 import { DateTimePipe } from '../../shared/pipes/datetime.pipe';
 import { SourceFormDialog } from './source-form-dialog';
 
 @Component({
   selector: 'app-source-detail',
   standalone: true,
-  imports: [TableModule, Button, JobStatusBadgeComponent, DateTimePipe, SourceFormDialog],
+  imports: [AgGridAngular, Button, StatusBadgeRenderer, DatetimeRenderer, DateTimePipe, SourceFormDialog],
   templateUrl: './source-detail.html',
 })
 export class SourceDetail implements OnInit {
@@ -32,6 +33,15 @@ export class SourceDetail implements OnInit {
   protected readonly jobHistory = computed(() =>
     this.jobsStore.jobs().filter((job) => job.sourceId === this.sourceId),
   );
+
+  protected readonly defaultColDef = defaultColDef;
+
+  protected readonly colDefs: ColDef[] = [
+    { field: 'status', headerName: 'Status', cellRenderer: StatusBadgeRenderer, sortable: true },
+    { field: 'type', headerName: 'Type', sortable: true },
+    { field: 'createdAt', headerName: 'Created', cellRenderer: DatetimeRenderer, sortable: true },
+    { field: 'finishedAt', headerName: 'Finished', cellRenderer: DatetimeRenderer, sortable: true },
+  ];
 
   ngOnInit(): void {
     this.load();
