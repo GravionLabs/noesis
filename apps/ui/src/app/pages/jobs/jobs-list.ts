@@ -1,23 +1,33 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { ConfirmationService, MessageService } from 'primeng/api';
-import { TableModule } from 'primeng/table';
 import { Button } from 'primeng/button';
 import { Toolbar } from 'primeng/toolbar';
 import { Tooltip } from 'primeng/tooltip';
+import { AgGridAngular } from 'ag-grid-angular';
+import type { ColDef } from 'ag-grid-community';
 import type { Job, JobStatus } from '../../core/models/job.model';
 import { JobsStore } from '../../core/stores/jobs.store';
 import { SourcesStore } from '../../core/stores/sources.store';
-import { DurationPipe } from '../../shared/pipes/duration.pipe';
-import { DateTimePipe } from '../../shared/pipes/datetime.pipe';
-import { JobStatusBadgeComponent } from '../../shared/components/job-status-badge/job-status-badge';
+import { defaultColDef, StatusBadgeRenderer, DurationRenderer, DatetimeRenderer } from '../../shared/grid';
+import { JobActionsRenderer } from './job-actions.renderer';
+import { JobSourceLinkRenderer } from './job-source-link.renderer';
 
 type StatusFilter = 'all' | 'pending' | 'running' | 'done' | 'failed' | 'cancelled';
 
 @Component({
   selector: 'app-jobs-list',
   standalone: true,
-  imports: [RouterLink, TableModule, Button, Toolbar, Tooltip, DurationPipe, DateTimePipe, JobStatusBadgeComponent],
+  imports: [
+    AgGridAngular,
+    Button,
+    Toolbar,
+    Tooltip,
+    StatusBadgeRenderer,
+    DurationRenderer,
+    DatetimeRenderer,
+    JobActionsRenderer,
+    JobSourceLinkRenderer,
+  ],
   host: { class: 'block' },
   templateUrl: './jobs-list.html',
 })
@@ -42,7 +52,26 @@ export class JobsList implements OnDestroy {
     return filter === 'all' ? withLiveDuration : withLiveDuration.filter((job) => job.status === filter);
   });
 
-  protected sourceName(sourceId: string): string {
+  protected readonly defaultColDef = defaultColDef;
+
+  protected readonly colDefs: ColDef[] = [
+    { field: 'actions', headerName: '', cellRenderer: JobActionsRenderer, sortable: false, width: 180 },
+    { field: 'status', headerName: 'Status', cellRenderer: StatusBadgeRenderer, sortable: true },
+    { field: 'type', headerName: 'Type', sortable: true },
+    { field: 'sourceId', headerName: 'Source', cellRenderer: JobSourceLinkRenderer, sortable: false },
+    { field: 'createdAt', headerName: 'Created', cellRenderer: DatetimeRenderer, sortable: true },
+    { field: 'durationMs', headerName: 'Duration', cellRenderer: DurationRenderer, sortable: true },
+  ];
+
+  protected readonly context = {
+    sourceName: (sourceId: string | null) => this.sourceName(sourceId),
+    cancelJob: (job: Job) => this.cancelJob(job),
+    retryJob: (job: Job) => this.retryJob(job),
+    confirmDelete: (job: Job) => this.confirmDelete(job),
+  };
+
+  protected sourceName(sourceId: string | null): string {
+    if (!sourceId) return '';
     return this.sourcesStore.sourceById()(sourceId)?.name ?? sourceId;
   }
 
