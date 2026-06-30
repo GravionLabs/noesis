@@ -22,45 +22,17 @@
     </ng-template>
   </p-toolbar>
 
-  <div class="overflow-auto min-h-0 border border-surface rounded-border">
-    <p-table #dt [value]="store.sources()" [loading]="store.loading()" [globalFilterFields]="['name', 'url', 'importerType']" dataKey="id">
-      <ng-template pTemplate="header">
-        <tr>
-          <th>Name</th>
-          <th>URL</th>
-          <th>Importer Type</th>
-          <th>Enabled</th>
-          <th>Last Imported</th>
-          <th></th>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="body" let-source>
-        <tr>
-          <td>
-            <a [routerLink]="['/sources', source.id]">{{ source.name }}</a>
-          </td>
-          <td>{{ source.url }}</td>
-          <td><app-importer-type-badge [type]="source.importerType" /></td>
-          <td>
-            <p-toggleswitch
-              [ngModel]="source.enabled"
-              (onChange)="toggleEnabled(source, $event.checked)"
-            />
-          </td>
-          <td>{{ source.lastImportedAt | datetime }}</td>
-          <td class="flex gap-2 justify-end">
-            <p-button icon="pi pi-sync" severity="secondary" text (onClick)="importNow(source)" pTooltip="Import Now" />
-            <p-button icon="pi pi-pencil" severity="secondary" text (onClick)="openEdit(source)" pTooltip="Edit" />
-            <p-button icon="pi pi-trash" severity="danger" text (onClick)="confirmDelete(source)" pTooltip="Delete" />
-          </td>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td colspan="6">No sources configured yet.</td>
-        </tr>
-      </ng-template>
-    </p-table>
+  <div class="min-h-0 border border-surface rounded-border ag-theme-quartz">
+    <ag-grid-angular
+      [rowData]="store.sources()"
+      [columnDefs]="colDefs"
+      [defaultColDef]="defaultColDef"
+      [context]="context"
+      [loading]="store.loading()"
+      [overlayNoRowsTemplate]="'No sources configured yet.'"
+      (gridReady)="onGridReady($event)"
+      style="height: 100%; width: 100%;"
+    />
   </div>
 </div>
 

@@ -1,38 +1,37 @@
-import { Component, inject, signal, viewChild } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
-import { FormsModule } from '@angular/forms';
+import { Component, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { ConfirmationService, MessageService } from 'primeng/api';
-import { Table, TableModule } from 'primeng/table';
 import { Button } from 'primeng/button';
-import { ToggleSwitch } from 'primeng/toggleswitch';
-import { Tooltip } from 'primeng/tooltip';
 import { Toolbar } from 'primeng/toolbar';
 import { IconField } from 'primeng/iconfield';
 import { InputIcon } from 'primeng/inputicon';
 import { InputText } from 'primeng/inputtext';
+import { AgGridAngular } from 'ag-grid-angular';
+import type { ColDef } from 'ag-grid-community';
 import type { Source } from '../../core/models/source.model';
 import { NoesisApiService } from '../../core/services/noesis-api.service';
 import { SourcesStore } from '../../core/stores/sources.store';
-import { ImporterTypeBadgeComponent } from '../../shared/components/importer-type-badge/importer-type-badge';
-import { DateTimePipe } from '../../shared/pipes/datetime.pipe';
+import { defaultColDef, ImporterTypeRenderer, DatetimeRenderer } from '../../shared/grid';
+import { SourceLinkRenderer } from './source-link.renderer';
+import { ToggleSwitchRenderer } from './toggle-switch.renderer';
+import { SourceActionsRenderer } from './source-actions.renderer';
 import { SourceFormDialog } from './source-form-dialog';
 
 @Component({
   selector: 'app-sources-list',
   standalone: true,
   imports: [
-    RouterLink,
-    FormsModule,
-    TableModule,
+    AgGridAngular,
     Button,
-    ToggleSwitch,
-    Tooltip,
     Toolbar,
     IconField,
     InputIcon,
     InputText,
-    ImporterTypeBadgeComponent,
-    DateTimePipe,
+    ImporterTypeRenderer,
+    DatetimeRenderer,
+    SourceLinkRenderer,
+    ToggleSwitchRenderer,
+    SourceActionsRenderer,
     SourceFormDialog,
   ],
   host: { class: 'block' },
@@ -45,7 +44,25 @@ export class SourcesList {
   private readonly messageService = inject(MessageService);
   private readonly confirmationService = inject(ConfirmationService);
 
-  private readonly dt = viewChild.required<Table>('dt');
+  protected readonly defaultColDef = defaultColDef;
+
+  protected readonly colDefs: ColDef[] = [
+    { field: 'name', headerName: 'Name', cellRenderer: SourceLinkRenderer, sortable: true },
+    { field: 'url', headerName: 'URL', sortable: true },
+    { field: 'importerType', headerName: 'Importer Type', cellRenderer: ImporterTypeRenderer, sortable: true },
+    { field: 'enabled', headerName: 'Enabled', cellRenderer: ToggleSwitchRenderer, sortable: false },
+    { field: 'lastImportedAt', headerName: 'Last Imported', cellRenderer: DatetimeRenderer, sortable: true },
+    { field: 'actions', headerName: '', cellRenderer: SourceActionsRenderer, sortable: false, width: 160 },
+  ];
+
+  protected readonly context = {
+    toggleEnabled: (source: Source, enabled: boolean) => this.toggleEnabled(source, enabled),
+    importNow: (source: Source) => this.importNow(source),
+    openEdit: (source: Source) => this.openEdit(source),
+    confirmDelete: (source: Source) => this.confirmDelete(source),
+  };
+
+  private gridApi: import('ag-grid-community').GridApi | null = null;
 
   protected readonly dialogVisible = signal(false);
   protected readonly editingSource = signal<Source | undefined>(undefined);
@@ -54,9 +71,13 @@ export class SourcesList {
     this.store.loadSources();
   }
 
+  protected onGridReady(params: import('ag-grid-community').GridReadyEvent): void {
+    this.gridApi = params.api;
+  }
+
   protected onSearch(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
-    this.dt().filterGlobal(value, 'contains');
+    this.gridApi?.setGridOption('quickFilterText', value);
   }
 
   protected openCreate(): void {
