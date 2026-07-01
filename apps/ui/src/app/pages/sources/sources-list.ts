@@ -47,12 +47,12 @@ export class SourcesList {
   protected readonly defaultColDef = defaultColDef;
 
   protected readonly colDefs: ColDef[] = [
+    { field: 'actions', headerName: '', cellRenderer: SourceActionsRenderer, sortable: false, width: 160 },
     { field: 'name', headerName: 'Name', cellRenderer: SourceLinkRenderer, sortable: true },
-    { field: 'url', headerName: 'URL', sortable: true },
+    { field: 'url', headerName: 'URL', sortable: true, flex: 2 },
     { field: 'importerType', headerName: 'Importer Type', cellRenderer: ImporterTypeRenderer, sortable: true },
     { field: 'enabled', headerName: 'Enabled', cellRenderer: ToggleSwitchRenderer, sortable: false },
     { field: 'lastImportedAt', headerName: 'Last Imported', cellRenderer: DatetimeRenderer, sortable: true },
-    { field: 'actions', headerName: '', cellRenderer: SourceActionsRenderer, sortable: false, width: 160 },
   ];
 
   protected readonly context = {

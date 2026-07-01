@@ -9,7 +9,7 @@ import type { Source } from '../../core/models/source.model';
   standalone: true,
   imports: [Button, Tooltip],
   template: `
-    <div class="flex gap-2 justify-end">
+    <div class="flex gap-2 items-center">
       <p-button icon="pi pi-sync" severity="secondary" text (onClick)="onImportNow()" pTooltip="Import Now" />
       <p-button icon="pi pi-pencil" severity="secondary" text (onClick)="onOpenEdit()" pTooltip="Edit" />
       <p-button icon="pi pi-trash" severity="danger" text (onClick)="onConfirmDelete()" pTooltip="Delete" />
