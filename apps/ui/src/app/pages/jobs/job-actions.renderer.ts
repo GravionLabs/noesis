@@ -10,7 +10,7 @@ import type { Job, JobStatus } from '../../core/models/job.model';
   standalone: true,
   imports: [Button, Tooltip],
   template: `
-    <div class="flex gap-2 items-center">
+    <div class="flex gap-2 items-center" style="height: 100%;">
       @if (status === 'running') {
         <p-button icon="pi pi-times" severity="danger" text (onClick)="onCancel()" pTooltip="Cancel" />
       }
