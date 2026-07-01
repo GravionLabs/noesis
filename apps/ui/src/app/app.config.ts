@@ -7,6 +7,7 @@ import { providePrimeNG } from 'primeng/config';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { routes } from './app.routes';
 import { apiKeyInterceptor } from './core/interceptors/api-key.interceptor';
+import './shared/grid/grid.config';
 
 const NoesisPreset = definePreset(Aura, {
   semantic: {

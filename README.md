@@ -176,7 +176,7 @@ curl -H 'x-api-key: <your-key>' http://localhost:5000/api/sources
 
 ## Angular UI
 
-Noesis ships with an Angular 21 web UI built with `@gravionlabs/helix` and PrimeNG.
+Noesis ships with an Angular 21 web UI built with `@gravionlabs/helix`, ag-grid Community, and PrimeNG (Dialogs, Toast, Toolbar).
 
 ```bash
 pnpm --filter ui dev   # dev server on port 4200, proxies /api/* to the server

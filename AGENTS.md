@@ -43,7 +43,7 @@ See [`infra/README.md`](infra/README.md) for port reference.
 |---|---|
 | `apps/server/src/routes/` | REST API — sources, jobs, health, internal callbacks |
 | `apps/server/src/mcp/` | MCP tools: `search_docs`, `get_chunk`, `list_sources` |
-| `apps/server/src/importers/` | 8 importer types (llmstxt, npm-readme, openapi, github, ...) |
+| `apps/server/src/importers/` | 10 importer types (llmstxt, npm-readme, openapi, github, azuredevops, ...) |
 | `apps/server/src/pipeline/` | Job runner + scheduler |
 | `apps/server/src/crawler/` | Playwright-based web crawler (embedded) |
 | `apps/server/src/embedding/` | Embedding providers (local ONNX, Ollama, OpenAI) |

@@ -2,7 +2,7 @@
 
 The Noesis web UI is an Angular 21 standalone application in `apps/ui/`. It provides a browser-based interface for managing documentation sources, monitoring import jobs, running semantic searches, and configuring the server connection.
 
-**Tech stack:** Angular 21 · `@gravionlabs/helix` · PrimeNG · Tailwind CSS · NgRx Signals
+**Tech stack:** Angular 21 · `@gravionlabs/helix` · PrimeNG (Dialogs, Toast, Toolbar) · ag-grid Community (data grids) · Tailwind CSS · NgRx Signals
 
 ---
 
@@ -107,6 +107,55 @@ When `API_KEY` is not set on the server the API is unauthenticated and the key f
 | `JobsStore` | `core/stores/jobs.store.ts` | Job list, SSE stream, live tick for running durations |
 
 The `JobsStore` opens a single `EventSource` to `GET /api/jobs/stream` and updates job state in-place on `event: job` frames. A shared 1 Hz tick signal drives live duration display for running jobs.
+
+### Data Grids (ag-grid Community)
+
+All tabular data in the UI uses **ag-grid Community** via `ag-grid-angular`.
+
+#### Module registration
+
+`ModuleRegistry.registerModules([AllCommunityModule])` is called once in `shared/grid/grid.config.ts` (side-effect import from `app.config.ts`).
+
+#### Shared cell renderers
+
+Located in `shared/grid/`:
+
+| Renderer | File | Description |
+|---|---|---|
+| `StatusBadgeRenderer` | `status-badge.renderer.ts` | Renders `<app-job-status-badge>` for job status values |
+| `ImporterTypeRenderer` | `importer-type.renderer.ts` | Renders `<app-importer-type-badge>` for source importer types |
+| `DatetimeRenderer` | `datetime.renderer.ts` | Applies `DateTimePipe` to date strings |
+| `DurationRenderer` | `duration.renderer.ts` | Applies `DurationPipe` to millisecond values |
+
+#### Page-specific renderers
+
+- `sources/source-link.renderer.ts` — routerLink to source detail
+- `sources/toggle-switch.renderer.ts` — PrimeNG ToggleSwitch for enabled/disabled
+- `sources/source-actions.renderer.ts` — Import Now / Edit / Delete buttons
+- `jobs/job-actions.renderer.ts` — conditional Cancel / Retry / Delete / View buttons
+- `jobs/job-source-link.renderer.ts` — source name with routerLink (looks up name via `SourcesStore`)
+
+#### Default column config
+
+```ts
+import { defaultColDef } from 'shared/grid';
+```
+
+Exported from `grid.config.ts`: `resizable: true`, `suppressMovable: true`, `sortable: true`.
+
+#### Theme
+
+The grid uses `themeQuartz` (loaded via `AllCommunityModule`). CSS variable overrides in `styles.scss` match the PrimeNG Aura palette:
+
+```css
+.ag-theme-quartz {
+  --ag-foreground-color: var(--p-text-color);
+  --ag-background-color: var(--p-surface-0);
+  --ag-header-background-color: var(--p-surface-50);
+  --ag-border-color: var(--p-surface-300);
+  --ag-row-hover-color: var(--p-surface-100);
+}
+```
 
 ### API key interceptor
 
